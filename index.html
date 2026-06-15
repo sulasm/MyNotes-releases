@@ -1,0 +1,4950 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+  <meta name="theme-color" content="#667eea">
+  <meta name="app-version" content="1.4.2">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <title>منظم</title>
+  <style>
+    /* ════════════════════════════════════════
+   أساس + ثيم داكن (مطابق Obsidian)
+════════════════════════════════════════ */
+    :root {
+      --grad: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      --grad-g: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+      --cell: rgba(255, 255, 255, 0.13);
+      --cell-b: rgba(255, 255, 255, 0.08);
+      --cell-hv: rgba(255, 255, 255, 0.22);
+      --dim: rgba(255, 255, 255, 0.65);
+      --dimmer: rgba(255, 255, 255, 0.45);
+      /* ثيم Obsidian dark */
+      --bg-p: #1e1e2e;
+      --bg-s: #2a2a3e;
+      --bg-b: rgba(255, 255, 255, 0.06);
+      --text: #cdd6f4;
+      --text-m: #6c7086;
+      --border: rgba(255, 255, 255, 0.08);
+      --accent: #667eea;
+    }
+
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0
+    }
+
+    html,
+    body {
+      height: 100%;
+      overflow: hidden
+    }
+
+    body {
+      font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+      background: var(--bg-p);
+      color: var(--text);
+      direction: rtl;
+      -webkit-font-smoothing: antialiased;
+      -webkit-tap-highlight-color: transparent;
+      font-size: 14px;
+    }
+
+    button,
+    select,
+    input,
+    textarea {
+      font-family: inherit
+    }
+
+    /* ════════════════════════════════════════
+   هيكل التطبيق
+════════════════════════════════════════ */
+    #app {
+      display: flex;
+      flex-direction: column;
+      height: 100dvh;
+      width: 100%;
+      position: relative;
+    }
+
+    /* شريط التنقل العلوي */
+    .nav {
+      display: flex;
+      background: var(--grad);
+      flex-shrink: 0;
+      padding: 6px 12px;
+      gap: 6px;
+      box-shadow: 0 4px 20px rgba(102, 126, 234, 0.4);
+    }
+
+    .nb {
+      flex: 1;
+      border: none;
+      background: rgba(255, 255, 255, 0.1);
+      color: rgba(255, 255, 255, 0.6);
+      padding: 7px 8px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      border-radius: 10px;
+      transition: background .2s, color .2s;
+      font-family: inherit;
+    }
+
+    .nb.active {
+      background: rgba(255, 255, 255, 0.22);
+      color: #fff
+    }
+
+    .nb:hover:not(.active) {
+      background: rgba(255, 255, 255, 0.15);
+      color: rgba(255, 255, 255, .85)
+    }
+
+    .nb-ic {
+      font-size: 16px;
+      line-height: 1
+    }
+
+    .nb.fab {
+      flex: 0 0 auto;
+      padding: 7px 14px;
+      background: var(--grad-g);
+      color: #fff;
+      box-shadow: 0 3px 10px rgba(34, 197, 94, .4);
+    }
+
+    .nb.fab:hover {
+      background: linear-gradient(135deg, #16a34a, #15803d);
+    }
+
+    /* ════════════════════════════════════════
+   لوحة الـ orgtbl — نفس التصميم الحالي
+════════════════════════════════════════ */
+    .orgtbl-panel {
+      background: var(--grad);
+      border-radius: 18px;
+      margin: auto 8px 8px;
+      padding: 10px 14px 14px;
+      box-shadow: 0 8px 32px rgba(102, 126, 234, 0.45), 0 0 0 1px rgba(255, 255, 255, 0.12);
+      position: relative;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+
+    .orgtbl-panel::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(45deg, rgba(255, 255, 255, 0.06) 0%, transparent 100%);
+      pointer-events: none;
+    }
+
+    /* الصف الأفقي — بدون تمرير، الحقول تتصغر */
+    .orgtbl-row {
+      display: flex;
+      flex-direction: row;
+      flex-wrap: nowrap;
+      gap: 6px;
+      align-items: flex-end;
+      overflow: hidden;
+    }
+
+    /* الشاشة الداخلية: row2-wrap كأنه غير موجود */
+    .orgtbl-row2-wrap {
+      display: contents
+    }
+
+    /* حقل — flex:1 لكل شيء حتى يتوزع تلقائياً */
+    .orgtbl-field {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      flex: 1;
+      min-width: 0
+    }
+
+    .of-num {
+      flex: 0 0 52px
+    }
+
+    .of-date {
+      flex: 0 0 90px
+    }
+
+    .of-btn {
+      flex: 0 0 auto
+    }
+
+    /* خلية النص أوسع قليلاً */
+    .of-text {
+      flex: 2;
+      min-width: 0
+    }
+
+    /* التسمية — صغيرة فوق كل خلية مثل الصورة */
+    .orgtbl-label {
+      font-size: 11px;
+      font-weight: 600;
+      color: rgba(255, 255, 255, .8);
+      white-space: nowrap;
+      text-align: center;
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 4px;
+    }
+
+    /* خلية — أكثر استدارة، نص مركزي */
+    .orgtbl-cell {
+      background: rgba(255, 255, 255, 0.15);
+      border: none;
+      border-radius: 14px;
+      padding: 8px 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 46px;
+      cursor: pointer;
+      color: #fff;
+      overflow: hidden;
+      transition: background .2s, transform .15s;
+      width: 100%;
+    }
+
+    .orgtbl-cell:hover {
+      background: rgba(255, 255, 255, 0.25);
+      transform: translateY(-1px)
+    }
+
+    .orgtbl-cell:active {
+      transform: scale(.98)
+    }
+
+    .orgtbl-cell select,
+    .orgtbl-cell input {
+      background: transparent;
+      border: none;
+      color: #fff;
+      font-size: 13px;
+      font-weight: 600;
+      width: 100%;
+      outline: none;
+      font-family: inherit;
+      direction: rtl;
+      text-align: center;
+      cursor: pointer;
+      padding: 0;
+    }
+
+    .orgtbl-cell select option {
+      background: #3b2f6b;
+      color: #fff
+    }
+
+    .orgtbl-cell input::placeholder {
+      color: rgba(255, 255, 255, .5);
+      text-align: center
+    }
+
+    .orgtbl-cell input[type=number]::-webkit-inner-spin-button {
+      -webkit-appearance: none
+    }
+
+    /* خلية التاريخ في الفلاتر — نفس التقويم المصغر */
+    .orgtbl-date-cell {
+      background: rgba(255, 255, 255, 0.15);
+      border: none;
+      border-radius: 14px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 1px;
+      height: 46px;
+      cursor: pointer;
+      color: #fff;
+      overflow: hidden;
+      transition: background .2s, transform .15s;
+      width: 100%;
+      padding: 4px 8px;
+    }
+
+    .orgtbl-date-cell:hover {
+      background: rgba(255, 255, 255, 0.25);
+      transform: translateY(-1px)
+    }
+
+    .orgtbl-date-cell:active {
+      transform: scale(.98)
+    }
+
+    .orgtbl-cal-icon {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      background: #fff;
+      border-radius: 5px;
+      width: 32px;
+      min-width: 32px;
+      overflow: hidden;
+      flex-shrink: 0;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, .3);
+    }
+
+    .orgtbl-cal-month {
+      background: #e53e3e;
+      width: 100%;
+      font-size: 7px;
+      font-weight: 700;
+      color: #fff;
+      text-align: center;
+      padding: 2px 0;
+      text-transform: uppercase;
+      letter-spacing: .3px;
+      font-family: system-ui, sans-serif;
+    }
+
+    .orgtbl-cal-day {
+      font-size: 15px;
+      font-weight: 800;
+      color: #1a202c;
+      text-align: center;
+      width: 100%;
+      padding: 1px 0 2px;
+      font-family: system-ui, sans-serif;
+      line-height: 1;
+      font-variant-numeric: lining-nums;
+    }
+
+    .orgtbl-date-txt {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 1px;
+      direction: ltr;
+    }
+
+    .orgtbl-date-h {
+      font-size: 10px;
+      font-weight: 600;
+      color: rgba(255, 255, 255, .9);
+      white-space: nowrap;
+      direction: ltr;
+      text-align: left;
+      font-variant-numeric: lining-nums;
+    }
+
+    .orgtbl-date-g {
+      font-size: 9px;
+      color: rgba(255, 255, 255, .55);
+      white-space: nowrap;
+      direction: ltr;
+      text-align: left;
+      font-variant-numeric: lining-nums;
+    }
+
+    .orgtbl-date-ph {
+      font-size: 20px;
+      color: rgba(255, 255, 255, .5)
+    }
+
+    /* زر الحفظ */
+    .orgtbl-btn-save {
+      background: var(--grad-g);
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      height: 42px;
+      padding: 0 10px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      white-space: nowrap;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      box-shadow: 0 4px 14px rgba(34, 197, 94, .35);
+      transition: opacity .2s, transform .15s;
+      min-width: 0;
+      overflow: hidden;
+    }
+
+    /* حاوية زر الحفظ — لا تتجاوز الشاشة */
+    .of-save {
+      flex: 0 0 auto;
+      min-width: 0;
+      max-width: 100%;
+      overflow: hidden;
+    }
+    .of-save > div {
+      display: flex;
+      gap: 4px;
+      min-width: 0;
+      overflow: hidden;
+    }
+
+    .orgtbl-btn-save:hover {
+      opacity: .88;
+      transform: translateY(-1px)
+    }
+
+    .orgtbl-btn-save:active {
+      transform: scale(.97)
+    }
+
+    /* زر المسح */
+    .orgtbl-btn-clear {
+      background: rgba(255, 255, 255, .15);
+      color: #fff;
+      border: 1px solid rgba(255, 255, 255, .2);
+      border-radius: 10px;
+      height: 42px;
+      padding: 0 12px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      transition: background .2s;
+    }
+
+    .orgtbl-btn-clear:hover {
+      background: rgba(255, 255, 255, .25)
+    }
+
+    /* ════════════════════════════════════════
+   نافذة التسجيل — org-row-1/2/3 (مطابق ui.js)
+════════════════════════════════════════ */
+    .org-wrap {
+      background: var(--grad);
+      color: #fff;
+      padding: 14px;
+      border-radius: 14px;
+      box-shadow: 0 8px 28px rgba(102, 126, 234, .35);
+      position: relative;
+      overflow: hidden;
+      font-size: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      animation: orgSlide .35s ease-out;
+      margin-bottom: 12px;
+    }
+
+    .org-wrap::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(45deg, rgba(255, 255, 255, .06) 0%, transparent 100%);
+      pointer-events: none;
+    }
+
+    @keyframes orgSlide {
+      from {
+        opacity: 0;
+        transform: translateY(-12px)
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0)
+      }
+    }
+
+    /* السطر الأول لنموذج التسجيل */
+    .org-row-1 {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr) 2fr 0.8fr;
+      /* 3 تصنيفات + نص + رقم */
+      gap: 6px;
+      align-items: stretch
+    }
+
+    /* السطر الثاني لنموذج التسجيل */
+    .org-row-2 {
+      display: grid;
+      grid-template-columns: 0.6fr 1fr 1fr 1fr;
+      /* ارفاق + تاريخ + حالة + حفظ */
+      gap: 6px;
+      align-items: stretch
+    }
+
+    .org-ss {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      height: 100%
+    }
+
+    .org-ss>.org-cell,
+    .org-ss>.org-save {
+      flex: 1;
+      min-height: 0
+    }
+
+    /* org-cell */
+    .org-cell {
+      background: var(--cell);
+      border: 1px solid var(--cell-b);
+      border-radius: 10px;
+      padding: 10px 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      min-height: 46px;
+      height: 100%;
+      overflow: hidden;
+      direction: rtl;
+      color: #fff;
+      transition: background .2s, transform .15s, box-shadow .2s;
+    }
+
+    .org-cell:hover {
+      background: var(--cell-hv);
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, .12)
+    }
+
+    .org-cell:active {
+      transform: scale(.98);
+      background: rgba(255, 255, 255, .25)
+    }
+
+    .org-ci {
+      font-size: 19px;
+      flex-shrink: 0;
+      filter: drop-shadow(0 1px 2px rgba(0, 0, 0, .15))
+    }
+
+    .org-ct {
+      font-size: 13px;
+      font-weight: 500;
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      color: #fff;
+    }
+
+    .org-ct.ph {
+      color: var(--dimmer)
+    }
+
+    /* textarea + input */
+    .org-cell-ta {
+      background: transparent;
+      border: none;
+      color: #fff;
+      font-size: 13px;
+      width: 100%;
+      resize: none;
+      outline: none;
+      font-family: inherit;
+      direction: rtl;
+      text-align: right;
+      line-height: 1.5;
+      padding: 2px 0;
+      margin: 0;
+      min-height: 28px;
+      height: 28px;
+    }
+
+    .org-cell-ta::placeholder {
+      color: var(--dimmer)
+    }
+
+    .org-cell-ta.exp {
+      min-height: 80px;
+      height: auto
+    }
+
+    .org-num-cell {
+      background: var(--cell);
+      border: 1px solid var(--cell-b);
+      border-radius: 10px;
+      padding: 10px 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 46px;
+      height: 100%;
+      transition: border-color .2s, box-shadow .2s;
+    }
+
+    .org-num-cell:focus-within {
+      border-color: rgba(255, 255, 255, .3);
+      box-shadow: 0 0 0 2px rgba(255, 255, 255, .1)
+    }
+
+    .org-inp {
+      background: transparent;
+      border: none;
+      color: #fff;
+      font-size: 13px;
+      width: 100%;
+      outline: none;
+      font-family: inherit;
+      direction: rtl;
+      text-align: right;
+      padding: 2px 0;
+      margin: 0;
+      height: 28px;
+    }
+
+    .org-inp::placeholder {
+      color: var(--dimmer)
+    }
+
+    /* زر حفظ org */
+    .org-save {
+      background: var(--grad-g);
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      padding: 6px 16px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      align-self: stretch;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 3px 10px rgba(34, 197, 94, .3);
+      transition: transform .15s, box-shadow .2s;
+      white-space: nowrap;
+    }
+
+    .org-save:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 5px 16px rgba(34, 197, 94, .4)
+    }
+
+    .org-save:active {
+      transform: scale(.97)
+    }
+
+    /* التاريخ في النموذج — تقويم يسار، نصوص يمين */
+    .org-date-cell {
+      background: var(--cell);
+      border: 1px solid var(--cell-b);
+      border-radius: 10px;
+      padding: 8px 10px;
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      gap: 8px;
+      min-height: 46px;
+      height: 100%;
+      cursor: pointer;
+      color: #fff;
+      overflow: hidden;
+      transition: background .2s, transform .15s;
+      direction: ltr;
+      /* نضبط الترتيب يدوياً */
+    }
+
+    .org-date-cell:hover {
+      background: var(--cell-hv);
+      transform: translateY(-1px)
+    }
+
+    .org-date-cell:active {
+      transform: scale(.98)
+    }
+
+    /* التقويم المصغر — يسار الخلية */
+    .org-cal-mini {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      background: #fff;
+      border-radius: 6px;
+      width: 34px;
+      min-width: 34px;
+      overflow: hidden;
+      flex-shrink: 0;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, .3);
+    }
+
+    .org-cal-month {
+      background: #e53e3e;
+      width: 100%;
+      font-size: 8px;
+      font-weight: 700;
+      color: #fff;
+      text-align: center;
+      padding: 2px 0;
+      text-transform: uppercase;
+      letter-spacing: .3px;
+      font-family: system-ui, sans-serif;
+    }
+
+    .org-cal-day {
+      font-size: 16px;
+      font-weight: 800;
+      color: #1a202c;
+      padding: 1px 0 2px;
+      text-align: center;
+      width: 100%;
+      font-family: system-ui, sans-serif;
+      line-height: 1;
+      font-variant-numeric: lining-nums;
+    }
+
+    /* النصوص — يمين الخلية */
+    .org-date-texts {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      flex: 1;
+      overflow: hidden;
+      align-items: flex-end;
+      /* محاذاة يمين */
+    }
+
+    .org-dh {
+      font-size: 11px;
+      font-weight: 600;
+      color: rgba(255, 255, 255, .95);
+      white-space: nowrap;
+      font-variant-numeric: lining-nums;
+      direction: ltr;
+      /* الأرقام غربية */
+    }
+
+    .org-dg {
+      font-size: 10px;
+      color: rgba(255, 255, 255, .55);
+      white-space: nowrap;
+      font-variant-numeric: lining-nums;
+      direction: ltr;
+    }
+
+    .org-dph {
+      font-size: 12px;
+      color: var(--dimmer);
+      white-space: nowrap
+    }
+
+    /* expand btn */
+    .org-exp-btn {
+      background: rgba(255, 255, 255, .15);
+      border: none;
+      color: #fff;
+      padding: 3px 7px;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 11px;
+      flex-shrink: 0;
+      transition: background .15s;
+    }
+
+    .org-exp-btn:hover {
+      background: rgba(255, 255, 255, .3)
+    }
+
+    /* ════════════════════════════════════════
+   Picker Overlay — نفس org-picker-overlay
+════════════════════════════════════════ */
+    .org-picker-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, .65);
+      z-index: 9999;
+      display: none;
+      justify-content: center;
+      align-items: flex-end;
+      backdrop-filter: blur(4px);
+      -webkit-backdrop-filter: blur(4px);
+    }
+
+    .org-picker-overlay.open {
+      display: flex;
+      animation: pfade .2s ease-out
+    }
+
+    @keyframes pfade {
+      from {
+        opacity: 0
+      }
+
+      to {
+        opacity: 1
+      }
+    }
+
+    .org-picker-box {
+      background: var(--grad);
+      border-radius: 20px 20px 0 0;
+      color: #fff;
+      box-shadow: 0 -12px 40px rgba(102, 126, 234, .4);
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+      max-width: 700px;
+      max-height: 75dvh;
+      padding: 12px 18px 32px;
+      overflow: hidden;
+      direction: rtl;
+      animation: shup .28s cubic-bezier(.34, 1.56, .64, 1);
+    }
+
+    @keyframes shup {
+      from {
+        transform: translateY(100%)
+      }
+
+      to {
+        transform: translateY(0)
+      }
+    }
+
+    .org-picker-title {
+      text-align: center;
+      font-weight: bold;
+      font-size: clamp(14px, 3.8vw, 18px);
+      margin-bottom: 12px;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .org-picker-create-btn {
+      width: 100%;
+      padding: 10px;
+      background: linear-gradient(45deg, #28a745, #20c997);
+      border: none;
+      border-radius: 10px;
+      color: #fff;
+      cursor: pointer;
+      font-size: clamp(12px, 3vw, 14px);
+      font-weight: bold;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      margin-bottom: 12px;
+      flex-shrink: 0;
+      transition: transform .15s, box-shadow .2s;
+    }
+
+    .org-picker-create-btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(40, 167, 69, .35)
+    }
+
+    .org-picker-grid {
+      display: grid;
+      gap: 6px;
+      flex: 1;
+      align-content: start;
+      grid-template-columns: repeat(var(--org-cols, 2), 1fr);
+      direction: rtl;
+      overflow-y: auto;
+      padding-left: 4px;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(255, 255, 255, .25) transparent;
+    }
+
+    .org-picker-grid::-webkit-scrollbar {
+      width: 5px
+    }
+
+    .org-picker-grid::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, .2);
+      border-radius: 4px
+    }
+
+    .org-picker-btn {
+      padding: clamp(8px, 1.8vw, 12px) clamp(10px, 1.8vw, 14px);
+      background: rgba(255, 255, 255, .14);
+      border: 1px solid rgba(255, 255, 255, .06);
+      border-radius: 9px;
+      color: #fff;
+      cursor: pointer;
+      text-align: right;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: clamp(12px, 3vw, 13px);
+      min-height: 44px;
+      transition: background .15s, transform .1s;
+    }
+
+    .org-picker-btn:hover,
+    .org-picker-btn:active {
+      background: rgba(255, 255, 255, .28);
+      transform: scale(.98)
+    }
+
+    .org-picker-btn-icon {
+      font-size: clamp(15px, 3.8vw, 18px);
+      flex-shrink: 0
+    }
+
+    .org-picker-btn-text {
+      flex: 1;
+      white-space: normal;
+      word-break: break-word;
+      line-height: 1.35;
+      text-align: right
+    }
+
+    .org-picker-close-btn {
+      width: 100%;
+      padding: 10px;
+      background: rgba(108, 117, 125, .7);
+      border: none;
+      border-radius: 10px;
+      color: #fff;
+      cursor: pointer;
+      font-size: clamp(12px, 3vw, 14px);
+      font-weight: 600;
+      margin-top: 10px;
+      flex-shrink: 0;
+      transition: background .15s;
+    }
+
+    .org-picker-close-btn:hover {
+      background: rgba(108, 117, 125, .9)
+    }
+
+    /* ════════════════════════════════════════
+   جدول النتائج — ثيم Obsidian dark
+════════════════════════════════════════ */
+    .orgtbl-stats {
+      font-size: 12px;
+      color: var(--text-m);
+      padding: 4px 2px 6px;
+      text-align: right;
+    }
+
+    .orgtbl-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px
+    }
+
+    .orgtbl-table thead tr {
+      background: var(--bg-b)
+    }
+
+    .orgtbl-table th {
+      padding: 10px 12px;
+      text-align: center;
+      font-weight: 700;
+      color: var(--text);
+      border-bottom: 2px solid var(--border);
+      white-space: nowrap;
+    }
+
+    .orgtbl-table td {
+      padding: 9px 12px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: middle;
+      color: var(--text);
+    }
+
+    .orgtbl-table tbody tr {
+      background: var(--bg-p);
+      transition: background .15s;
+      cursor: pointer
+    }
+
+    .orgtbl-table tbody tr:hover {
+      background: var(--bg-s)
+    }
+
+    .td-c {
+      text-align: center
+    }
+
+    .td-date {
+      text-align: center;
+      direction: ltr;
+      font-size: 12px;
+      white-space: nowrap;
+      line-height: 1.5
+    }
+
+    .td-text {
+      max-width: 260px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap
+    }
+
+    /* badges */
+    .org-badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 700;
+      white-space: nowrap
+    }
+
+    .badge-active {
+      background: rgba(59, 130, 246, .15);
+      color: #60a5fa
+    }
+
+    .badge-done {
+      background: rgba(34, 197, 94, .15);
+      color: #4ade80
+    }
+
+    .badge-delayed {
+      background: rgba(234, 179, 8, .15);
+      color: #fbbf24
+    }
+
+    .badge-cancel {
+      background: rgba(239, 68, 68, .15);
+      color: #f87171
+    }
+
+    .badge-def {
+      background: var(--bg-b);
+      color: var(--text-m)
+    }
+
+    /* بطاقات */
+    .orgtbl-cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+      gap: 10px;
+      margin-top: 4px;
+    }
+
+    .orgtbl-card {
+      background: var(--bg-p);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 12px;
+      cursor: pointer;
+      transition: transform .15s, box-shadow .15s;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      min-height: 90px;
+    }
+
+    .orgtbl-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 16px rgba(0, 0, 0, .3)
+    }
+
+    .orgtbl-card:active {
+      transform: scale(.97)
+    }
+
+    .orgtbl-card-text {
+      font-size: 12px;
+      color: var(--text);
+      line-height: 1.5;
+      background: var(--bg-s);
+      padding: 6px 8px;
+      border-radius: 4px;
+      border-right: 3px solid #667eea;
+      flex: 1;
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .orgtbl-card-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-top: 4px;
+      border-top: 1px solid var(--border);
+      font-size: 10px;
+      color: var(--text-m);
+    }
+
+    .orgtbl-empty {
+      text-align: center;
+      color: var(--text-m);
+      padding: 50px 20px;
+      font-size: 15px;
+      font-style: italic
+    }
+
+    /* ═══ شريط الترتيب ═══ */
+    .sort-bar {
+      display: flex;
+      gap: 6px;
+      padding: 6px 10px 2px;
+      flex-shrink: 0;
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+
+    .sort-bar::-webkit-scrollbar {
+      display: none
+    }
+
+    .sort-chip {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 5px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      white-space: nowrap;
+      cursor: pointer;
+      background: rgba(255, 255, 255, .08);
+      border: 1px solid rgba(255, 255, 255, .12);
+      color: rgba(255, 255, 255, .6);
+      transition: all .18s;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .sort-chip.active {
+      background: rgba(102, 126, 234, .35);
+      border-color: rgba(167, 139, 250, .6);
+      color: #fff;
+    }
+
+    .sort-chip:active {
+      transform: scale(.95)
+    }
+
+    /* ═══ تلوين البطاقات حسب الحالة ═══ */
+    .orgtbl-card.st-active {
+      border-right: 3px solid #60a5fa
+    }
+
+    .orgtbl-card.st-done {
+      border-right: 3px solid #4ade80
+    }
+
+    .orgtbl-card.st-delayed {
+      border-right: 3px solid #fbbf24
+    }
+
+    .orgtbl-card.st-cancel {
+      border-right: 3px solid #f87171
+    }
+
+    /* ═══ نافذة تعديل الملاحظة ═══ */
+    .edit-ov {
+      position: fixed;
+      inset: 0;
+      z-index: 8800;
+      display: none;
+      align-items: stretch;
+      justify-content: center;
+    }
+
+    .edit-ov.open {
+      display: flex;
+      animation: pfade .18s ease-out;
+    }
+
+    .edit-sheet {
+      background: var(--bg-p);
+      width: 100%;
+      max-width: 700px;
+      display: flex;
+      flex-direction: column;
+      direction: rtl;
+      overflow: hidden;
+    }
+
+    .edit-sheet-header {
+      padding: max(10px, env(safe-area-inset-top)) 12px 8px;
+      flex-shrink: 0;
+      background: var(--grad);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      box-shadow: 0 2px 12px rgba(102,126,234,.35);
+    }
+
+    .edit-sheet-body {
+      flex: 1;
+      padding: 6px 12px 4px;
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+    }
+
+    .edit-sheet-footer {
+      flex-shrink: 0;
+      padding: 8px 12px max(16px, env(safe-area-inset-bottom));
+      border-top: 1px solid var(--border);
+      background: var(--bg-s);
+    }
+
+    .edit-sheet h3 {
+      font-size: 14px;
+      font-weight: 700;
+      color: #fff;
+      margin: 0;
+    }
+
+    .edit-field-lbl {
+      font-size: 10px;
+      color: var(--text-m);
+      margin-bottom: 2px;
+      margin-top: 8px;
+    }
+
+    .edit-inp {
+      width: 100%;
+      background: var(--bg-b);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      color: var(--text);
+      font-size: 13px;
+      padding: 8px 10px;
+      font-family: inherit;
+      direction: rtl;
+      outline: none;
+      box-sizing: border-box;
+    }
+    .edit-inp:focus {
+      border-color: rgba(102,126,234,.5);
+      background: rgba(255,255,255,.09);
+    }
+
+    .edit-inp::placeholder { color: rgba(255,255,255,.3) }
+
+    .edit-row2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+    }
+
+    .edit-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 0;
+    }
+
+    .edit-save-btn {
+      flex: 1;
+      background: var(--grad-g);
+      color: #fff;
+      border: none;
+      border-radius: 12px;
+      padding: 10px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      font-family: inherit;
+    }
+
+    .edit-cancel-btn {
+      flex: 0 0 auto;
+      background: rgba(255, 255, 255, .15);
+      color: #fff;
+      border: none;
+      border-radius: 12px;
+      padding: 10px 14px;
+      font-size: 13px;
+      cursor: pointer;
+      font-family: inherit;
+    }
+
+    /* ═══ نافذة إدارة المرفق ═══ */
+    .att-ov {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, .7);
+      z-index: 9000;
+      display: none;
+      align-items: flex-end;
+      justify-content: center;
+      backdrop-filter: blur(6px);
+    }
+
+    .att-ov.open {
+      display: flex;
+      animation: pfade .18s
+    }
+
+    .att-sheet {
+      background: linear-gradient(170deg, #1f1040, #150d30);
+      border-radius: 24px 24px 0 0;
+      padding: 16px 16px max(28px, env(safe-area-inset-bottom));
+      width: 100%;
+      max-width: 480px;
+      box-shadow: 0 -12px 48px rgba(102, 126, 234, .4);
+      animation: shup .22s cubic-bezier(.34, 1.56, .64, 1);
+      direction: rtl;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .att-handle {
+      width: 40px;
+      height: 4px;
+      background: rgba(255, 255, 255, .2);
+      border-radius: 2px;
+      margin: 0 auto 6px
+    }
+
+    .att-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: #fff;
+      text-align: center
+    }
+
+    .att-file-name {
+      font-size: 12px;
+      color: rgba(255, 255, 255, .55);
+      text-align: center;
+      word-break: break-all
+    }
+
+    .att-btn {
+      width: 100%;
+      padding: 13px;
+      border: none;
+      border-radius: 12px;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      font-family: inherit;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .att-btn-open {
+      background: var(--grad);
+      color: #fff
+    }
+
+    .att-btn-change {
+      background: rgba(255, 255, 255, .12);
+      color: #fff;
+      border: 1px solid rgba(255, 255, 255, .2)
+    }
+
+    .att-btn-del {
+      background: rgba(239, 68, 68, .2);
+      color: #fca5a5;
+      border: 1px solid rgba(239, 68, 68, .3)
+    }
+
+    .att-btn-cancel {
+      background: rgba(255, 255, 255, .07);
+      color: rgba(255, 255, 255, .6)
+    }
+
+    /* ════════════════════════════════════════
+   التقويم
+════════════════════════════════════════ */
+    .cal-ov {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, .75);
+      z-index: 9999;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+
+    .cal-ov.open {
+      display: flex
+    }
+
+    .cal-box {
+      background: var(--grad);
+      border-radius: 16px;
+      padding: 16px;
+      width: 100%;
+      max-width: 320px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, .6);
+      direction: rtl;
+      color: #fff;
+    }
+
+    .cal-hdr {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px
+    }
+
+    .cal-nav {
+      background: rgba(255, 255, 255, .15);
+      border: none;
+      border-radius: 8px;
+      width: 34px;
+      height: 34px;
+      color: #fff;
+      font-size: 18px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background .15s;
+    }
+
+    .cal-nav:hover {
+      background: rgba(255, 255, 255, .25)
+    }
+
+    .cal-ttl {
+      text-align: center
+    }
+
+    .cal-th {
+      font-size: 15px;
+      font-weight: 700
+    }
+
+    .cal-tg {
+      font-size: 11px;
+      color: var(--dim)
+    }
+
+    .cal-dh {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      text-align: center;
+      font-size: 11px;
+      font-weight: 600;
+      color: rgba(255, 255, 255, .7);
+      margin-bottom: 4px;
+    }
+
+    .cal-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 2px
+    }
+
+    .cal-day {
+      aspect-ratio: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background .12s;
+      padding: 1px;
+    }
+
+    .cal-day:not(.empty):hover {
+      background: rgba(255, 255, 255, .2)
+    }
+
+    .cal-day.today {
+      background: rgba(255, 255, 255, .12);
+      outline: 1px solid rgba(255, 255, 255, .4)
+    }
+
+    .cal-day.selected {
+      background: rgba(255, 255, 255, .3)
+    }
+
+    .cal-day.empty {
+      pointer-events: none
+    }
+
+    .dh {
+      font-size: 12px;
+      font-weight: 600
+    }
+
+    .dg {
+      font-size: 9px;
+      color: var(--dim)
+    }
+
+    .cal-day.selected .dg {
+      color: rgba(255, 255, 255, .7)
+    }
+
+    .cal-ok {
+      margin-top: 10px;
+      width: 100%;
+      background: var(--grad-g);
+      border: none;
+      border-radius: 10px;
+      padding: 10px;
+      color: #fff;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      font-family: inherit;
+      box-shadow: 0 3px 10px rgba(34, 197, 94, .3);
+    }
+
+    /* ════════════════════════════════════════
+   نافذة التسجيل السريع
+════════════════════════════════════════ */
+    .q-ov {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, .65);
+      z-index: 8888;
+      display: none;
+      align-items: flex-end;
+      justify-content: center;
+      backdrop-filter: blur(6px);
+    }
+
+    .q-ov.open {
+      display: flex;
+      animation: pfade .2s
+    }
+
+    .q-sheet {
+      background: var(--grad);
+      border-radius: 20px 20px 0 0;
+      padding: 18px 16px 32px;
+      width: 100%;
+      max-width: 700px;
+      box-shadow: 0 -12px 40px rgba(102, 126, 234, .35);
+      animation: shup .28s cubic-bezier(.34, 1.56, .64, 1);
+      direction: rtl;
+    }
+
+    @keyframes shup {
+      from {
+        transform: translateY(100%)
+      }
+
+      to {
+        transform: translateY(0)
+      }
+    }
+
+    .q-handle {
+      width: 36px;
+      height: 4px;
+      background: rgba(255, 255, 255, .2);
+      border-radius: 2px;
+      margin: 0 auto 14px
+    }
+
+    .q-title {
+      font-size: 16px;
+      font-weight: 700;
+      text-align: center;
+      margin-bottom: 14px;
+      color: #fff
+    }
+
+    /* ════════════════════════════════════════
+   Feedback / Toast
+════════════════════════════════════════ */
+    .org-fb {
+      position: fixed;
+      top: 16px;
+      right: 16px;
+      z-index: 99999;
+      background: var(--grad-g);
+      color: #fff;
+      padding: 10px 18px;
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: 600;
+      box-shadow: 0 4px 16px rgba(34, 197, 94, .4);
+      animation: fbsl .3s ease;
+      pointer-events: none;
+    }
+
+    @keyframes fbsl {
+      from {
+        opacity: 0;
+        transform: translateX(30px)
+      }
+
+      to {
+        opacity: 1;
+        transform: translateX(0)
+      }
+    }
+
+    .org-fb.err {
+      background: linear-gradient(135deg, #ef4444, #dc2626);
+      box-shadow: 0 4px 16px rgba(239, 68, 68, .4)
+    }
+
+    /* ════════════════════════════════════════
+   صفحة الإعدادات
+════════════════════════════════════════ */
+    .section {
+      background: rgba(255, 255, 255, .04);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 14px 16px;
+      margin-bottom: 12px;
+    }
+
+    .sec-t {
+      font-size: 13px;
+      font-weight: 700;
+      color: #a78bfa;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 7px
+    }
+
+    .srow {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 9px 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .srow:last-child {
+      border-bottom: none
+    }
+
+    .srow-l {
+      font-size: 13px;
+      color: var(--text)
+    }
+
+    kbd {
+      background: rgba(255, 255, 255, .1);
+      border: 1px solid rgba(255, 255, 255, .2);
+      border-radius: 4px;
+      padding: 2px 7px;
+      font-family: monospace;
+      font-size: 12px
+    }
+
+    .sm-btn {
+      background: rgba(167, 139, 250, .15);
+      border: 1px solid rgba(167, 139, 250, .3);
+      color: #c4b5fd;
+      padding: 5px 13px;
+      border-radius: 8px;
+      font-size: 12px;
+      cursor: pointer;
+      font-family: inherit;
+    }
+
+    .sm-btn.danger {
+      background: rgba(239, 68, 68, .15);
+      border-color: rgba(239, 68, 68, .3);
+      color: #fca5a5
+    }
+
+    /* ════════════════════════════════════════
+   Responsive
+════════════════════════════════════════ */
+    /* الشاشات العريضة ≥900px — صف واحد بدون تقسيم */
+    @media(min-width:900px) {
+
+      /* توسيع الصف للوحة الفلاتر ليكون بعرض الشاشة بالكامل */
+      .orgtbl-panel {
+        margin: auto 0 0 !important;
+        border-radius: 0 !important;
+        padding: 12px 20px max(14px, env(safe-area-inset-bottom)) !important;
+        border-top: 1px solid var(--border);
+        width: 100%;
+      }
+
+      .org-wrap {
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+        align-items: center;
+        gap: 8px;
+        padding: 12px 16px;
+      }
+
+      /* إخفاء divs الصفوف وإظهار محتواها مباشرة */
+      .org-row-1,
+      .org-row-2,
+      .org-row-3 {
+        display: contents !important;
+      }
+
+      /* أحجام ثابتة لكل خلية */
+      .org-cell {
+        flex: 1;
+        min-width: 80px;
+        height: 46px;
+        min-height: 46px
+      }
+
+      .org-num-cell {
+        flex: 0 0 80px;
+        height: 46px
+      }
+
+      .org-date-cell {
+        flex: 0 0 185px;
+        height: 46px
+      }
+
+      .org-ss {
+        display: contents !important
+      }
+
+      .org-ss>.org-cell {
+        flex: 0 0 105px;
+        height: 46px
+      }
+
+      .org-ss>.org-save {
+        flex: 0 0 78px;
+        height: 46px
+      }
+
+      /* خلية النص أوسع */
+      .org-wrap>.org-row-2>.org-cell:first-child,
+      .org-cell:has(.org-cell-ta) {
+        flex: 2;
+        min-width: 140px
+      }
+    }
+
+    /* الشاشات المتوسطة والجوال */
+    @media(max-width:899px) {
+
+      /* الـ panel لجميع الشاشات الصغيرة عمود من صفين */
+      .orgtbl-panel {
+        padding: 8px 10px 10px;
+        margin: auto 5px 5px;
+        border-radius: 14px;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+
+      /* الصف العلوي للفلتر: التصنيف + النص + الرقم */
+      .orgtbl-row {
+        display: grid;
+        grid-template-columns: 1.2fr 2fr 0.7fr;
+        gap: 6px;
+        align-items: flex-end;
+        width: 100%;
+        margin-bottom: 6px;
+      }
+
+      .of-cat {
+        grid-column: auto;
+      }
+
+      .of-text {
+        grid-column: auto;
+      }
+
+      .of-num {
+        grid-column: auto;
+      }
+
+      /* الصف السفلي للفلتر: ارفاق + تاريخ + حالة + عرض + حفظ */
+      .orgtbl-row2-wrap {
+        display: grid !important;
+        grid-template-columns: 0.6fr 1.5fr 1fr 1fr minmax(0, 1.2fr);
+        gap: 5px;
+        align-items: flex-end;
+        width: 100%;
+        overflow: hidden;
+      }
+
+      .orgtbl-row2-wrap .of-date {
+        min-width: 0;
+      }
+
+      .of-attach {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+      }
+
+      /* حجم الحقول */
+      .orgtbl-cell,
+      .orgtbl-date-cell {
+        height: 42px;
+        padding: 4px 8px;
+        border-radius: 10px;
+        font-size: 12px;
+      }
+
+      .orgtbl-label {
+        font-size: 10px;
+        margin-bottom: 2px
+      }
+
+      .orgtbl-btn-save {
+        height: 42px;
+        padding: 0 10px;
+        font-size: 13px
+      }
+
+      .orgtbl-btn-clear {
+        height: 42px;
+        width: 42px;
+        font-size: 18px;
+        padding: 0
+      }
+
+      .org-wrap {
+        padding: 10px;
+        gap: 8px;
+        border-radius: 12px
+      }
+
+      .org-row-1,
+      .org-row-2,
+      .org-row-3 {
+        gap: 6px
+      }
+
+      .org-cell,
+      .org-num-cell {
+        min-height: 44px;
+        padding: 8px 10px
+      }
+
+      .org-ci {
+        font-size: 17px
+      }
+
+      .org-ct,
+      .org-cell-ta,
+      .org-inp {
+        font-size: 12px
+      }
+
+      .org-save {
+        font-size: 12px
+      }
+
+      .q-ov {
+        align-items: flex-end
+      }
+    }
+
+    /* شاشة الـ Z Fold الخارجية ≤390px — تخطيط عمودي جداً */
+    @media(max-width:390px) {
+      .orgtbl-panel {
+        padding: 5px 5px 7px;
+        margin: auto 3px 3px;
+        border-radius: 12px;
+        gap: 4px;
+      }
+
+      .orgtbl-row {
+        gap: 4px;
+      }
+
+      .of-cat {
+        flex: 0 0 72px
+      }
+
+      .orgtbl-row2-wrap {
+        gap: 3px;
+      }
+
+      .orgtbl-row2-wrap .of-num {
+        flex: 1;
+        min-width: 32px
+      }
+
+      .orgtbl-row2-wrap .of-date {
+        flex: 1.5;
+        min-width: 52px
+      }
+
+      .orgtbl-row2-wrap .of-status,
+      .orgtbl-row2-wrap .of-view {
+        flex: 1;
+        min-width: 34px
+      }
+
+      .orgtbl-cell,
+      .orgtbl-date-cell {
+        height: 36px;
+        padding: 3px 5px;
+        border-radius: 8px;
+        font-size: 11px;
+      }
+
+      .orgtbl-label {
+        font-size: 8px;
+        margin-bottom: 1px
+      }
+
+      .orgtbl-btn-save {
+        height: 36px;
+        padding: 0 5px;
+        font-size: 11px
+      }
+
+      .save-lbl {
+        display: none;
+      }
+
+      .orgtbl-btn-clear {
+        height: 36px;
+        width: 36px;
+        font-size: 15px;
+        padding: 0
+      }
+    }
+
+    @media(max-width:480px) {
+      .org-row-1 {
+        grid-template-columns: 1fr 1fr;
+        gap: 5px
+      }
+
+      .org-row-2 {
+        grid-template-columns: 1fr;
+        gap: 5px
+      }
+
+      .org-row-3 {
+        grid-template-columns: 1fr;
+        gap: 5px
+      }
+
+      .org-ss {
+        flex-direction: row
+      }
+    }
+
+    @media(min-width:600px) {
+      .q-ov {
+        align-items: center
+      }
+
+      .q-sheet {
+        border-radius: 20px;
+        margin: 20px
+      }
+
+      .orgtbl-cards {
+        grid-template-columns: repeat(auto-fill, minmax(230px, 1fr))
+      }
+    }
+
+    /* ══ Drag-to-Select ══ */
+    .drag-picker-ov {
+      position: fixed;
+      inset: 0;
+      z-index: 9998;
+      background: rgba(0, 0, 0, .65);
+      backdrop-filter: blur(8px);
+      display: none;
+      align-items: flex-end;
+      justify-content: center;
+    }
+
+    .drag-picker-ov.open {
+      display: flex;
+      animation: pfade .18s ease
+    }
+
+    .drag-picker-sheet {
+      background: linear-gradient(170deg, #1f1040, #150d30);
+      border-radius: 28px 28px 0 0;
+      padding: 10px 12px max(28px, env(safe-area-inset-bottom));
+      box-shadow: 0 -16px 60px rgba(102, 126, 234, .45), 0 0 0 1px rgba(255, 255, 255, .08);
+      animation: shup .22s cubic-bezier(.34, 1.56, .64, 1);
+      max-height: 72dvh;
+      overflow: visible;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      width: 100%;
+      max-width: 720px;
+      will-change: transform;
+    }
+
+    .dp-handle {
+      width: 40px;
+      height: 4px;
+      border-radius: 2px;
+      background: rgba(255, 255, 255, .2);
+      margin: 0 auto 8px;
+      flex-shrink: 0
+    }
+
+    .dp-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: rgba(255, 255, 255, .5);
+      text-align: center;
+      padding: 0 0 8px;
+      flex-shrink: 0
+    }
+
+    .dp-list {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      overflow-y: auto;
+      flex: 1;
+      max-height: calc(72dvh - 80px);
+      scrollbar-width: none;
+      padding-bottom: 4px
+    }
+
+    .dp-list::-webkit-scrollbar {
+      display: none
+    }
+
+    .dp-item {
+      min-height: 52px;
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 0 16px;
+      background: rgba(255, 255, 255, .07);
+      border: 2px solid transparent;
+      color: rgba(255, 255, 255, .7);
+      font-size: 14px;
+      font-weight: 600;
+      pointer-events: none;
+      flex-shrink: 0;
+      transition: background .08s, border-color .08s, color .08s, transform .1s;
+    }
+
+    .dp-item.hover {
+      background: rgba(102, 126, 234, .4);
+      border-color: rgba(167, 139, 250, .8);
+      color: #fff;
+      transform: scaleX(1.02);
+      box-shadow: 0 4px 20px rgba(102, 126, 234, .35);
+    }
+
+    .dp-item.sel {
+      background: var(--grad);
+      border-color: transparent;
+      color: #fff
+    }
+
+    .dp-ic {
+      font-size: 22px;
+      flex-shrink: 0;
+      line-height: 1
+    }
+
+    .dp-tx {
+      flex: 1
+    }
+
+    /* ══ شاشة الإعداد الأول ══ */
+    #setup-screen {
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      background: var(--bg-p);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 32px 24px;
+      gap: 24px;
+      direction: rtl;
+    }
+
+    .setup-logo {
+      font-size: 56px;
+      margin-bottom: 8px
+    }
+
+    .setup-title {
+      font-size: 24px;
+      font-weight: 800;
+      color: var(--text);
+      text-align: center
+    }
+
+    .setup-sub {
+      font-size: 14px;
+      color: var(--text-m);
+      text-align: center;
+      line-height: 1.6;
+      max-width: 320px
+    }
+
+    .setup-card {
+      width: 100%;
+      max-width: 360px;
+      background: rgba(255, 255, 255, .05);
+      border: 1px solid rgba(255, 255, 255, .1);
+      border-radius: 18px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .setup-option {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 14px 16px;
+      border-radius: 14px;
+      background: rgba(255, 255, 255, .07);
+      border: 2px solid transparent;
+      cursor: pointer;
+      transition: all .2s;
+    }
+
+    .setup-option:active {
+      transform: scale(0.98)
+    }
+
+    .setup-option.selected {
+      border-color: rgba(102, 126, 234, .7);
+      background: rgba(102, 126, 234, .15)
+    }
+
+    .setup-opt-ic {
+      font-size: 28px;
+      flex-shrink: 0
+    }
+
+    .setup-opt-tx {
+      display: flex;
+      flex-direction: column;
+      gap: 3px
+    }
+
+    .setup-opt-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--text)
+    }
+
+    .setup-opt-sub {
+      font-size: 12px;
+      color: var(--text-m)
+    }
+
+    .setup-btn {
+      width: 100%;
+      max-width: 360px;
+      height: 52px;
+      background: var(--grad);
+      border: none;
+      border-radius: 16px;
+      color: #fff;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+      font-family: inherit;
+      box-shadow: 0 6px 20px rgba(102, 126, 234, .4);
+      transition: transform .2s, opacity .15s;
+    }
+
+    .setup-btn:active {
+      transform: scale(0.97)
+    }
+
+    .setup-btn:disabled {
+      opacity: .4;
+      cursor: not-allowed
+    }
+
+    /* ════════════════════════════════════════════════════
+       تخطيط سطح المكتب (ويندوز) — قاعدة حاسمة نهائية
+       تتغلّب على كل التخطيطات السابقة. الشريط السفلي يمتد
+       بعرض التطبيق كاملاً كصف أفقي واحد بنفس ترتيب الجوال.
+    ════════════════════════════════════════════════════ */
+    @media (min-width: 700px) {
+      body { background: #14141f; }
+      #app { max-width: none !important; margin: 0 !important; }
+
+      /* بطاقات متعددة الأعمدة تملأ العرض */
+      .orgtbl-cards { grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)) !important; }
+
+      /* الشريط السفلي: ممتد بعرض التطبيق كاملاً، صف أفقي واحد */
+      .orgtbl-panel {
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+        align-items: flex-end !important;
+        gap: 8px !important;
+        margin: 0 !important;
+        border-radius: 0 !important;
+        width: 100% !important;
+        padding: 10px 16px 12px !important;
+        border-top: 1px solid rgba(255, 255, 255, 0.12);
+      }
+
+      /* تفكيك صفوف الفلتر لتصبح كل الحقول في صف واحد */
+      .orgtbl-row,
+      .orgtbl-row2-wrap { display: contents !important; }
+
+      /* توزيع عرض الحقول داخل الصف الواحد (نفس ترتيب الجوال) */
+      .orgtbl-field { flex: 1 1 0 !important; min-width: 0 !important; }
+      .of-cat    { flex: 1.4 1 0 !important; }
+      .of-text   { flex: 2.2 1 0 !important; }
+      .of-num    { flex: 0 0 72px !important; }
+      .of-attach { flex: 0 0 62px !important; }
+      .of-date   { flex: 0 0 120px !important; }
+      .of-status { flex: 0 0 78px !important; }
+      .of-view   { flex: 0 0 78px !important; }
+      .of-save   { flex: 0 0 auto !important; }
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- شاشة الإعداد الأول -->
+  <div id="setup-screen" style="display:none">
+    <div class="setup-logo">📋</div>
+    <div class="setup-title">منظم الملاحظات</div>
+    <div class="setup-sub">بياناتك محفوظة محلياً داخل التطبيق بشكل آمن، مع نسخ احتياطي تلقائي لمجلد Downloads</div>
+    <div class="setup-card">
+      <div class="setup-option selected">
+        <span class="setup-opt-ic">⚡</span>
+        <div class="setup-opt-tx">
+          <span class="setup-opt-title">حفظ سريع ومستمر</span>
+          <span class="setup-opt-sub">كل ملاحظة تُحفظ فوراً ولا تُفقد</span>
+        </div>
+      </div>
+      <div class="setup-option selected">
+        <span class="setup-opt-ic">📥</span>
+        <div class="setup-opt-tx">
+          <span class="setup-opt-title">نسخ احتياطي تلقائي</span>
+          <span class="setup-opt-sub">ملف JSON في Downloads كل 10 ملاحظات</span>
+        </div>
+      </div>
+    </div>
+    <!-- رسالة الخطأ -->
+    <div id="setup-err"
+      style="display:none;background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.35);border-radius:12px;padding:10px 16px;max-width:360px;width:100%;font-size:13px;color:#fca5a5;text-align:center;line-height:1.5;">
+    </div>
+    <button id="setup-folder-btn" class="setup-btn" onclick="setupFolder()">📂 اختيار مجلد الملاحظات ›</button>
+    <button class="setup-btn" onclick="finishSetup()"
+      style="background:rgba(255,255,255,0.1);margin-top:-10px;box-shadow:none;">تخطي والحفظ محلياً</button>
+  </div>
+
+  <div id="app">
+    <!-- شريط التطبيق العلوي — مضغوط -->
+    <div id="top-bar" style="display:flex;align-items:center;justify-content:center;padding:env(safe-area-inset-top,0px) 0 0;background:var(--grad);flex-shrink:0;box-shadow:0 2px 10px rgba(102,126,234,0.4);">
+      <div id="app-title"
+        style="color:#fff;font-size:14px;font-weight:700;padding:5px 22px;border-radius:8px;cursor:pointer;user-select:none;-webkit-tap-highlight-color:transparent;transition:background .15s;line-height:1.2;"
+        oncontextmenu="event.preventDefault();return false;">📋 المنظم</div>
+    </div>
+
+    <div class="pages" style="display:flex;flex-direction:column;flex:1;overflow:hidden">
+
+      <!-- ══ صفحة الإعدادات ══ -->
+      <div class="page" id="pg-settings"
+        style="display:none;flex-direction:column;height:100%;overflow-y:auto;padding:16px;padding-bottom:120px;">
+        <div class="section">
+          <div class="sec-t">📁 مجلد الحفظ الافتراضي</div>
+          <div class="srow">
+            <div class="srow-l" id="cfg-folder-path">لم يتم التحديد</div>
+            <button class="sm-btn" onclick="changeFolder()">تغيير المجلد</button>
+          </div>
+        </div>
+        <div class="section">
+          <div class="sec-t">🗂️ التصنيفات</div>
+          <div id="cfg-cats-list" style="display:flex;flex-direction:column;gap:8px;"></div>
+        </div>
+        <div class="section">
+          <div class="sec-t">⚙️ خيارات إضافية</div>
+          <div class="srow">
+            <div class="srow-l">تصدير جميع الملاحظات (JSON)</div>
+            <button class="sm-btn" onclick="exportData()">تصدير</button>
+          </div>
+        </div>
+
+        <!-- قسم تحديث التطبيق -->
+        <div class="section">
+          <div class="sec-t">🔄 تحديث التطبيق</div>
+          <div id="update-status" style="font-size:12px;color:var(--text-m);padding:6px 0 8px;"></div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button class="sm-btn" onclick="checkAndUpdate()" id="update-btn"
+              style="background:linear-gradient(135deg,#6366f1,#4f46e5);color:#fff;border:none;">
+              ⬇️ تحقق وحدّث
+            </button>
+            <button class="sm-btn" onclick="clearUpdate()" id="clear-update-btn" style="display:none;">
+              🗑️ حذف التحديث
+            </button>
+          </div>
+          <div id="app-ver-label" style="font-size:11px;color:var(--text-m);padding:10px 0 0;text-align:center;opacity:.75;">الإصدار —</div>
+        </div>
+
+        <!-- قسم التذكيرات -->
+        <div class="section">
+          <div class="sec-t">🔔 التذكيرات</div>
+          <div style="font-size:12px;color:var(--text-m);padding:4px 0 8px;">تنبيه أصلي للمهام «قيد التنفيذ» في يوم تاريخها — يعمل حتى لو كان التطبيق مغلقاً.</div>
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+            <span style="font-size:13px;">وقت التنبيه:</span>
+            <input type="number" id="remind-hour" min="0" max="23" value="9" onchange="setRemindHour(this.value)"
+              style="width:70px;padding:7px;border-radius:8px;border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.06);color:#fff;text-align:center;font-size:14px;">
+            <span style="font-size:12px;color:var(--text-m);">الساعة (0–23)</span>
+          </div>
+          <button class="sm-btn" onclick="requestNotifPerm()" style="margin-top:10px;">🔔 تفعيل الإشعارات</button>
+          <div id="remind-status" style="font-size:12px;color:var(--text-m);padding:8px 0 0;"></div>
+        </div>
+      </div>
+
+      <!-- ══ صفحة الملاحظات ══ -->
+      <div class="page active" id="pg-notes"
+        style="display:flex;flex-direction:column;height:100%;overflow:hidden;padding:0;padding-bottom:max(0px,env(safe-area-inset-bottom))">
+
+        <!-- شريط الترتيب — مخفي (مدمج في لوحة الفلاتر) -->
+        <div class="sort-bar" id="sort-bar" style="display:none">
+          <div class="sort-chip active" data-sort="default" onclick="setSort('default')">⚡ الحالية</div>
+          <div class="sort-chip" data-sort="date-asc" onclick="setSort('date-asc')">📅 الأقدم</div>
+          <div class="sort-chip" data-sort="date-desc" onclick="setSort('date-desc')">📅 الأحدث</div>
+          <div class="sort-chip" data-sort="st-active" onclick="setSort('st-active')">🔄 قيد التنفيذ</div>
+          <div class="sort-chip" data-sort="st-delayed" onclick="setSort('st-delayed')">📅 مؤجل</div>
+          <div class="sort-chip" data-sort="st-done" onclick="setSort('st-done')">✅ مكتمل</div>
+          <div class="sort-chip" data-sort="st-cancel" onclick="setSort('st-cancel')">❌ ملغي</div>
+        </div>
+
+        <div class="orgtbl-stats" id="stats" style="padding:2px 14px 4px;flex-shrink:0"></div>
+        <div id="results" style="flex:1;overflow-y:auto;padding:0 10px 80px"></div>
+
+        <div class="orgtbl-panel">
+          <div class="orgtbl-row">
+
+            <div class="orgtbl-field of-cat">
+              <div class="orgtbl-label" style="justify-content:space-between;">
+                <span>🗂️ التصنيف</span>
+                <span id="fp-add-btn" onclick="openGuidedAdd()"
+                  style="cursor:pointer;font-size:15px;background:var(--grad-g);border-radius:7px;padding:1px 7px;line-height:1.4;box-shadow:0 2px 6px rgba(34,197,94,.4);"
+                  title="إضافة ملاحظة موجّهة">➕</span>
+              </div>
+              <div class="orgtbl-cell" id="fp-cat-cell" style="cursor:pointer;gap:6px">
+                <span id="fp-cat-ic" style="font-size:16px">🗂️</span>
+                <span id="fp-cat-tx"
+                  style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:rgba(255,255,255,.55)">الكل</span>
+              </div>
+            </div>
+
+            <div class="orgtbl-field of-text">
+              <div class="orgtbl-label">📝 النص</div>
+              <div class="orgtbl-cell" style="padding:0;overflow:hidden;">
+                <input type="text" id="f-text" placeholder="بحث..." oninput="renderNotes()"
+                  style="width:100%;background:transparent;border:none;color:#fff;font-size:13px;padding:8px 10px;font-family:inherit;direction:rtl;outline:none;">
+              </div>
+            </div>
+
+            <div class="orgtbl-field of-num">
+              <div class="orgtbl-label">🔢 رقم</div>
+              <div class="orgtbl-cell">
+                <input type="number" id="f-num" oninput="renderNotes()">
+              </div>
+            </div>
+
+          </div><!-- /row1 -->
+
+          <div class="orgtbl-row2-wrap">
+            <div class="orgtbl-field of-attach">
+              <div class="orgtbl-label">📎 ملف</div>
+              <div class="orgtbl-cell" onclick="triggerFile('filter')" id="f-attach-cell"
+                style="cursor:pointer;justify-content:center">
+                <span id="f-attach-ic" style="font-size:19px">📎</span>
+                <input type="file" id="f-file-input" style="display:none" onchange="handleFile(event, 'filter')">
+              </div>
+            </div>
+
+            <div class="orgtbl-field of-date">
+              <div class="orgtbl-label">📅 التاريخ</div>
+              <div class="orgtbl-date-cell" id="f-date-cell" onclick="openCal('filter')">
+                <span id="f-date-ph" style="font-size:12px;font-weight:600;color:rgba(255,255,255,.55)">التاريخ</span>
+                <span id="f-dh"
+                  style="display:none;font-size:11px;font-weight:700;color:#fff;line-height:1.2;white-space:nowrap"></span>
+                <span id="f-dg"
+                  style="display:none;font-size:10px;color:rgba(255,255,255,.65);line-height:1.2;white-space:nowrap;direction:rtl"></span>
+              </div>
+            </div>
+
+            <div class="orgtbl-field of-status">
+              <div class="orgtbl-label">📊 الحالة</div>
+              <div class="orgtbl-cell" id="fp-status-cell" onclick="openFPicker('status')"
+                style="cursor:pointer;justify-content:center">
+                <span id="fp-status-ic" style="font-size:22px">📊</span>
+              </div>
+            </div>
+
+            <div class="orgtbl-field of-view">
+              <div class="orgtbl-label">🎯 العرض</div>
+              <div class="orgtbl-cell" id="fp-view-cell" onclick="openFPicker('view')"
+                style="cursor:pointer;justify-content:center">
+                <span id="fp-view-ic" style="font-size:22px">🃏</span>
+              </div>
+            </div>
+
+            <div class="orgtbl-field of-save">
+              <div class="orgtbl-label">&nbsp;</div>
+              <div style="display:flex;gap:4px">
+                <button class="orgtbl-btn-clear" onclick="clearFilters()" title="مسح"
+                  style="font-size:18px;padding:0;width:38px;flex-shrink:0">🧹</button>
+                <button class="orgtbl-btn-save" onclick="saveFromFilter()" style="flex:1;min-width:0;overflow:hidden">💾 <span class="save-lbl">حفظ</span></button>
+              </div>
+            </div>
+          </div><!-- /row2 -->
+        </div><!-- /orgtbl-panel -->
+      </div>
+
+
+    </div><!-- /pages -->
+
+  </div>
+
+  <!-- ══ Picker ══ -->
+  <div class="org-picker-overlay" id="picker-ov">
+    <div class="org-picker-box" id="picker-box"></div>
+  </div>
+
+  <!-- ══ التقويم ══ -->
+  <div class="cal-ov" id="cal-ov">
+    <div class="cal-box">
+      <div class="cal-hdr">
+        <button class="cal-nav" onclick="calStep(-1)">‹</button>
+        <div class="cal-ttl">
+          <div class="cal-th" id="cal-th"></div>
+          <div class="cal-tg" id="cal-tg"></div>
+        </div>
+        <button class="cal-nav" onclick="calStep(1)">›</button>
+      </div>
+      <div class="cal-dh">
+        <div>أح</div>
+        <div>إث</div>
+        <div>ثل</div>
+        <div>أر</div>
+        <div>خم</div>
+        <div>جم</div>
+        <div>سب</div>
+      </div>
+      <div class="cal-grid" id="cal-grid"></div>
+      <button class="cal-ok" onclick="closeCal()">✓ تأكيد</button>
+    </div>
+  </div>
+
+  <!-- ══ التسجيل السريع — نفس نموذج التسجيل ══ -->
+  <div class="q-ov" id="q-ov" onclick="closeQOut(event)">
+    <div class="q-sheet">
+      <div class="q-handle"></div>
+      <div class="q-title">⚡ تسجيل سريع</div>
+
+      <div class="org-wrap" style="margin-bottom:0;animation:none">
+        <div class="org-row-1">
+          <div class="org-cell" onclick="openQPicker('main')">
+            <span class="org-ci" id="q-ic-main">📁</span>
+            <span class="org-ct ph" id="q-tx-main">الرئيسية</span>
+          </div>
+          <div class="org-cell" onclick="openQPicker('sub')">
+            <span class="org-ci" id="q-ic-sub">📌</span>
+            <span class="org-ct ph" id="q-tx-sub">الفرعية</span>
+          </div>
+          <div class="org-cell" onclick="openQPicker('sec')">
+            <span class="org-ci" id="q-ic-sec">🎯</span>
+            <span class="org-ct ph" id="q-tx-sec">الثانوية</span>
+          </div>
+          <div class="org-cell" style="flex-direction:column;align-items:flex-start;cursor:text;flex:1.5"
+            onclick="document.getElementById('q-text').focus()">
+            <textarea id="q-text" class="org-cell-ta" placeholder="نص..." rows="1" style="height:28px"></textarea>
+          </div>
+          <div class="org-num-cell" style="flex:0.7" onclick="document.getElementById('q-num').focus()">
+            <input type="text" id="q-num" class="org-inp" placeholder="رقم" inputmode="numeric"
+              style="text-align:center">
+          </div>
+        </div>
+        <div class="org-row-2">
+          <div class="org-cell" onclick="triggerFile('quick')" id="q-attach-cell"
+            style="justify-content:center; flex:0.6">
+            <span class="org-ci" id="q-attach-ic">📎</span>
+            <input type="file" id="q-file-input" style="display:none" onchange="handleFile(event, 'quick')">
+          </div>
+          <div class="org-date-cell" onclick="openCal('quick')" style="direction:ltr">
+            <div class="org-cal-mini">
+              <div class="org-cal-month" id="q-cal-month"></div>
+              <div class="org-cal-day" id="q-cal-day">📅</div>
+            </div>
+            <div class="org-date-texts" style="align-items:flex-end">
+              <span class="org-dph" id="q-dph" style="font-size:10px">التاريخ</span>
+              <span class="org-dh" id="q-dh" style="display:none;font-size:10px"></span>
+              <span class="org-dg" id="q-dg" style="display:none;font-size:9px"></span>
+            </div>
+          </div>
+          <div class="org-cell" onclick="openQPicker('status')">
+            <span class="org-ci" id="q-ic-status">📊</span>
+            <span class="org-ct ph" id="q-tx-status">حالة</span>
+          </div>
+          <button class="org-save" onclick="saveQuick()">⚡ حفظ</button>
+        </div>
+
+        <!-- صف ربط الملاحظات -->
+        <div class="org-cell" id="q-link-cell" onclick="openLinkPicker()"
+          style="margin-top:2px;cursor:pointer;flex-direction:column;align-items:stretch;gap:6px;">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span class="org-ci">🔗</span>
+            <span class="org-ct ph" id="q-link-tx" style="flex:1;">ربط بملاحظة سابقة (اختياري)</span>
+            <span style="color:rgba(255,255,255,.4);font-size:13px;">›</span>
+          </div>
+          <div id="q-link-chips" style="display:none;flex-wrap:wrap;gap:5px;"></div>
+        </div>
+      </div>
+
+      <div style="margin-top:8px">
+        <button class="orgtbl-btn-clear" onclick="closeQuick()" style="width:100%">إغلاق</button>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- Drag Picker -->
+  <div id="dp-ov" class="drag-picker-ov">
+    <div class="drag-picker-sheet">
+      <div class="dp-handle"></div>
+      <div class="dp-title" id="dp-title"></div>
+      <div class="dp-list" id="dp-list"></div>
+    </div>
+  </div>
+
+  <!-- نافذة ربط الملاحظات — بحث بالنص -->
+  <div id="link-ov" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:9600;align-items:flex-end;justify-content:center;backdrop-filter:blur(6px);" onclick="if(event.target===this)closeLinkPicker()">
+    <div style="background:linear-gradient(170deg,#1e1e2e,#181825);border-radius:20px 20px 0 0;width:100%;max-width:700px;padding:14px 14px max(20px,env(safe-area-inset-bottom));box-shadow:0 -12px 40px rgba(102,126,234,0.4);display:flex;flex-direction:column;max-height:78dvh;">
+      <div style="width:36px;height:4px;border-radius:2px;background:rgba(255,255,255,0.2);margin:0 auto 12px;"></div>
+      <div style="font-size:14px;font-weight:700;color:#fff;text-align:center;margin-bottom:10px;">🔗 ربط بملاحظة</div>
+      <input type="text" id="link-search" placeholder="ابحث في الملاحظات بالنص..."
+        oninput="renderLinkResults()"
+        style="width:100%;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);border-radius:12px;color:#fff;font-size:14px;padding:11px 14px;font-family:inherit;direction:rtl;outline:none;box-sizing:border-box;margin-bottom:10px;">
+      <div id="link-results" style="overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:6px;scrollbar-width:none;"></div>
+      <button onclick="closeLinkPicker()"
+        style="margin-top:10px;width:100%;padding:11px;border-radius:12px;background:var(--grad-g);border:none;color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;">✓ تم</button>
+    </div>
+  </div>
+
+  <script>
+    var _dpCb = null, _dpItems = [], _dpHover = null;
+    /* ══════════════════════════════════════
+       الفئات (من الفئات.md)
+    ══════════════════════════════════════ */
+    var CATS = {
+      "الأشخاص": {
+        "ic": "👥", "sub": {
+          "سلطان": { "ic": "👨‍💼", "det": ["💳 الحسابات", "📋 الإثباتات", "🏦 الحسابات المصرفية", "👤 معلومات شخصية", "⚕️ الصحة", "📅 اليومية", "🔐 كلمات المرور", "💒 الزواج"] },
+          "عمر": { "ic": "👤", "det": ["💰 دين", "✅ سداد دين", "📊 مديونية", "💳 سداد مديونية"] },
+          "أديب": { "ic": "📚", "det": ["💰 دين", "✅ سداد دين", "📊 مديونية", "💳 سداد مديونية"] },
+          "أطفالي": { "ic": "👶", "det": [] },
+          "مودة": { "ic": "👧", "det": [] },
+          "بدر": { "ic": "👦", "det": [] },
+          "سليم": { "ic": "🧑‍💻", "det": ["💰 دين", "✅ سداد دين", "📊 مديونية", "💳 سداد مديونية"] },
+          "عبدالله": { "ic": "👨‍🔧", "det": ["💰 دين", "✅ سداد دين", "📊 مديونية", "💳 سداد مديونية"] },
+          "أسامة": { "ic": "🧔‍♂️", "det": ["💰 دين", "✅ سداد دين", "📊 مديونية", "💳 سداد مديونية"] },
+          "الوالد": { "ic": "👴", "det": ["💰 دين", "✅ سداد دين", "📊 مديونية", "💳 سداد مديونية", "💳 الحسابات", "📋 الإثباتات", "ℹ️ معلومات", "🔐 كلمات المرور"] },
+          "الوالدة": { "ic": "👵", "det": ["💰 دين", "✅ سداد دين", "📊 مديونية", "💳 سداد مديونية"] },
+          "نهلة": { "ic": "👩‍⚕️", "det": ["💰 دين", "✅ سداد دين", "📊 مديونية", "💳 سداد مديونية"] },
+          "منيرة": { "ic": "👩‍💼", "det": ["💳 الحسابات", "📋 الإثباتات", "📦 المنتجات", "💰 دين", "✅ سداد دين", "📊 مديونية", "💳 سداد مديونية", "🔐 كلمات المرور"] },
+          "باسم": { "ic": "💻", "det": ["💰 دين", "✅ سداد دين", "📊 مديونية", "💳 سداد مديونية"] },
+          "نهى": { "ic": "🎓", "det": ["💰 دين", "✅ سداد دين", "📊 مديونية", "💳 سداد مديونية"] },
+          " أرحامي": { "ic": "🫂", "det": [] }
+        }
+      },
+      "المنتجات": {
+        "ic": "📦", "sub": {
+          "الشراء": { "ic": "🛒", "det": ["💻 حاسوب", "🧹 المكنسة", "🎧 سماعة سلكية", "📺 شاشة أو بروجيكتور", "📱 لوحي أندرويد", "🎵 سماعة بلوتوث", "📖 قارئ إلكتروني ملون", "🔌 شاحن متعدد المنافذ", "📱 فولد جديد", "☕ آلة صنع القهوة", "⚖️ مقياس"] },
+          "أغراضي": { "ic": "🎒", "det": ["💻 الحاسب المحمول", "🔢 لوحة الأرقام", "📡 راوتر", "تغيير الجوال"] },
+          "المنزل": { "ic": "🏠", "det": ["📦 المنتجات", "ℹ️ معلومات"] },
+          "الشركات": { "ic": "🏢", "det": ["📦 المنتجات", "ℹ️ معلومات"] },
+          "البرادو": { "ic": "🚗", "det": ["🔧 قطع الغيار", "🛠️ الصيانة", "ℹ️ معلومات", "📝 ملاحظات"] },
+          "تيريوس": { "ic": "🚙", "det": ["🔧 قطع الغيار", "🛠️ الصيانة", "ℹ️ معلومات"] },
+          "أخرى": { "ic": "📋", "det": ["📦 منتجات متنوعة", "ℹ️ معلومات عامة"] }
+        }
+      },
+      "البرامج": {
+        "ic": "💻", "sub": {
+          "البريد": { "ic": "📧", "det": ["📮 أوتلوك", "⚡ سبايك", "🐦 كاناري"] },
+          "إدارة المعلومات": { "ic": "📁", "det": ["🌐 تانا", "📊 كودا", "🧠 كاباسيتيز"] },
+          "معلومات عامة": { "ic": "🪟", "det": [] }
+        }
+      },
+      "الفئات": {
+        "ic": "📂", "sub": {
+          "المؤسسات": { "ic": "🏛️", "det": [] },
+          "دين": { "ic": "☪️", "det": [] },
+          "الطب": { "ic": "⚕️", "det": [] },
+          "الأدب": { "ic": "📖", "det": [] },
+          "التعلم": { "ic": "🎓", "det": [] },
+          "البناء": { "ic": "🏗️", "det": [] },
+          "معلومات عامة": { "ic": "ℹ️", "det": [] },
+          "السياحة": { "ic": "🧳", "det": [] }
+        }
+      },
+      "مقارنة الأسعار": {
+        "ic": "💵", "sub": {
+          "الجبنة": { "ic": "🧀", "det": ["🏪 المنزل الشرقي"] },
+          "مناديل": { "ic": "🧻", "det": ["🏪 المنزل الشرقي"] },
+          "طبق بيض": { "ic": "🥚", "det": ["🏪 تموينات البركة"] }
+        }
+      }
+    };
+
+    let lsCats = localStorage.getItem('notes_cats');
+    if (lsCats) { try { CATS = JSON.parse(lsCats); } catch (e) { } }
+
+    function saveCats() { localStorage.setItem('notes_cats', JSON.stringify(CATS)); }
+
+    function renderSettings() {
+      const _vl = document.getElementById('app-ver-label');
+      if (_vl) _vl.textContent = 'الإصدار ' + (_getLocalHash() || '');
+      const _rh = document.getElementById('remind-hour'); if (_rh) _rh.value = _remindHour();
+      const fd = document.getElementById('cfg-folder-path');
+      if (window.AndroidFS && localStorage.getItem('notes_storage') === 'android_fs' && _dirFolderName) {
+        fd.textContent = '📂 ' + _dirFolderName + ' (أندرويد)';
+      } else if (_dirHandle) {
+        fd.textContent = '📂 ' + _dirHandle.name;
+      } else {
+        fd.textContent = 'التخزين الداخلي فقط';
+      }
+
+      /* حالة التحديث */
+      if (window.AndroidFS && typeof window.AndroidFS.hasLocalUpdate === 'function') {
+        const hasUpd = window.AndroidFS.hasLocalUpdate();
+        _setUpdateStatus(hasUpd ? '✅ يوجد تحديث مُنزَّل مُطبَّق' : 'لا يوجد تحديث — اضغط للتحقق', hasUpd ? '#86efac' : '');
+        const cb = document.getElementById('clear-update-btn');
+        if (cb) cb.style.display = hasUpd ? 'inline-block' : 'none';
+      }
+
+      const cList = document.getElementById('cfg-cats-list');
+      cList.innerHTML = '';
+      const allNotes = DB.get();
+
+      for (const k of Object.keys(CATS)) {
+        const cat = CATS[k];
+        const subs = cat.sub || {};
+        const subKeys = Object.keys(subs);
+        const mainCount = allNotes.filter(n => n.main === k).length;
+
+        /* ── الغلاف الكامل للفئة الرئيسية ── */
+        const mainWrap = document.createElement('div');
+        mainWrap.style.cssText = 'margin-bottom:10px;border-radius:14px;overflow:hidden;border:1px solid rgba(255,255,255,0.1);';
+
+        /* ── رأس الفئة الرئيسية (قابل للضغط) ── */
+        const mainHead = document.createElement('div');
+        mainHead.style.cssText = 'display:flex;align-items:center;gap:8px;padding:11px 14px;background:rgba(255,255,255,0.07);cursor:pointer;user-select:none;-webkit-tap-highlight-color:transparent;';
+        mainHead.innerHTML = `
+          <span style="font-size:22px;line-height:1">${cat.ic || '📂'}</span>
+          <span style="flex:1;font-weight:700;color:#fca5a5;font-size:14px">${k}</span>
+          <span style="font-size:11px;color:rgba(255,255,255,0.4);margin-left:4px">${subKeys.length} فئة</span>
+          ${mainCount > 0 ? `<span style="font-size:11px;background:rgba(102,126,234,0.4);color:#c7d2fe;border-radius:8px;padding:1px 7px;margin-left:2px">${mainCount}</span>` : ''}
+          <span class="acc-arrow" style="font-size:13px;color:rgba(255,255,255,0.45);transition:transform .22s;margin-left:6px">▼</span>
+          <button class="sm-btn danger" style="font-size:10px;padding:3px 9px;margin-right:4px"
+            onclick="event.stopPropagation();delCat('${k.replace(/'/g, "\\'")}')">حذف</button>
+        `;
+
+        /* ── حاوية الفئات الفرعية (مخفية افتراضياً) ── */
+        const subsWrap = document.createElement('div');
+        subsWrap.style.cssText = 'display:none;background:rgba(0,0,0,0.18);';
+
+        /* تبديل الطي */
+        let mainOpen = false;
+        mainHead.addEventListener('click', () => {
+          mainOpen = !mainOpen;
+          subsWrap.style.display = mainOpen ? 'block' : 'none';
+          mainHead.querySelector('.acc-arrow').style.transform = mainOpen ? 'rotate(180deg)' : '';
+        });
+
+        /* ── الفئات الفرعية ── */
+        for (const sk of subKeys) {
+          const sub = subs[sk];
+          const dets = sub.det || [];
+
+          const subWrap = document.createElement('div');
+          subWrap.style.cssText = 'border-bottom:1px solid rgba(255,255,255,0.05);';
+
+          const subCount = allNotes.filter(n => n.main === k && n.sub === sk).length;
+          const subHead = document.createElement('div');
+          subHead.style.cssText = 'display:flex;align-items:center;gap:6px;padding:8px 18px;cursor:pointer;user-select:none;-webkit-tap-highlight-color:transparent;';
+          subHead.innerHTML = `
+            <span style="font-size:17px;line-height:1">${sub.ic || '📌'}</span>
+            <span style="flex:1;color:#fdba74;font-size:13px;font-weight:600">${sk}</span>
+            <span style="font-size:10px;color:rgba(255,255,255,0.35)">${dets.length} تفصيل</span>
+            ${subCount > 0 ? `<span style="font-size:10px;background:rgba(34,197,94,0.25);color:#86efac;border-radius:6px;padding:1px 6px">${subCount}</span>` : ''}
+            <span class="sub-arrow" style="font-size:12px;color:rgba(255,255,255,0.35);transition:transform .18s;margin-left:5px">›</span>
+            <button class="sm-btn danger" style="font-size:10px;padding:2px 7px"
+              onclick="event.stopPropagation();delCat('${k.replace(/'/g, "\\'")}','${sk.replace(/'/g, "\\'")}')">حذف</button>
+          `;
+
+          const detsWrap = document.createElement('div');
+          detsWrap.style.cssText = 'display:none;background:rgba(0,0,0,0.12);padding:2px 0;';
+
+          let subOpen = false;
+          subHead.addEventListener('click', () => {
+            if (!dets.length) return;
+            subOpen = !subOpen;
+            detsWrap.style.display = subOpen ? 'block' : 'none';
+            subHead.querySelector('.sub-arrow').style.transform = subOpen ? 'rotate(90deg)' : '';
+          });
+
+          /* ── التفاصيل ── */
+          dets.forEach((det, i) => {
+            const detRow = document.createElement('div');
+            detRow.style.cssText = 'display:flex;align-items:center;gap:6px;padding:6px 32px;';
+            detRow.innerHTML = `
+              <span style="flex:1;font-size:12px;color:rgba(255,255,255,0.6)">${det}</span>
+              <button class="sm-btn danger"
+                style="font-size:10px;padding:2px 6px;background:transparent;border:1px solid rgba(239,68,68,0.45)"
+                onclick="delCat('${k.replace(/'/g, "\\'")}','${sk.replace(/'/g, "\\'")}',${i})">حذف</button>
+            `;
+            detsWrap.appendChild(detRow);
+          });
+
+          subWrap.appendChild(subHead);
+          subWrap.appendChild(detsWrap);
+          subsWrap.appendChild(subWrap);
+        }
+
+        mainWrap.appendChild(mainHead);
+        mainWrap.appendChild(subsWrap);
+        cList.appendChild(mainWrap);
+      }
+    }
+
+    /* ══════════════════════════════════════
+       تحديث التطبيق — تحميل من GitHub
+    ══════════════════════════════════════ */
+    const _UPDATE_URL = 'https://raw.githubusercontent.com/sulasm/MyNotes-releases/main/index.html';
+
+    function _setUpdateStatus(msg, color) {
+      const el = document.getElementById('update-status');
+      if (el) { el.textContent = msg; el.style.color = color || 'var(--text-m)'; }
+    }
+
+    /* استخرج APP_HASH من أول سطر في HTML */
+    function _getLocalHash() {
+      var m = document.querySelector('meta[name="app-version"]');
+      return m ? (m.getAttribute('content') || '') : '';
+    }
+
+    function checkAndUpdate() {
+      if (!window.AndroidFS || typeof window.AndroidFS.downloadAndApplyUpdate !== 'function') {
+        _setUpdateStatus('⚠️ يعمل فقط في تطبيق الأندرويد', '#fbbf24'); return;
+      }
+      const btn = document.getElementById('update-btn');
+      if (btn) { btn.disabled = true; btn.textContent = '⏳ جارٍ التحقق...'; }
+      _setUpdateStatus('جارٍ جلب آخر إصدار...', '#a78bfa');
+
+      window._updateCallback = function(result, err) {
+        if (btn) { btn.disabled = false; btn.textContent = '⬇️ تحقق وحدّث'; }
+        if (err) {
+          _setUpdateStatus('❌ ' + err, '#f87171');
+          return;
+        }
+        /* result = 'same' (لا يوجد تحديث) أو 'updated' (تم التحديث) */
+        if (result === 'same') {
+          _setUpdateStatus('✅ التطبيق محدَّث — لا يوجد إصدار جديد', '#86efac');
+        } else {
+          _setUpdateStatus('✅ تم تطبيق التحديث — جارٍ إعادة التشغيل...', '#86efac');
+          setTimeout(function() {
+            if (window.AndroidFS && typeof window.AndroidFS.reloadApp === 'function') {
+              window.AndroidFS.reloadApp();
+            } else { window.location.reload(); }
+          }, 1200);
+        }
+      };
+      window.AndroidFS.downloadAndApplyUpdate(_UPDATE_URL, _getLocalHash(), 'window._updateCallback');
+    }
+
+    function clearUpdate() {
+      if (!window.AndroidFS || typeof window.AndroidFS.clearLocalUpdate !== 'function') return;
+      if (!confirm('حذف التحديث المُنزَّل والعودة للنسخة المثبتة؟')) return;
+      window.AndroidFS.clearLocalUpdate();
+      _setUpdateStatus('تم الحذف — أعد تشغيل التطبيق للتأثير', '#fbbf24');
+      const cb = document.getElementById('clear-update-btn');
+      if (cb) cb.style.display = 'none';
+    }
+
+
+    function delCat(m, s, d) {
+      if (d !== undefined) {
+        if (confirm('حذف الفئة الثانوية (' + CATS[m].sub[s].det[d] + ')؟')) {
+          CATS[m].sub[s].det.splice(d, 1);
+        } else return;
+      } else if (s !== undefined) {
+        if (confirm('حذف الفئة الفرعية وكل تفاصيلها (' + s + ')؟')) {
+          delete CATS[m].sub[s];
+        } else return;
+      } else {
+        if (confirm('حذف الفئة الأساسية وكل ما فيها (' + m + ')؟')) {
+          delete CATS[m];
+        } else return;
+      }
+      saveCats();
+      renderSettings();
+      showFb('تم الحذف بنجاح');
+    }
+
+    const SMAP = {
+      "قيد التنفيذ": { ic: "🔄", cls: "badge-active" },
+      "مؤجل": { ic: "📅", cls: "badge-delayed" },
+      "مكتمل": { ic: "✅", cls: "badge-done" },
+      "ملغي": { ic: "❌", cls: "badge-cancel" }
+    };
+
+    /* ══════════════════════════════════════
+       التقويم الهجري
+    ══════════════════════════════════════ */
+    const H = {
+      mn: ['محرم', 'صفر', 'ربيع الأول', 'ربيع الثاني', 'جمادى الأولى', 'جمادى الآخرة', 'رجب', 'شعبان', 'رمضان', 'شوال', 'ذو القعدة', 'ذو الحجة'],
+      gn: ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'],
+      uq: { 1445: [30, 29, 30, 29, 30, 29, 30, 29, 30, 29, 30, 29], 1446: [30, 29, 30, 29, 30, 29, 30, 29, 30, 29, 30, 30], 1447: [30, 29, 30, 29, 30, 29, 30, 29, 30, 29, 30, 29], 1448: [30, 29, 30, 29, 30, 29, 30, 29, 30, 29, 30, 30], 1449: [30, 29, 30, 29, 30, 29, 30, 29, 30, 29, 30, 29] },
+      base: { g: new Date('2024-12-24'), h: { y: 1446, m: 6, d: 23 } },
+      md(y, m0) { if (this.uq[y]) return this.uq[y][m0] || 29; return [2, 5, 7, 10, 13, 16, 18, 21, 24, 26, 29].includes(y % 30) ? 30 : 29 },
+      toH(gd) {
+        let r = Math.floor((gd - this.base.g) / 864e5), { y, m, d } = { y: this.base.h.y, m: this.base.h.m - 1, d: this.base.h.d };
+        while (r !== 0) { const dm = this.md(y, m); if (r > 0) { const e = dm - d + 1; if (r >= e) { r -= e; d = 1; m++; if (m >= 12) { m = 0; y++; } } else { d += r; r = 0; } } else { if (Math.abs(r) < d) { d += r; r = 0; } else { r += d; m--; if (m < 0) { m = 11; y--; } d = this.md(y, m); } } if (Math.abs(r) > 4e5) break; }
+        return { y, m: m + 1, d };
+      },
+      toG(h) {
+        let days = 0, cy = this.base.h.y, cm = this.base.h.m - 1, cd = this.base.h.d, ty = h.y, tm = h.m - 1, td = h.d;
+        while (cy !== ty || cm !== tm || cd !== td) { const dm = this.md(cy, cm); if (cy < ty || (cy === ty && cm < tm)) { const e = dm - cd + 1; days += e; cd = 1; cm++; if (cm >= 12) { cm = 0; cy++; } } else if (cy > ty || (cy === ty && cm > tm)) { cm--; if (cm < 0) { cm = 11; cy--; } const d2 = this.md(cy, cm); days -= (d2 - cd + 1); cd = d2; } else { days += td - cd; cd = td; } if (Math.abs(days) > 4e5) break; }
+        const r = new Date(this.base.g); r.setDate(r.getDate() + days); return r;
+      },
+      today() { return this.toH(new Date()) },
+      p2(n) { return String(n).padStart(2, '0') },
+      fmtH(h) { return `${h.y}/${this.p2(h.m)}/${this.p2(h.d)}` },
+      fmtG(d) { return `${this.p2(d.getDate())}/${this.p2(d.getMonth() + 1)}/${d.getFullYear()}` }
+    };
+
+    /* ══════════════════════════════════════
+       حالة التطبيق
+    ══════════════════════════════════════ */
+    const S = {
+      cap: { main: '', sub: '', sec: '', status: '', dH: '', dG: '', file: null },
+      q: { main: '', sub: '', sec: '', status: '', dH: '', dG: '', file: null, links: [] },
+      fDate: { g: '', h: '' },
+      fFile: null
+    };
+
+    /* ══════════════════════════════════════
+       التخزين — المجلد الذي يحدده المستخدم هو المصدر الوحيد
+       كل البيانات (الملاحظات) تُحفظ في ملف JSON واحد داخل المجلد.
+       ذاكرة مؤقتة (_notesCache) تبقي واجهة DB.get() متزامنة.
+    ══════════════════════════════════════ */
+    let _notesCache = [];
+    const NOTES_FILE = 'منظم_notes.json';
+
+    /* كتابة فعلية لكل الملاحظات إلى ملف المجلد (غير متزامنة قدر الإمكان) */
+    function _writeNotesNow() {
+      _persistPending = false;
+      const json = JSON.stringify(_notesCache);
+      /* أندرويد / ويندوز (جسر AndroidFS) */
+      if (window.AndroidFS && typeof window.AndroidFS.writeJson === 'function'
+        && localStorage.getItem('notes_storage') === 'android_fs') {
+        try { window.AndroidFS.writeJson(NOTES_FILE, json); } catch (e) { }
+        return;
+      }
+      /* سطح المكتب: File System Access (غير متزامن) */
+      if (_dirHandle) {
+        (async () => {
+          try {
+            const fh = await _dirHandle.getFileHandle(NOTES_FILE, { create: true });
+            const w = await fh.createWritable();
+            await w.write(json);
+            await w.close();
+          } catch (e) { }
+        })();
+        return;
+      }
+      /* احتياطي أخير: لا يوجد مجلد */
+      try { localStorage.setItem('notes', json); } catch (e) { }
+    }
+
+    let _persistTimer = null;
+    let _persistPending = false;
+
+    /* كتابة مؤجّلة: تتجمّع تغييرات متتابعة في كتابة واحدة → سرعة مع البيانات الكثيرة */
+    function _persistNotes() {
+      _persistPending = true;
+      if (_persistTimer) clearTimeout(_persistTimer);
+      _persistTimer = setTimeout(() => { _persistTimer = null; _writeNotesNow(); }, 700);
+    }
+
+    /* حفظ فوري لما هو معلّق (يُستدعى عند إخفاء/إغلاق التطبيق) */
+    function _flushNotes() {
+      if (_persistTimer) { clearTimeout(_persistTimer); _persistTimer = null; }
+      if (_persistPending) _writeNotesNow();
+    }
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') _flushNotes(); });
+    window.addEventListener('pagehide', _flushNotes);
+    window.addEventListener('beforeunload', _flushNotes);
+
+    /* تحميل الملاحظات من ملف المجلد إلى الذاكرة */
+    async function _loadNotes() {
+      let raw = '';
+      if (window.AndroidFS && typeof window.AndroidFS.readJson === 'function'
+        && localStorage.getItem('notes_storage') === 'android_fs') {
+        try { raw = window.AndroidFS.readJson(NOTES_FILE) || ''; } catch (e) { }
+      } else if (_dirHandle) {
+        try {
+          const fh = await _dirHandle.getFileHandle(NOTES_FILE);
+          const f = await fh.getFile();
+          raw = await f.text();
+        } catch (e) { /* لا يوجد ملف بعد */ }
+      } else {
+        raw = localStorage.getItem('notes') || '';
+      }
+      try {
+        const arr = JSON.parse(raw);
+        if (Array.isArray(arr)) _notesCache = arr;
+      } catch (e) { /* ملف فارغ أو غير صالح */ }
+      updCount();
+      if (typeof renderNotes === 'function') renderNotes();
+    }
+
+    const DB = {
+      get() { return _notesCache; },
+      set(a) { _notesCache = Array.isArray(a) ? a : []; _persistNotes(); updCount(); _syncRemindersDebounced(); },
+      add(n) { _notesCache.unshift(n); _persistNotes(); updCount(); _syncRemindersDebounced(); }
+    };
+
+    /* لم تعد هناك ازدواجية تخزين — الملف في المجلد هو المصدر */
+    function _autoBackup() { /* مُلغاة عمداً */ }
+
+    function updCount() {
+      const n = DB.get().length;
+      const b = document.getElementById('s-count');
+      if (b) b.textContent = n;
+    }
+
+    /* ══════════════════════════════════════
+       التنقل — نظام موحد للرجوع
+    ══════════════════════════════════════ */
+    var _inSettings = false;
+
+    function goto(p) {
+      document.querySelectorAll('.page').forEach(x => {
+        x.classList.remove('active');
+        x.style.display = 'none';
+      });
+      document.querySelectorAll('.nb[id^=nb]').forEach(x => x.classList.remove('active'));
+      let pg = document.getElementById('pg-' + p);
+      if (pg) { pg.classList.add('active'); pg.style.display = 'flex'; }
+      document.getElementById('nb-' + p)?.classList.add('active');
+      if (p === 'notes') renderNotes();
+      if (p === 'settings') renderSettings();
+    }
+
+    function toggleSettings() {
+      if (!_inSettings) {
+        _inSettings = true;
+        goto('settings');
+        history.pushState({ mn: 'settings' }, '');
+      } else {
+        _closeSettings();
+      }
+    }
+
+    /* ══════════════════════════════════════
+       شريط العنوان:
+       - click (يُطلق بعد touchend) → ترتيب  إذا لم يكن long-press
+       - touchstart timer 550ms      → إعدادات
+    ══════════════════════════════════════ */
+    (function() {
+      var _t    = null;    // مؤقت long-press
+      var _long = false;   // هل فعّل long-press؟
+
+      function _el() { return document.getElementById('app-title'); }
+
+      /* ── touchstart: ابدأ مؤقت الضغطة المستمرة ── */
+      function onStart() {
+        _long = false;
+        if (_t) { clearTimeout(_t); _t = null; }
+        var el = _el(); if (el) el.style.background = 'rgba(255,255,255,0.13)';
+        _t = setTimeout(function() {
+          _long = true; _t = null;
+          var el2 = _el();
+          if (el2) {
+            el2.style.background = 'rgba(255,255,255,0.28)';
+            setTimeout(function(){ el2.style.background = ''; }, 200);
+          }
+          toggleSettings();
+        }, 550);
+      }
+
+      /* ── touchend/touchcancel: ألغِ المؤقت فقط ── */
+      function onStop() {
+        if (_t) { clearTimeout(_t); _t = null; }
+        var el = _el(); if (el) el.style.background = '';
+      }
+
+      /* ── click: دائماً يُطلق بعد touchend (حتى لو أُلغي) — قرار الفتح هنا ── */
+      function onClick() {
+        if (_long) {
+          _long = false;   /* long-press انتهى بالفعل — تجاهل */
+        } else {
+          openSortPicker();
+        }
+      }
+
+      function _attach() {
+        var el = _el();
+        if (!el) { setTimeout(_attach, 100); return; }
+        el.addEventListener('touchstart',  onStart, { passive: true });
+        el.addEventListener('touchend',    onStop,  { passive: true });
+        el.addEventListener('touchcancel', onStop,  { passive: true });
+        el.addEventListener('touchmove',   onStop,  { passive: true });
+        el.addEventListener('click',       onClick);
+      }
+      _attach();
+
+      window._titlePressStart  = onStart;
+      window._titlePressEnd    = onStop;
+      window._titlePressCancel = onStop;
+    })();
+
+    /* ══ سطح المكتب فقط: الزر الأيمن للماوس يفتح الإعدادات ══
+       (لا يُفعَّل على أندرويد لأن اللمس يستخدم الضغط المطوّل) */
+    if (window.matchMedia && window.matchMedia('(hover: hover) and (pointer: fine)').matches) {
+      document.addEventListener('contextmenu', (e) => {
+        const tag = (e.target.tagName || '').toLowerCase();
+        if (tag === 'input' || tag === 'textarea' || e.target.isContentEditable) return; /* اترك قائمة التحرير */
+        e.preventDefault();
+        toggleSettings();
+      });
+    }
+
+    function _closeSettings() {
+      _inSettings = false;
+      goto('notes');
+    }
+
+
+
+    /* دالة مركزية تُعالج الرجوع من أي مصدر */
+    function _handleBack() {
+      if (_inSettings) {
+        _inSettings = false;
+        goto('notes');
+        return true;
+      }
+      const qOpen      = document.getElementById('q-ov')?.classList.contains('open');
+      const pOpen      = document.getElementById('picker-ov')?.classList.contains('open');
+      const cOpen      = document.getElementById('cal-ov')?.classList.contains('open');
+      const dOpen      = document.getElementById('dp-ov')?.classList.contains('open');
+      const eOpen      = document.getElementById('edit-ov')?.classList.contains('open');
+      const aOpen      = document.getElementById('att-ov')?.classList.contains('open');
+      const linkOpen   = document.getElementById('link-ov')?.style.display === 'flex';
+      if (linkOpen)   { closeLinkPicker(); return true; }
+      if (qOpen)  { closeQuick();   return true; }
+      if (pOpen)  { closePicker();  return true; }
+      if (cOpen)  { closeCal();     return true; }
+      if (dOpen)  { _closeDp();     return true; }
+      if (eOpen)  { closeEdit();    return true; }
+      if (aOpen)  { closeAttOv();   return true; }
+      return false;
+    }
+
+    /* ١ — حدث Capacitor/Cordova (الأولوية القصوى) */
+    document.addEventListener('backbutton', function (e) {
+      e.preventDefault();
+      _handleBack();
+    }, false);
+
+    /* ٢ — حدث ionBackButton (Capacitor 4+) */
+    document.addEventListener('ionBackButton', function (ev) {
+      ev.detail.register(10, function () { _handleBack(); });
+    });
+
+    /* ٣ — popstate (احتياطي لمتصفحات الويب العادية) */
+    window.addEventListener('load', function () {
+      history.pushState({ mn: 'guard' }, '');
+      history.pushState({ mn: 'guard' }, '');
+    });
+
+    window.addEventListener('popstate', function () {
+      _handleBack();
+      history.pushState({ mn: 'guard' }, '');
+    });
+
+    /* ══ واجهة JS للـ Native back button ══ */
+    window._appHandleBack = function () {
+      return _handleBack();
+    };
+
+    function hPush() {
+      history.pushState({ mn: 'guard' }, '');
+    }
+    function openPicker(t) {
+      hPush();
+      let items = [], title = '', cols = 2, create = false;
+      if (t === 'main') {
+        title = '🗂️ الفئة الرئيسية';
+        items = Object.keys(CATS).map(k => ({ n: k, i: CATS[k].ic }));
+        create = true;
+      } else if (t === 'sub') {
+        if (!S.cap.main) { showFb('اختر الرئيسية أولاً', 1); return; }
+        title = `📌 ${S.cap.main}`;
+        items = Object.keys(CATS[S.cap.main].sub).map(k => ({ n: k, i: CATS[S.cap.main].sub[k].ic }));
+        create = true;
+      } else if (t === 'sec') {
+        if (!S.cap.main || !S.cap.sub) { showFb('اختر الرئيسية والفرعية', 1); return; }
+        const d = CATS[S.cap.main].sub[S.cap.sub].det;
+        if (!d.length) { showFb('لا توجد تفاصيل لهذه الفئة', 1); return; }
+        title = `🎯 ${S.cap.sub}`;
+        items = d.map(x => { const m = x.match(/^(\p{Emoji_Presentation}|\p{Extended_Pictographic})/u); return { n: m ? x.slice(m[0].length).trim() : x, i: m ? m[0] : '🔸', full: x }; });
+      } else if (t === 'status') {
+        title = '📊 الحالة';
+        items = Object.keys(SMAP).map(k => ({ n: k, i: SMAP[k].ic }));
+        cols = 1;
+      }
+      showPicker(title, items, cols, create, (ic, nm, full) => {
+        if (t === 'main') {
+          S.cap.main = nm; S.cap.sub = ''; S.cap.sec = '';
+          setCC('main', ic, nm); setCC('sub', '📌', 'اختر الفرعية', 1); setCC('sec', '🎯', 'اختر الثانوية', 1);
+        } else if (t === 'sub') {
+          S.cap.sub = nm; S.cap.sec = '';
+          setCC('sub', ic, nm); setCC('sec', '🎯', 'اختر الثانوية', 1);
+        } else if (t === 'sec') {
+          S.cap.sec = full || nm; setCC('sec', ic, nm);
+        } else if (t === 'status') {
+          S.cap.status = nm; setCC('status', ic, nm);
+        }
+      });
+    }
+
+    function openQPicker(t) {
+      let items = [], title = '';
+      if (t === 'main') {
+        title = '🗂️ الرئيسية'; items = Object.keys(CATS).map(k => ({ n: k, i: CATS[k].ic, v: k }));
+      } else if (t === 'sub') {
+        if (!S.q.main) { showFb('اختر الرئيسية', 1); return; }
+        title = `📌 ${S.q.main}`; items = Object.keys(CATS[S.q.main].sub).map(k => ({ n: k, i: CATS[S.q.main].sub[k].ic, v: k }));
+      } else if (t === 'sec') {
+        if (!S.q.main || !S.q.sub) { showFb('اختر الرئيسية والفرعية', 1); return; }
+        const d = CATS[S.q.main].sub[S.q.sub].det;
+        if (!d.length) { showFb('لا توجد تفاصيل', 1); return; }
+        title = `🎯 ${S.q.sub}`;
+        items = d.map(x => { const m = x.match(/^(\p{Emoji_Presentation}|\p{Extended_Pictographic})/u); return { n: m ? x.slice(m[0].length).trim() : x, i: m ? m[0] : '🔸', v: x, full: x }; });
+      } else if (t === 'status') {
+        title = '📊 الحالة'; items = Object.keys(SMAP).map(k => ({ n: k, i: SMAP[k].ic, v: k }));
+      }
+      const curVal = (t === 'sec' ? S.q.sec : t === 'status' ? S.q.status : t === 'sub' ? S.q.sub : S.q.main) || '';
+      openDragPicker(title, items, curVal, (item) => {
+        if (t === 'main') {
+          S.q.main = item.v; S.q.sub = ''; S.q.sec = ''; setQC('main', item.i, item.n);
+          setQC('sub', '📌', 'الفرعية', 1); setQC('sec', '🎯', 'الثانوية', 1);
+          /* انتقل تلقائياً للفرعية إن وُجدت، وإلا أغلق */
+          const subs = CATS[item.v]?.sub || {};
+          if (Object.keys(subs).length) setTimeout(() => openQPicker('sub'), 80);
+          else _closeDp();
+        }
+        else if (t === 'sub') {
+          S.q.sub = item.v; S.q.sec = ''; setQC('sub', item.i, item.n);
+          setQC('sec', '🎯', 'الثانوية', 1);
+          const det = CATS[S.q.main]?.sub[item.v]?.det || [];
+          if (det.length) setTimeout(() => openQPicker('sec'), 80);
+          else _closeDp();
+        }
+        else if (t === 'sec') { S.q.sec = item.full || item.v; setQC('sec', item.i, item.n); _closeDp(); }
+        else if (t === 'status') { S.q.status = item.v; setQC('status', item.i, item.n); _closeDp(); }
+      });
+    }
+
+    function showPicker(title, items, cols, create, cb) {
+      const box = document.getElementById('picker-box');
+      let h = `<div class="org-picker-title">${title}</div>`;
+      if (create) h += `<button class="org-picker-create-btn">➕ إضافة جديد</button>`;
+      h += `<div class="org-picker-grid" style="--org-cols:${cols}">`;
+      items.forEach((it, i) => h += `<button class="org-picker-btn" data-i="${i}"><span class="org-picker-btn-icon">${it.i}</span><span class="org-picker-btn-text">${it.n}</span></button>`);
+      h += `</div><button class="org-picker-close-btn">إغلاق</button>`;
+      box.innerHTML = h;
+      box.querySelectorAll('.org-picker-btn').forEach((b, i) => {
+        b.onclick = () => { cb(items[i].i, items[i].n, items[i].full || items[i].n, items[i].v); closePicker(); };
+      });
+      box.querySelector('.org-picker-close-btn').onclick = closePicker;
+      const cr = box.querySelector('.org-picker-create-btn');
+      if (cr) cr.onclick = () => showFb('يمكن إضافة الفئات من ملف الفئات.md');
+      document.getElementById('picker-ov').classList.add('open');
+    }
+    function closePicker() { document.getElementById('picker-ov').classList.remove('open'); }
+
+    function setCC(k, ic, tx, ph = 0) {
+      const i = document.getElementById('c-ic-' + k), t = document.getElementById('c-tx-' + k);
+      if (i) i.textContent = ic;
+      if (t) {
+        t.textContent = tx;
+        t.style.color = ph ? 'rgba(255,255,255,.45)' : 'rgba(255,255,255,.95)';
+      }
+    }
+    function setQC(k, ic, tx, ph = 0) {
+      const i = document.getElementById('q-ic-' + k), t = document.getElementById('q-tx-' + k);
+      if (i) i.textContent = ic;
+      if (t) { t.textContent = tx; t.className = 'org-ct' + (ph ? ' ph' : ''); }
+    }
+
+    /* ══════════════════════════════════════
+       التقويم
+    ══════════════════════════════════════ */
+    let calTarget = null, calView = { y: 0, m: 0 };
+
+    function openCal(t) {
+      calTarget = t; const h = H.today(); calView = { y: h.y, m: h.m };
+      renderCal(); document.getElementById('cal-ov').classList.add('open');
+      hPush();
+    }
+    function closeCal() { document.getElementById('cal-ov').classList.remove('open'); }
+    function calStep(d) { calView.m += d; if (calView.m < 1) { calView.m = 12; calView.y--; } if (calView.m > 12) { calView.m = 1; calView.y++; } renderCal(); }
+
+    function renderCal() {
+      const { y, m } = calView, days = H.md(y, m - 1), fg = H.toG({ y, m, d: 1 });
+      document.getElementById('cal-th').textContent = `${H.mn[m - 1]} ${y}`;
+      document.getElementById('cal-tg').textContent = `${H.gn[fg.getMonth()]} ${fg.getFullYear()} م`;
+      const g = document.getElementById('cal-grid'); g.innerHTML = '';
+      for (let i = 0; i < fg.getDay(); i++) { const e = document.createElement('div'); e.className = 'cal-day empty'; g.appendChild(e); }
+      const th = H.today();
+      // التاريخ المحدد حسب الهدف
+      let selH = '';
+      if (calTarget === 'cap') selH = S.cap.dH;
+      else if (calTarget === 'quick') selH = S.q.dH;
+      else if (calTarget === 'filter') selH = S.fDate.h;
+      for (let d = 1; d <= days; d++) {
+        const gd = H.toG({ y, m, d });
+        const c = document.createElement('div'); c.className = 'cal-day';
+        if (th.y === y && th.m === m && th.d === d) c.classList.add('today');
+        if (selH === H.fmtH({ y, m, d })) c.classList.add('selected');
+        c.innerHTML = `<span class="dh">${toArabic(d)}</span><span class="dg">${toArabic(gd.getDate())}</span>`;
+        const _y = y, _m = m, _d = d, _gd = new Date(gd);
+        c.onclick = () => {
+          const dh = H.fmtH({ y: _y, m: _m, d: _d }), dg = H.fmtG(_gd);
+          if (calTarget === 'cap') { S.cap.dH = dh; S.cap.dG = dg; setDateDisp('cap', dh, dg); }
+          else if (calTarget === 'quick') { S.q.dH = dh; S.q.dG = dg; setDateDisp('quick', dh, dg); }
+          else if (calTarget === 'edit') {
+            _editDH = dh; _editDG = dg;
+            const dtx = document.getElementById('edit-date-tx');
+            if (dtx) { dtx.textContent = dh + ' | ' + dg; dtx.style.color = '#fff'; }
+          }
+          else if (calTarget === 'filter') {
+            S.fDate = { g: dg, h: dh };
+            document.getElementById('f-date-ph').style.display = 'none';
+            const fdh = document.getElementById('f-dh');
+            const fdg = document.getElementById('f-dg');
+            fdh.textContent = toArabic(dh); fdh.style.display = 'inline';
+            const dgParts = dg.split('/'); // dd/mm/yyyy
+            const dgRTL = dgParts[2] + '/' + dgParts[1] + '/' + dgParts[0]; // yyyy/mm/dd
+            fdg.textContent = toArabic(dgRTL); fdg.style.display = 'inline';
+            renderNotes();
+          }
+          closeCal(); renderCal();
+        };
+        g.appendChild(c);
+      }
+    }
+    /* تحويل الأرقام إلى عربية */
+    function toArabic(s) {
+      return String(s).replace(/[0-9]/g, d => '٠١٢٣٤٥٦٧٨٩'[d]);
+    }
+    /* تحويل الأرقام العربية إلى غربية (للمقارنة الداخلية) */
+    function toWestern(s) {
+      return String(s)
+        .replace(/[٠١٢٣٤٥٦٧٨٩]/g, d => d.charCodeAt(0) - 1632)
+        .replace(/[۰۱۲۳۴۵۶۷۸۹]/g, d => d.charCodeAt(0) - 1776);
+    }
+
+    function setDateDisp(t, dh, dg) {
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      let gDay = '—', gMon = '';
+      if (dg) {
+        if (dg.includes('/')) { // dd/mm/yyyy (تنسيق التقويم)
+          const p = dg.split('/');
+          gDay = parseInt(p[0]) || '—';
+          gMon = months[parseInt(p[1]) - 1] || '';
+        } else { // yyyy-mm-dd (تنسيق ISO)
+          const p = dg.split('-');
+          gDay = parseInt(p[2]) || '—';
+          gMon = months[parseInt(p[1]) - 1] || '';
+        }
+      }
+
+      const pfx = t === 'cap' ? 'c' : 'q';
+      const elMon = document.getElementById(pfx + '-cal-month');
+      const elDay = document.getElementById(pfx + '-cal-day');
+      const elPh = document.getElementById(pfx + '-dph');
+      const elDh = document.getElementById(pfx + '-dh');
+      const elDg = document.getElementById(pfx + '-dg');
+      const elTxt = document.getElementById('f-date-txt-' + (t === 'cap' ? 'cap' : 'quick'));
+
+      if (elMon) elMon.textContent = gMon;
+      if (elDay) elDay.textContent = toArabic(gDay);
+      if (elPh) elPh.style.display = 'none';
+      if (elTxt) elTxt.style.display = 'flex';
+      if (elDh) elDh.textContent = toArabic(dh);
+      if (elDg) elDg.textContent = toArabic(dg);
+    }
+
+    /* ══════════════════════════════════════
+       حفظ
+    ══════════════════════════════════════ */
+    function triggerFile(t) {
+      document.getElementById(t === 'quick' ? 'q-file-input' : 'f-file-input').click();
+    }
+    async function handleFile(e, t) {
+      const f = e.target.files[0]; if (!f) return;
+      const fName = f.name.replace(/[\\/:*?"<>|]/g, '');
+      const noteFile = { name: fName, type: f.type, lastMod: f.lastModified };
+      if (t === 'quick') { S.q.file = noteFile; document.getElementById('q-attach-cell').style.background = 'rgba(34,197,94,0.2)'; }
+      else { S.fFile = noteFile; document.getElementById('f-attach-cell').style.background = 'rgba(34,197,94,0.2)'; }
+      showFb('📎 تم إرفاق: ' + fName);
+      await _saveAttachment(f);
+    }
+    async function _saveAttachment(file) {
+      const folderName = "المرفقات";
+      const fName = file.name.replace(/[\\/:*?"<>|]/g, '');
+      const storage = localStorage.getItem('notes_storage');
+      if (window.AndroidFS && storage === 'android_fs') {
+        try {
+          const reader = new FileReader();
+          reader.onload = () => {
+            const base64 = reader.result.split(',')[1];
+            if (typeof window.AndroidFS.saveAttachment === 'function') {
+              window.AndroidFS.saveAttachment(folderName, fName, base64);
+              showFb('✅ تم الحفظ في المرفقات');
+            } else if (typeof window.AndroidFS.writeFile === 'function') {
+              window.AndroidFS.writeFile(folderName, fName, base64);
+              showFb('✅ تم الحفظ (تنسيق نصي)');
+            } else {
+              showFb('⚠️ Bridge أندرويد لا يدعم حفظ الملفات حالياً', 1);
+            }
+          };
+          reader.readAsDataURL(file);
+        } catch (e) { showFb('❌ خطأ في معالجة الملف', 1); }
+      } else if (_dirHandle) {
+        try {
+          const attDir = await _dirHandle.getDirectoryHandle(folderName, { create: true });
+          const fh = await attDir.getFileHandle(fName, { create: true });
+          const w = await fh.createWritable(); await w.write(file); await w.close();
+          showFb('✅ تم الحفظ في المرفقات');
+        } catch (e) { showFb('❌ فشل حفظ المرفق', 1); }
+      }
+    }
+    function buildNote(st, tid, nid, file) {
+      return {
+        id: Date.now(),
+        main: st.main, sub: st.sub, sec: st.sec,
+        text: (document.getElementById(tid)?.value || '').trim(),
+        num: (document.getElementById(nid)?.value || '').trim(),
+        status: st.status, dH: st.dH, dG: st.dG,
+        file: file || null,
+        links: Array.isArray(st.links) ? st.links.slice() : [],
+        ts: new Date().toISOString()
+      };
+    }
+    function saveCapture() {
+      const n = buildNote(S.cap, 'c-inp-text', 'c-inp-num', S.cap.file);
+      if (!n.main && !n.text) { showFb('أدخل الفئة الرئيسية أو النص', 1); return; }
+      DB.add(n); resetCap(); showFb('✅ تم حفظ الملاحظة');
+    }
+    function _doSaveQuick() {
+      const n = buildNote(S.q, 'q-text', 'q-num', S.q.file);
+      if (!n.main && !n.text && !n.num && (!n.links || !n.links.length)) return null;
+      DB.add(n);
+      /* ربط ثنائي الاتجاه */
+      if (n.links && n.links.length) {
+        const all = DB.get();
+        n.links.forEach(lid => {
+          const t = all.find(x => x.id === lid);
+          if (t) { if (!Array.isArray(t.links)) t.links = []; if (!t.links.includes(n.id)) t.links.push(n.id); }
+        });
+        DB.set(all);
+        _autoBackup(all);
+      }
+      return n;
+    }
+    function saveQuick() {
+      const n = _doSaveQuick();
+      if (!n) { showFb('أدخل الفئة أو النص', 1); return; }
+      closeQuick(true);
+      showFb('⚡ تم الحفظ' + (n.links && n.links.length ? ' مع ' + n.links.length + ' ربط' : ''));
+      setTimeout(renderNotes, 400);
+    }
+    function saveFromFilter() {
+      const txt  = document.getElementById('f-text')?.value.trim() || '';
+      const main = FP.main || '';
+      const sub  = FP.sub  || '';
+      const sec  = FP.sec  || '';
+      const status = FP.status || '';
+
+      if (!main && !txt) { showFb('أدخل الفئة الرئيسية أو النص', 1); return; }
+      _doSaveFromFilter(main, sub, sec, txt, status);
+    }
+    function _doSaveFromFilter(main, sub, sec, txt, status, dg) {
+      DB.add({
+        id: Date.now(), main: main||'', sub: sub||'', sec: sec||'',
+        text: txt||'', num: document.getElementById('f-num')?.value.trim()||'',
+        status: status||'', dH: S.fDate.h||'', dG: dg||S.fDate.g||'',
+        file: S.fFile||null, ts: new Date().toISOString()
+      });
+      /* مسح الحقول */
+      document.getElementById('f-text').value = '';
+      S.fFile = null;
+      document.getElementById('f-attach-cell').style.background = '';
+      setTimeout(renderNotes, 100);
+    }
+
+    function resetCap() {
+      S.cap = { main: '', sub: '', sec: '', status: '', dH: '', dG: '', file: null };
+      setCC('main', '📁', 'الكل', 1); setCC('sub', '📌', 'الكل', 1);
+      setCC('sec', '🎯', 'الكل', 1); setCC('status', '📊', 'الكل', 1);
+      document.getElementById('c-inp-text').value = '';
+      document.getElementById('c-inp-num').value = '';
+      // إعادة خلية التاريخ
+      const calDay = document.getElementById('c-cal-day');
+      const calMon = document.getElementById('c-cal-month');
+      const elPh = document.getElementById('c-dph');
+      const elTxt = document.getElementById('f-date-txt-cap');
+      if (calDay) calDay.textContent = '—';
+      if (calMon) calMon.textContent = '';
+      if (elPh) elPh.style.display = '';
+      if (elTxt) elTxt.style.display = 'none';
+      setToday('cap');
+    }
+
+    /* ══════════════════════════════════════
+       الفلاتر المتسلسلة لصفحة الملاحظات
+    ══════════════════════════════════════ */
+    function fillSel(id, opts) {
+      const s = document.getElementById(id); if (!s) return;
+      const v = s.value; s.innerHTML = '';
+      opts.forEach(o => { const el = document.createElement('option'); el.value = o.v; el.textContent = o.t; s.appendChild(el); });
+      s.value = v;
+    }
+    function onFMain() {
+      const m = document.getElementById('f-main').value;
+      let sub = [{ v: '', t: 'الكل' }];
+      if (m && CATS[m]) sub = [...sub, ...Object.keys(CATS[m].sub).map(k => ({ v: k, t: `${CATS[m].sub[k].ic} ${k}` }))];
+      fillSel('f-sub', sub);
+      fillSel('f-sec', [{ v: '', t: 'الكل' }]);
+      renderNotes();
+    }
+    function onFSub() {
+      const m = document.getElementById('f-main').value, s = document.getElementById('f-sub').value;
+      let sec = [{ v: '', t: 'الكل' }];
+      if (m && s && CATS[m]?.sub[s]) sec = [...sec, ...CATS[m].sub[s].det.map(d => ({ v: d, t: d }))];
+      fillSel('f-sec', sec);
+      renderNotes();
+    }
+
+    /* ══════════════════════════════════════
+       عرض الملاحظات
+    ══════════════════════════════════════ */
+    function normalizeD(s) {
+      if (!s) return '';
+      return String(s).replace(/[٠١٢٣٤٥٦٧٨٩]/g, d => d.charCodeAt(0) - 1632).replace(/[۰۱۲۳۴۵۶۷۸۹]/g, d => d.charCodeAt(0) - 1776);
+    }
+    function cleanTxt(s) {
+      if (!s) return '';
+      return s.replace(/[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]/gu, '').trim();
+    }
+
+
+    /* ══════════════════════════════════════
+       Picker للفلاتر
+    ══════════════════════════════════════ */
+    const FP = { main: '', sub: '', sec: '', status: '', view: 'cards' };
+
+    function setFP(k, ic, tx, val) {
+      FP[k] = val;
+      const i = document.getElementById('fp-' + k + '-ic');
+      const t = document.getElementById('fp-' + k + '-tx');
+      if (i) i.textContent = ic;
+      if (t) { t.textContent = tx; t.style.color = val ? 'rgba(255,255,255,.95)' : 'rgba(255,255,255,.55)'; }
+      if (k === 'status') {
+        const el = document.getElementById('fp-status-cell'); if (el) el.classList.toggle('active', !!val);
+      }
+      if (k === 'view') {
+        const el = document.getElementById('fp-view-cell'); if (el) el.classList.toggle('active', val && val !== 'cards');
+      }
+      if (['main', 'sub', 'sec'].includes(k)) { if (typeof _updateCatChip === 'function') _updateCatChip(); }
+      renderNotes();
+    }
+
+    function openFPicker(t) {
+      /* t يمكن أن يكون 'cat' (متسلسل) أو 'status' أو 'view' */
+      if (t === 'cat') {
+        _openCatStep('main');
+        return;
+      }
+      /* status و view */
+      let items = [], title = '';
+      if (t === 'status') {
+        title = '📊 الحالة';
+        items = [{ n: 'الكل', i: '📊', v: '' }, ...Object.keys(SMAP).map(k => ({ n: k, i: SMAP[k].ic, v: k }))];
+      } else if (t === 'view') {
+        title = '🎯 العرض';
+        items = [{ n: 'بطاقات', i: '🃏', v: 'cards' }, { n: 'جدول', i: '📊', v: 'table' }];
+      }
+      openDragPicker(title, items, FP[t] || '', (item) => {
+        _closeDp();
+        if (t === 'status') { setFP('status', item.i, item.n, item.v); }
+        else if (t === 'view') { setFP('view', item.i, item.n, item.v); }
+        renderNotes();
+      });
+    }
+
+    function _openCatStep(step) {
+      let items = [], title = '';
+      if (step === 'main') {
+        title = '🗂️ الرئيسية';
+        items = [{ n: 'الكل', i: '🗂️', v: '' }, ...Object.keys(CATS).map(k => ({ n: k, i: CATS[k].ic, v: k }))];
+        openDragPicker(title, items, FP.main || '', (item) => {
+          setFP('main', item.i, item.n, item.v);
+          setFP('sub', '📋', 'الكل', '');
+          setFP('sec', '🔸', 'الكل', '');
+          _updateCatChip();
+          renderNotes();
+          if (item.v) { setTimeout(() => _openCatStep('sub'), 80); }
+          else { _closeDp(); }
+        });
+      } else if (step === 'sub') {
+        const sub = FP.main ? CATS[FP.main]?.sub : null;
+        if (!sub || !Object.keys(sub).length) return;
+        title = `📌 ${FP.main}`;
+        items = [{ n: 'الكل', i: '📋', v: '' }, ...Object.keys(sub).map(k => ({ n: k, i: sub[k].ic, v: k }))];
+        openDragPicker(title, items, FP.sub || '', (item) => {
+          setFP('sub', item.i, item.n, item.v);
+          setFP('sec', '🔸', 'الكل', '');
+          _updateCatChip();
+          renderNotes();
+          if (item.v) { setTimeout(() => _openCatStep('sec'), 80); }
+          else { _closeDp(); }
+        });
+      } else if (step === 'sec') {
+        const sub = FP.main && FP.sub ? CATS[FP.main]?.sub[FP.sub] : null;
+        if (!sub || !sub.det || !sub.det.length) return;
+        title = `🎯 ${FP.sub}`;
+        items = [{ n: 'الكل', i: '🔸', v: '' }, ...sub.det.map(x => {
+          const m = x.match(/^(\p{Emoji_Presentation}|\p{Extended_Pictographic})/u);
+          return { n: m ? x.slice(m[0].length).trim() : x, i: m ? m[0] : '🔸', v: x };
+        })];
+        openDragPicker(title, items, FP.sec || '', (item) => {
+          _closeDp();
+          setFP('sec', item.i, item.n, item.v);
+          _updateCatChip();
+          renderNotes();
+        });
+      }
+    }
+
+    function _updateCatChip() {
+      /* يحدّث نص الـ chip الواحد ليعكس الاختيار */
+      const ic = document.getElementById('fp-cat-ic');
+      const tx = document.getElementById('fp-cat-tx');
+      if (!ic || !tx) return;
+      if (FP.sec) {
+        const m = FP.sec.match(/^(\p{Emoji_Presentation}|\p{Extended_Pictographic})/u);
+        ic.textContent = m ? m[0] : '🔸';
+        tx.textContent = FP.sec.replace(/^(\p{Emoji_Presentation}|\p{Extended_Pictographic})\s*/u, '').slice(0, 14);
+      } else if (FP.sub) {
+        const sub = CATS[FP.main]?.sub[FP.sub];
+        ic.textContent = sub?.ic || '📋'; tx.textContent = FP.sub;
+      } else if (FP.main) {
+        ic.textContent = CATS[FP.main]?.ic || '🗂️'; tx.textContent = FP.main;
+      } else {
+        ic.textContent = '🗂️'; tx.textContent = 'التصنيف';
+      }
+      const cell = document.getElementById('fp-cat-cell');
+      if (cell) cell.classList.toggle('active', !!(FP.main || FP.sub || FP.sec));
+    }
+
+    function _updateFilterButtonStates() {
+      const sc = document.getElementById('fp-status-cell'); if (sc) sc.classList.toggle('active', !!FP.status);
+      const vc = document.getElementById('fp-view-cell'); if (vc) vc.classList.toggle('active', FP.view !== 'cards');
+    }
+
+    function renderNotes() {
+      const fM = FP.main || '';
+      const fS = FP.sub || '';
+      const fSc = FP.sec || '';
+      const fTx = (document.getElementById('f-text')?.value || '').toLowerCase().trim();
+      const fN = normalizeD(document.getElementById('f-num')?.value || '');
+      const fSt = FP.status || '';
+      const fD = S.fDate.g || '';
+      const fV = FP.view || 'cards';
+      const hasFilter = !!(fM || fS || fSc || fTx || fN || fSt || fD);
+      const statsEl = document.getElementById('stats');
+      const resEl = document.getElementById('results');
+
+      let notes = DB.get();
+      if (!hasFilter && _curSort === 'default') {
+        const now = Date.now();
+        notes = notes.filter(n => {
+          if (n.status !== 'قيد التنفيذ') return false;
+          if (n.dG && parseG(n.dG) > now) return false;
+          return true;
+        });
+        statsEl.textContent = `⚡ المهام الحالية: ${notes.length}`;
+      } else {
+        notes = notes.filter(n => {
+          if (fM && n.main !== fM) return false;
+          if (fS && n.sub !== fS) return false;
+          if (fSc && cleanTxt(n.sec) !== cleanTxt(fSc)) return false;
+          if (fTx && !JSON.stringify(n).toLowerCase().includes(fTx)) return false;
+          if (fN && !normalizeD(JSON.stringify(n)).includes(fN)) return false;
+          if (fSt && n.status !== fSt) return false;
+          if (fD) { const _ng = parseG(n.dG); if (!_ng || _ng > parseG(fD)) return false; }
+          return true;
+        });
+        notes = _applySort(notes);
+        /* حساب مجموع الأرقام إن وُجدت */
+        const numsArr = notes.map(n => parseFloat(normalizeD(n.num))).filter(v => !isNaN(v) && v !== 0);
+        let statsHtml = `📋 ${notes.length} ملاحظة`;
+        if (numsArr.length > 1) {
+          const total = numsArr.reduce((a, b) => a + b, 0);
+          const totalFmt = total % 1 === 0 ? total.toLocaleString('ar-SA') : total.toFixed(2);
+          statsHtml += ` &nbsp;·&nbsp; <span style="color:#86efac;font-weight:700;">Σ ${totalFmt}</span>`;
+        }
+        statsEl.innerHTML = statsHtml;
+        /* إعادة statsEl.textContent لمنع إعادة استخدام innerHTML لاحقاً */
+        return (resEl.innerHTML = '', !notes.length
+          ? (resEl.innerHTML = '<div class="orgtbl-empty">لا توجد نتائج</div>', undefined)
+          : (fV === 'cards' ? renderCards(notes, resEl) : renderTable(notes, resEl)));
+      }
+
+      resEl.innerHTML = '';
+      if (!notes.length) { resEl.innerHTML = '<div class="orgtbl-empty">لا توجد نتائج</div>'; return; }
+      if (fV === 'cards') renderCards(notes, resEl);
+      else renderTable(notes, resEl);
+    }
+
+    function parseG(s) {
+      if (!s) return 0;
+      if (s.includes('/')) {
+        const p = s.split('/'); // dd/mm/yyyy
+        if (p.length < 3) return 0;
+        return new Date(p[2], p[1] - 1, p[0]).getTime();
+      } else {
+        const p = s.split('-'); // yyyy-mm-dd
+        if (p.length < 3) return 0;
+        return new Date(p[0], p[1] - 1, p[2]).getTime();
+      }
+    }
+
+    /* تحويل dG (dd/mm/yyyy أو yyyy-mm-dd) إلى نص عرض: dd/mm/yyyy */
+    function fmtGDisp(dg) {
+      if (!dg) return '';
+      if (dg.includes('/')) return dg; // dd/mm/yyyy — جاهز
+      const p = dg.split('-');         // yyyy-mm-dd
+      if (p.length < 3) return dg;
+      return p[2] + '/' + p[1] + '/' + p[0];
+    }
+    function badgeCls(s) { return SMAP[s]?.cls || 'badge-def'; }
+    function esc(s) { return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+
+    function renderTable(ns, con) {
+      const t = document.createElement('table'); t.className = 'orgtbl-table';
+      const hr = t.createTHead().insertRow();
+      ['📝 النص', '🔢 الرقم', '🔸 الثانوية', '📊 الحالة', '📅 التاريخ', '📎'].forEach(h => { const th = document.createElement('th'); th.textContent = h; hr.appendChild(th); });
+      const tb = t.createTBody();
+      ns.forEach(n => {
+        const tr = tb.insertRow();
+        const stCls = _stClass(n.status);
+        if (stCls) tr.classList.add(stCls);
+        tr.onclick = () => openNote(n.id);
+        const td1 = tr.insertCell(); td1.className = 'td-text'; td1.textContent = String(n.text || '—').slice(0, 80) + (n.text?.length > 80 ? '…' : '');
+        const td2 = tr.insertCell(); td2.className = 'td-c'; td2.textContent = n.num || '—';
+        const td3 = tr.insertCell(); td3.className = 'td-c'; td3.textContent = cleanTxt(n.sec) || '—';
+        const td4 = tr.insertCell(); td4.className = 'td-c';
+        const b = document.createElement('span'); b.className = 'org-badge ' + badgeCls(n.status);
+        b.textContent = `${SMAP[n.status]?.ic || ''} ${n.status || '—'}`; td4.appendChild(b);
+        const td5 = tr.insertCell(); td5.className = 'td-date';
+        const hDate = n.dH ? `<span style="color:rgba(255,255,255,.85);font-weight:600">${n.dH}</span>` : '—';
+        const gDate = n.dG ? `<span style="color:rgba(255,255,255,.45);font-size:11px">${fmtGDisp(n.dG)}</span>` : '';
+        td5.innerHTML = hDate + (gDate ? '<br>' + gDate : '');
+        /* عمود المرفق */
+        const td6 = tr.insertCell(); td6.className = 'td-c';
+        if (n.file) {
+          const fIc = document.createElement('span');
+          fIc.textContent = _fileIcon(n.file);
+          fIc.style.cssText = 'cursor:pointer;font-size:17px';
+          fIc.title = typeof n.file === 'object' ? n.file.name : n.file;
+          fIc.onclick = ev => { ev.stopPropagation(); openAttOv(n.id); };
+          td6.appendChild(fIc);
+        }
+      });
+      con.appendChild(t);
+    }
+    function renderCards(ns, con) {
+      const g = document.createElement('div'); g.className = 'orgtbl-cards';
+      ns.forEach(n => {
+        const c = document.createElement('div');
+        c.className = 'orgtbl-card ' + _stClass(n.status);
+        c.onclick = () => openNote(n.id);
+
+        /* شريط التصنيف */
+        if (n.main || n.sub) {
+          const catLine = document.createElement('div');
+          catLine.style.cssText = 'font-size:10px;color:rgba(255,255,255,0.45);margin-bottom:4px;display:flex;align-items:center;gap:4px;flex-wrap:wrap;';
+          const mainIc = (n.main && CATS[n.main]?.ic) || '';
+          const subIc  = (n.main && n.sub && CATS[n.main]?.sub[n.sub]?.ic) || '';
+          let catHtml = '';
+          if (n.main) catHtml += `<span>${mainIc} ${n.main}</span>`;
+          if (n.sub)  catHtml += `<span style="opacity:.7">›</span><span style="color:rgba(255,255,255,0.6)">${subIc} ${n.sub}</span>`;
+          catLine.innerHTML = catHtml;
+          c.appendChild(catLine);
+        }
+        if (n.text) {
+          const t = document.createElement('div'); t.className = 'orgtbl-card-text';
+          t.textContent = String(n.text).slice(0, 100) + (n.text.length > 100 ? '…' : '');
+          c.appendChild(t);
+        }
+        if (n.sec) { const s = document.createElement('small'); s.textContent = cleanTxt(n.sec); s.style.cssText = 'color:#a78bfa;font-size:10px'; c.appendChild(s); }
+
+        /* مؤشر الروابط */
+        const _allNotes = DB.get();
+        const _linkCount = (Array.isArray(n.links) ? n.links.length : 0)
+          + _allNotes.filter(x => Array.isArray(x.links) && x.links.includes(n.id) && !(n.links || []).includes(x.id)).length;
+        if (_linkCount > 0) {
+          const lk = document.createElement('div');
+          lk.style.cssText = 'font-size:10px;color:#a78bfa;margin-top:3px;display:flex;align-items:center;gap:3px;';
+          lk.innerHTML = `🔗 ${_linkCount} مرتبطة`;
+          c.appendChild(lk);
+        }
+
+        const f = document.createElement('div'); f.className = 'orgtbl-card-footer';
+        const b = document.createElement('span'); b.className = 'org-badge ' + badgeCls(n.status);
+        b.textContent = `${SMAP[n.status]?.ic || ''} ${n.status || '—'}`;
+        const d = document.createElement('span');
+        d.innerHTML = n.dH ? `<span style="font-size:10px">${n.dH}</span>` : (fmtGDisp(n.dG) || '—');
+
+        /* أيقونة المرفق الديناميكية */
+        if (n.file) {
+          const fIc = document.createElement('span');
+          fIc.textContent = _fileIcon(n.file);
+          fIc.style.cssText = 'font-size:16px;cursor:pointer;margin-right:4px';
+          const fName = typeof n.file === 'object' ? n.file.name : n.file;
+          fIc.title = fName;
+          /* ضغطة عادية: فتح الملف */
+          fIc.addEventListener('click', ev => { ev.stopPropagation(); openAttFile._nid = n.id; _attNoteId = n.id; openAttFile(); });
+          /* ضغطة طويلة: نافذة الإدارة */
+          let _lpt;
+          fIc.addEventListener('touchstart', ev => { _lpt = setTimeout(() => { ev.stopPropagation(); openAttOv(n.id); }, 600); }, { passive: true });
+          fIc.addEventListener('touchend', () => clearTimeout(_lpt), { passive: true });
+          fIc.addEventListener('touchmove', () => clearTimeout(_lpt), { passive: true });
+          fIc.addEventListener('contextmenu', ev => { ev.preventDefault(); ev.stopPropagation(); openAttOv(n.id); });
+          f.appendChild(fIc);
+        }
+
+        f.appendChild(b); f.appendChild(d); c.appendChild(f);
+        g.appendChild(c);
+      });
+      con.appendChild(g);
+    }
+    function clearFilters() {
+      FP.main = ''; FP.sub = ''; FP.sec = ''; FP.status = ''; S.fFile = null;
+      document.getElementById('f-attach-cell').style.background = '';
+      if (typeof _updateCatChip === 'function') _updateCatChip();
+      _updateFilterButtonStates();
+      /* إعادة أيقونة الحالة للافتراضي */
+      const sc = document.getElementById('fp-status-cell'); if (sc) sc.classList.remove('active');
+      const sic = document.getElementById('fp-status-ic'); if (sic) sic.textContent = '📊';
+      /* إعادة أيقونة العرض */
+      const vic = document.getElementById('fp-view-ic'); if (vic) vic.textContent = '🃏';
+      const vc = document.getElementById('fp-view-cell'); if (vc) vc.classList.remove('active');
+      setFP('view', '🃏', 'بطاقات', 'cards');
+      ['f-text', 'f-num'].forEach(id => { const e = document.getElementById(id); if (e) e.value = ''; });
+      S.fDate = { g: '', h: '' };
+      const ph = document.getElementById('f-date-ph'); if (ph) ph.style.display = '';
+      const fdh = document.getElementById('f-dh'); if (fdh) { fdh.textContent = ''; fdh.style.display = 'none'; }
+      const fdg = document.getElementById('f-dg'); if (fdg) { fdg.textContent = ''; fdg.style.display = 'none'; }
+      renderNotes();
+    }
+
+    /* ══════════════════════════════════════
+       التسجيل السريع
+    ══════════════════════════════════════ */
+    function openQuick() {
+      S.q = { main: '', sub: '', sec: '', status: '', dH: '', dG: '', file: null, links: [] };
+      setQC('main', '📁', 'الرئيسية', 1); setQC('sub', '📌', 'الفرعية', 1);
+      setQC('sec', '🎯', 'الثانوية', 1); setQC('status', '📊', 'حالة', 1);
+      document.getElementById('q-attach-cell').style.background = '';
+      document.getElementById('q-text').value = ''; document.getElementById('q-num').value = '';
+      const qd = document.getElementById('q-dph'); if (qd) qd.style.display = '';
+      document.getElementById('q-dh').textContent = ''; document.getElementById('q-dg').textContent = '';
+      _renderQLinkChips();
+      document.getElementById('q-ov').classList.add('open');
+      hPush();
+      setTimeout(() => document.getElementById('q-text').focus(), 200);
+    }
+
+    /* ══════════════════════════════════════
+       الإضافة الموجّهة + ربط الملاحظات
+    ══════════════════════════════════════ */
+    function openGuidedAdd() {
+      openQuick();
+      /* ابدأ مباشرة باختيار التصنيف الرئيسي لتوجيه المستخدم */
+      setTimeout(() => openQPicker('main'), 280);
+    }
+
+    /* عرض شرائح الملاحظات المرتبطة داخل نافذة التسجيل */
+    function _renderQLinkChips() {
+      const wrap = document.getElementById('q-link-chips');
+      const tx   = document.getElementById('q-link-tx');
+      if (!wrap || !tx) return;
+      const links = S.q.links || [];
+      if (!links.length) {
+        wrap.style.display = 'none';
+        wrap.innerHTML = '';
+        tx.textContent = 'ربط بملاحظة سابقة (اختياري)';
+        tx.className = 'org-ct ph';
+        return;
+      }
+      tx.textContent = `🔗 ${links.length} ملاحظة مرتبطة — اضغط للتعديل`;
+      tx.className = 'org-ct';
+      wrap.style.display = 'flex';
+      const all = DB.get();
+      wrap.innerHTML = '';
+      links.forEach(lid => {
+        const n = all.find(x => x.id === lid);
+        if (!n) return;
+        const chip = document.createElement('span');
+        chip.style.cssText = 'background:rgba(102,126,234,.35);border:1px solid rgba(167,139,250,.5);border-radius:10px;padding:4px 8px;font-size:11px;color:#fff;display:inline-flex;align-items:center;gap:5px;max-width:160px;';
+        const label = (n.text || [n.main, n.sub].filter(Boolean).join(' ') || 'ملاحظة').slice(0, 22);
+        chip.innerHTML = `<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(label)}</span><span style="cursor:pointer;font-weight:700;opacity:.8;">✕</span>`;
+        chip.querySelector('span:last-child').onclick = (e) => {
+          e.stopPropagation();
+          S.q.links = S.q.links.filter(x => x !== lid);
+          _renderQLinkChips();
+        };
+        wrap.appendChild(chip);
+      });
+    }
+
+    function openLinkPicker() {
+      document.getElementById('link-search').value = '';
+      document.getElementById('link-ov').style.display = 'flex';
+      renderLinkResults();
+      hPush();
+      setTimeout(() => document.getElementById('link-search').focus(), 150);
+    }
+    function closeLinkPicker() {
+      document.getElementById('link-ov').style.display = 'none';
+      _renderQLinkChips();
+    }
+    function renderLinkResults() {
+      const q = (document.getElementById('link-search').value || '').toLowerCase().trim();
+      const box = document.getElementById('link-results');
+      let notes = DB.get();
+      if (q) notes = notes.filter(n => JSON.stringify([n.text, n.main, n.sub, n.sec, n.num]).toLowerCase().includes(q));
+      notes = notes.slice(0, 40);
+      box.innerHTML = '';
+      if (!notes.length) {
+        box.innerHTML = '<div style="text-align:center;color:rgba(255,255,255,.4);font-size:13px;padding:20px;">لا توجد نتائج</div>';
+        return;
+      }
+      const sel = S.q.links || [];
+      notes.forEach(n => {
+        const on = sel.includes(n.id);
+        const row = document.createElement('div');
+        row.style.cssText = `display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;cursor:pointer;border:2px solid ${on ? 'rgba(167,139,250,.8)' : 'transparent'};background:${on ? 'rgba(102,126,234,.35)' : 'rgba(255,255,255,.06)'};transition:all .12s;`;
+        const mainIc = (n.main && CATS[n.main]?.ic) || '📝';
+        const cat = [n.main, n.sub].filter(Boolean).join(' › ');
+        const label = (n.text || cat || 'ملاحظة').slice(0, 60);
+        row.innerHTML = `
+          <span style="font-size:18px;flex-shrink:0;">${on ? '✅' : mainIc}</span>
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:13px;color:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(label)}</div>
+            ${cat ? `<div style="font-size:10px;color:rgba(255,255,255,.5);">${esc(cat)}${n.num ? ' · ' + esc(n.num) : ''}</div>` : (n.num ? `<div style="font-size:10px;color:rgba(255,255,255,.5);">${esc(n.num)}</div>` : '')}
+          </div>`;
+        row.onclick = () => {
+          if (!Array.isArray(S.q.links)) S.q.links = [];
+          if (S.q.links.includes(n.id)) S.q.links = S.q.links.filter(x => x !== n.id);
+          else S.q.links.push(n.id);
+          renderLinkResults();
+        };
+        box.appendChild(row);
+      });
+    }
+    function closeQuick(skipSave) {
+      if (!skipSave) {
+        const n = _doSaveQuick();
+        if (n) { showFb('💾 حُفظت تلقائياً'); setTimeout(renderNotes, 300); }
+      }
+      document.getElementById('q-ov').classList.remove('open');
+    }
+    function closeQOut(e) { if (e.target === document.getElementById('q-ov')) closeQuick(); }
+
+    /* ══════════════════════════════════════
+       اختصارات
+    ══════════════════════════════════════ */
+    document.addEventListener('keydown', e => {
+      if (e.ctrlKey && e.shiftKey && e.key === 'N') { e.preventDefault(); openQuick(); }
+      if (e.ctrlKey && e.key === 'Enter') { e.preventDefault(); document.getElementById('q-ov').classList.contains('open') ? saveQuick() : saveCapture(); }
+      if (e.key === 'Escape') { closeQuick(); closeCal(); closePicker(); }
+    });
+
+    /* ══════════════════════════════════════
+       توسيع النص
+    ══════════════════════════════════════ */
+    function toggleExp() { document.getElementById('c-inp-text').classList.toggle('exp'); }
+
+    /* ══════════════════════════════════════
+       Feedback
+    ══════════════════════════════════════ */
+    let _fbt;
+    function showFb(msg, err = 0) {
+      document.querySelectorAll('.org-fb').forEach(x => x.remove());
+      const el = document.createElement('div');
+      el.className = 'org-fb' + (err ? ' err' : ''); el.textContent = msg;
+      document.body.appendChild(el);
+      clearTimeout(_fbt); _fbt = setTimeout(() => el.remove(), 3000);
+    }
+
+    /* ══════════════════════════════════════
+       تصدير / استيراد
+    ══════════════════════════════════════ */
+    /* exportData moved below */
+    function importData(e) {
+      const f = e.target.files[0]; if (!f) return;
+      const r = new FileReader();
+      r.onload = ev => {
+        try {
+          const d = JSON.parse(ev.target.result); if (!Array.isArray(d)) throw 0;
+          const ex = DB.get(); DB.set([...d, ...ex.filter(n => !d.find(x => x.id === n.id))]);
+          showFb(`✅ استُوردت ${d.length} ملاحظة`);
+        } catch { showFb('❌ فشل الاستيراد', 1); }
+      }; r.readAsText(f);
+    }
+    function clearAll() { if (confirm('مسح جميع الملاحظات؟')) { DB.set([]); showFb('🗑️ تم المسح'); } }
+
+    /* ══════════════════════════════════════
+       تهيئة فئات صفحة الفلاتر
+    ══════════════════════════════════════ */
+    function initFMainSel() { /* لا حاجة لها — FP يتحكم بالفلترة */ }
+
+    /* ══════════════════════════════════════
+       تعيين تاريخ اليوم
+    ══════════════════════════════════════ */
+    function setToday(t) {
+      const h = H.today(), g = new Date(), dh = H.fmtH(h), dg = H.fmtG(g);
+      if (t === 'cap') { S.cap.dH = dh; S.cap.dG = dg; setDateDisp('cap', dh, dg); }
+    }
+
+    /* ══════════════════════════════════════
+       تهيئة
+    ══════════════════════════════════════ */
+    (function init() {
+      initFMainSel();
+      setToday('cap');
+      updCount();
+      /* تحميل الملاحظات يحدث بعد تحديد المجلد في checkSetup */
+    })();
+
+    /* ══ Drag-to-Select ══ */
+    function openDragPicker(title, items, curVal, cb) {
+      _dpCb = cb; _dpItems = items; _dpHover = null;
+      document.getElementById('dp-title').textContent = title;
+      const list = document.getElementById('dp-list');
+      /* تحديث المحتوى مع animation خفيفة بدل إغلاق وفتح */
+      list.style.opacity = '0';
+      list.style.transform = 'translateY(8px)';
+      list.innerHTML = '';
+      items.forEach((it, i) => {
+        const el = document.createElement('div');
+        el.className = 'dp-item' + (it.v === curVal ? ' sel' : '');
+        el.dataset.idx = i;
+        el.innerHTML = `<span class="dp-ic">${it.i}</span><span class="dp-tx">${it.n}</span>`;
+        list.appendChild(el);
+      });
+      /* scroll للأعلى */
+      list.scrollTop = 0;
+      /* animation ظهور */
+      requestAnimationFrame(() => {
+        list.style.transition = 'opacity .15s,transform .15s';
+        list.style.opacity = '1';
+        list.style.transform = 'translateY(0)';
+      });
+      document.getElementById('dp-ov').classList.add('open');
+    }
+    function _closeDp() {
+      document.getElementById('dp-ov').classList.remove('open');
+      _dpHover = null;
+    }
+    function _dpAt(y) {
+      for (const el of document.querySelectorAll('.dp-item')) {
+        const r = el.getBoundingClientRect();
+        if (y >= r.top - 4 && y <= r.bottom + 4) return el;
+      } return null;
+    }
+    function _dpHl(el) {
+      if (_dpHover === el) return;
+      if (_dpHover) _dpHover.classList.remove('hover');
+      _dpHover = el;
+      if (el) el.classList.add('hover');
+    }
+    document.addEventListener('DOMContentLoaded', () => {
+      const ov   = document.getElementById('dp-ov');
+      const lst  = document.getElementById('dp-list');
+      const sheet = ov.querySelector('.drag-picker-sheet');
+      var _tapStartY = 0, _tapStartScroll = 0;
+      var _swipeStartY = 0, _isSwiping = false;
+
+      /* ══ تمرير + اختيار على القائمة ══ */
+      lst.addEventListener('touchstart', e => {
+        _tapStartY      = e.touches[0].clientY;
+        _tapStartScroll = lst.scrollTop;
+        _dpHl(_dpAt(e.touches[0].clientY));
+      }, { passive: true });
+
+      lst.addEventListener('touchmove', e => {
+        const dy = Math.abs(e.touches[0].clientY - _tapStartY);
+        if (dy > 8) _dpHl(null);
+      }, { passive: true });
+
+      lst.addEventListener('touchend', e => {
+        const dy = Math.abs(e.changedTouches[0].clientY - _tapStartY);
+        const ds = Math.abs(lst.scrollTop - _tapStartScroll);
+        if (dy < 10 && ds < 10) {
+          const el = _dpHover || _dpAt(e.changedTouches[0].clientY);
+          if (el) {
+            const item = _dpItems[parseInt(el.dataset.idx)];
+            const cb = _dpCb; _dpHover = null;
+            if (cb) cb(item);
+          }
+        }
+        _dpHl(null);
+      }, { passive: true });
+
+      /* ══ سحب لأسفل على الهاندل أو العنوان لإغلاق الـ sheet ══ */
+      const handle = sheet.querySelector('.dp-handle');
+      const titleEl = sheet.querySelector('.dp-title') || sheet;
+      const swipeZone = handle || sheet;
+
+      swipeZone.addEventListener('touchstart', e => {
+        _swipeStartY = e.touches[0].clientY;
+        _isSwiping   = false;
+        sheet.style.transition = 'none';
+      }, { passive: true });
+
+      swipeZone.addEventListener('touchmove', e => {
+        const dy = e.touches[0].clientY - _swipeStartY;
+        if (dy > 5) { _isSwiping = true; sheet.style.transform = 'translateY(' + dy + 'px)'; }
+      }, { passive: true });
+
+      swipeZone.addEventListener('touchend', e => {
+        if (!_isSwiping) { sheet.style.transform = ''; sheet.style.transition = ''; return; }
+        const dy = e.changedTouches[0].clientY - _swipeStartY;
+        sheet.style.transition = 'transform .22s ease';
+        if (dy > 70) {
+          sheet.style.transform = 'translateY(110%)';
+          setTimeout(() => { sheet.style.transform = ''; sheet.style.transition = ''; _closeDp(); }, 220);
+        } else {
+          sheet.style.transform = 'translateY(0)';
+          setTimeout(() => { sheet.style.transform = ''; sheet.style.transition = ''; }, 240);
+        }
+        _isSwiping = false;
+      }, { passive: true });
+
+      /* ══ الخلفية — يغلق فقط + يمنع الـ click الاصطناعي على العناصر خلفه ══ */
+      ov.addEventListener('touchstart', e => {
+        if (e.target === ov) e.preventDefault(); /* يمنع الـ click الاصطناعي */
+      }, { passive: false });
+
+      ov.addEventListener('touchend', e => {
+        if (e.target === ov) { e.preventDefault(); _closeDp(); }
+      }, { passive: false });
+
+      /* دعم الماوس */
+      lst.addEventListener('click', e => {
+        const el = _dpAt(e.clientY);
+        if (el) { const item = _dpItems[parseInt(el.dataset.idx)]; const cb = _dpCb; if (cb) cb(item); }
+        else _closeDp();
+      });
+      lst.addEventListener('mousemove', e => _dpHl(_dpAt(e.clientY)));
+      ov.addEventListener('click', e => { if (e.target === ov) { e.stopPropagation(); _closeDp(); } });
+
+      /* إعداد أول تشغيل */
+      (async function checkSetup() {
+        /* ── أندرويد: تحقق من Bridge أولاً ── */
+        if (window.AndroidFS && typeof window.AndroidFS.hasSavedFolder === 'function') {
+          if (window.AndroidFS.hasSavedFolder()) {
+            _dirFolderName = window.AndroidFS.getFolderName() || 'مجلد محدد';
+            localStorage.setItem('notes_storage', 'android_fs');
+            localStorage.setItem('notes_setup_done', '1');
+            await _loadNotes();   /* تحميل الملاحظات من المجلد */
+            return;
+          }
+          /* أول تشغيل على أندرويد/ويندوز */
+          document.getElementById('setup-screen').style.display = 'flex';
+          return;
+        }
+
+        /* ── سطح المكتب (متصفح) ── */
+        const done = localStorage.getItem('notes_setup_done');
+        if (!done) {
+          document.getElementById('setup-screen').style.display = 'flex';
+          return;
+        }
+        if (localStorage.getItem('notes_storage') === 'folder') {
+          _dirHandle = await _loadHandleFromIDB();
+          if (_dirHandle) {
+            try { await _dirHandle.requestPermission({ mode: 'readwrite' }); } catch (e) { }
+          }
+        }
+        await _loadNotes();   /* تحميل الملاحظات من المجلد */
+      })();
+
+      /* chips تفتح عند touchstart */
+      [['fp-cat-cell', 'cat'],
+      ['fp-status-cell', 'status'], ['fp-view-cell', 'view'], ['fp-date-chip', 'date']
+      ].forEach(([id, t]) => {
+        const el = document.getElementById(id); if (!el) return;
+        el.addEventListener('touchstart', e => {
+          e.preventDefault();
+          t === 'date' ? openCal('filter') : openFPicker(t);
+        }, { passive: false });
+        el.addEventListener('click', e => {
+          e.preventDefault();
+          t === 'date' ? openCal('filter') : openFPicker(t);
+        });
+      });
+    });
+
+    /* ══ إعداد أول تشغيل ══ */
+    var _dirHandle = null;
+    var _dirFolderName = '';
+
+    /* ══ Android Bridge Callbacks ══ */
+    window._androidFolderPicked = function (name) {
+      _dirFolderName = name;
+      localStorage.setItem('notes_storage', 'android_fs');
+      localStorage.setItem('notes_setup_done', '1');
+      const btn = document.getElementById('setup-folder-btn');
+      if (btn) { btn.disabled = false; btn.textContent = '📂 اختيار مجلد الملاحظات ›'; }
+      finishSetup();
+      _loadNotes();   /* تحميل ما في المجلد (أو ملف فارغ جديد) */
+    };
+    window._androidFolderPickedForChange = function (name) {
+      _dirFolderName = name;
+      localStorage.setItem('notes_storage', 'android_fs');
+      _loadNotes();   /* تحميل ملاحظات المجلد الجديد */
+      if (typeof renderSettings === 'function') renderSettings();
+    };
+    window._androidFolderCancelled = function () {
+      const btn = document.getElementById('setup-folder-btn');
+      if (btn) { btn.disabled = false; btn.textContent = '📂 اختيار مجلد الملاحظات ›'; }
+    };
+
+
+
+    function finishSetup() {
+      localStorage.setItem('notes_setup_done', '1');
+      document.getElementById('setup-screen').style.display = 'none';
+    }
+
+    async function setupFolder() {
+      const btn = document.getElementById('setup-folder-btn');
+      const errEl = document.getElementById('setup-err');
+
+      function _showSetupErr(msg) {
+        if (errEl) { errEl.style.whiteSpace = 'pre-line'; errEl.textContent = msg; errEl.style.display = 'block'; }
+      }
+      function _hideSetupErr() {
+        if (errEl) errEl.style.display = 'none';
+      }
+
+      _hideSetupErr();
+
+      /* ── أندرويد: استخدم Bridge الأصلي ── */
+      if (window.AndroidFS && typeof window.AndroidFS.pickFolder === 'function') {
+        if (btn) { btn.disabled = true; btn.textContent = '⏳ جاري فتح المجلد...'; }
+        try {
+          window.AndroidFS.pickFolder(); /* النتيجة تأتي عبر window._androidFolderPicked */
+        } catch (e) {
+          if (btn) { btn.disabled = false; btn.textContent = '📂 اختيار مجلد الملاحظات ›'; }
+          _showSetupErr('⚠️ تعذر فتح نافذة المجلد. حاول مرة أخرى.');
+        }
+        return;
+      }
+
+      /* ── سطح المكتب: showDirectoryPicker ── */
+      if (typeof window.showDirectoryPicker !== 'function') {
+        _showSetupErr('⚠️ تطبيقات الأندرويد لا تدعم فتح مجلد مباشر.\nسيُستخدم التخزين الداخلي وسيتم استخراج نسخة احتياطية (JSON) باستخدام نافذة المشاركة (Share) كل 10 ملاحظات.\nاضغط "تخطي والحفظ محلياً" للبدء.');
+        localStorage.setItem('notes_storage', 'share');
+        return;
+      }
+
+      if (btn) { btn.disabled = true; btn.textContent = '⏳ جاري الفتح...'; }
+
+      const t0 = Date.now();
+      try {
+        const handle = await Promise.race([
+          window.showDirectoryPicker({ mode: 'readwrite' }),
+          new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 2500))
+        ]);
+        const perm = await handle.requestPermission({ mode: 'readwrite' });
+        if (perm !== 'granted') throw new Error('permission-denied');
+        await _saveHandleToIDB(handle);
+        _dirHandle = handle;
+        localStorage.setItem('notes_storage', 'folder');
+        if (btn) { btn.disabled = false; btn.textContent = '📂 اختيار مجلد الملاحظات ›'; }
+        finishSetup();
+        _loadNotes();
+      } catch (e) {
+        if (btn) { btn.disabled = false; btn.textContent = '📂 اختيار مجلد الملاحظات ›'; }
+        if (e.message === 'timeout') {
+          _showSetupErr('⚠️ نظام الهاتف يعلق أو يمنع ظهور النافذة.\nسيتم تفعيل ميزة مشاركة النسخ الاحتياطي Share. اضغط "تخطي" للبدء.');
+          localStorage.setItem('notes_storage', 'share');
+        } else if (e.name === 'AbortError' && (Date.now() - t0) < 400) {
+          _showSetupErr('⚠️ بيئة الهاتف الحالية ترفض الميزة.\nسيتم تفعيل ميزة مشاركة النسخ الاحتياطي. اضغط "تخطي" للبدء.');
+          localStorage.setItem('notes_storage', 'share');
+        } else if (e.name === 'AbortError') {
+          // cancelled
+        } else if (e.message === 'permission-denied') {
+          _showSetupErr('⚠️ لم يتم منح إذن الوصول للمجلد.\nحاول مرة أخرى أو اضغط "تخطي".');
+        } else {
+          _showSetupErr('⚠️ تعذّر الفتح. اضغط "تخطي" للبدء.');
+        }
+      }
+    }
+
+    async function changeFolder() {
+      /* ── أندرويد: استخدم Bridge الأصلي ── */
+      if (window.AndroidFS && typeof window.AndroidFS.pickFolder === 'function') {
+        /* إعادة تعريف الـ callback ليكون لتغيير المجلد وليس للإعداد الأول */
+        window._androidFolderPicked = function (name) {
+          _dirFolderName = name;
+          localStorage.setItem('notes_storage', 'android_fs');
+          localStorage.setItem('notes_setup_done', '1');
+          if (typeof renderSettings === 'function') renderSettings();
+          showFb('✅ تم تغيير المجلد: ' + name);
+          /* إعادة الـ callback للإعداد الأول */
+          window._androidFolderPicked = function (name2) {
+            _dirFolderName = name2;
+            localStorage.setItem('notes_storage', 'android_fs');
+            localStorage.setItem('notes_setup_done', '1');
+            finishSetup();
+            showFb('✅ تم تحديد المجلد: ' + name2);
+          };
+        };
+        window.AndroidFS.pickFolder();
+        return;
+      }
+
+      if (typeof window.showDirectoryPicker !== 'function') {
+        showFb('⚠️ أندرويد لا يدعم تغيير المجلد المباشر. النسخ الاحتياطي يعمل عبر نافذة المشاركة (Share).', 1);
+        localStorage.setItem('notes_storage', 'share');
+        return;
+      }
+      const t0 = Date.now();
+      try {
+        const handle = await Promise.race([
+          window.showDirectoryPicker({ mode: 'readwrite' }),
+          new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 2500))
+        ]);
+        const perm = await handle.requestPermission({ mode: 'readwrite' });
+        if (perm !== 'granted') throw new Error('permission-denied');
+        await _saveHandleToIDB(handle);
+        _dirHandle = handle;
+        localStorage.setItem('notes_storage', 'folder');
+        renderSettings();
+        showFb('✅ تم تغيير المجلد: ' + handle.name);
+      } catch (e) {
+        if (e.message === 'timeout') {
+          showFb('⚠️ بيئة الهاتف تمنع النافذة (تم تفعيل Share للنسخ الاحتياطي)', 1);
+          localStorage.setItem('notes_storage', 'share');
+        } else if (e.name === 'AbortError' && (Date.now() - t0) < 400) {
+          showFb('⚠️ بيئة الموبايل لا تدعم اختيار مجلدات', 1);
+        } else if (e.name === 'AbortError') {
+        } else if (e.message === 'permission-denied') {
+          showFb('⚠️ لم يتم منح إذن الوصول', 1);
+        } else {
+          showFb('⚠️ خطأ في فتح المجلد', 1);
+        }
+      }
+    }
+
+    async function _saveHandleToIDB(handle) {
+      return new Promise((res, rej) => {
+        const req = indexedDB.open('notes_db', 1);
+        req.onupgradeneeded = e => e.target.result.createObjectStore('handles');
+        req.onsuccess = e => {
+          const db = e.target.result;
+          const tx = db.transaction('handles', 'readwrite');
+          tx.objectStore('handles').put(handle, 'dir');
+          tx.oncomplete = res; tx.onerror = rej;
+        };
+        req.onerror = rej;
+      });
+    }
+
+    async function _loadHandleFromIDB() {
+      return new Promise((res) => {
+        const req = indexedDB.open('notes_db', 1);
+        req.onupgradeneeded = e => e.target.result.createObjectStore('handles');
+        req.onsuccess = e => {
+          const db = e.target.result;
+          const tx = db.transaction('handles', 'readonly');
+          const r = tx.objectStore('handles').get('dir');
+          r.onsuccess = () => res(r.result || null);
+          r.onerror = () => res(null);
+        };
+        req.onerror = () => res(null);
+      });
+    }
+
+    /* checkSetup moved to DOMContentLoaded */
+
+    /* ══ نسخ احتياطي تلقائي ══ */
+    /* (أُزيلت دالة النسخ للملفات — الملاحظات في قاعدة البيانات فقط) */
+
+    /* تصدير يدوي */
+    function exportData() {
+      const notes = DB.get();
+      const json = JSON.stringify(notes, null, 2);
+      const blob = new Blob([json], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      const date = new Date().toISOString().split('T')[0];
+      a.href = url;
+      a.download = `منظم-${date}.json`;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 1000);
+      showFb('📤 تم التصدير');
+    }
+
+    /* ══════════════════════════════════════
+       الترتيب
+    ══════════════════════════════════════ */
+    const _SORT_OPTS = [
+      { v: 'default',   ic: '⚡', n: 'الحالية' },
+      { v: 'date-asc',  ic: '📅', n: 'الأقدم أولاً' },
+      { v: 'date-desc', ic: '📅', n: 'الأحدث أولاً' },
+      { v: 'st-active', ic: '🔄', n: 'قيد التنفيذ' },
+      { v: 'st-delayed',ic: '⏳', n: 'مؤجل' },
+      { v: 'st-done',   ic: '✅', n: 'مكتمل' },
+      { v: 'st-cancel', ic: '❌', n: 'ملغي' },
+    ];
+    let _curSort = 'default';
+    function setSort(s) {
+      _curSort = s;
+      document.querySelectorAll('.sort-chip').forEach(c => {
+        c.classList.toggle('active', c.dataset.sort === s);
+      });
+      /* تحديث أيقونة زر الترتيب في الشريط العلوي */
+      const opt = _SORT_OPTS.find(o => o.v === s) || _SORT_OPTS[0];
+      const topIc = document.getElementById('btn-sort-ic');
+      if (topIc) topIc.textContent = opt.ic;
+      const fpIc = document.getElementById('fp-sort-ic');
+      if (fpIc) fpIc.textContent = opt.ic;
+      renderNotes();
+    }
+    function openSortPicker() {
+      openDragPicker('🔀 الترتيب', _SORT_OPTS.map(o => ({ n: o.n, i: o.ic, v: o.v })), _curSort, item => {
+        _closeDp();
+        setSort(item.v);
+      });
+    }
+    function _applySort(notes) {
+      const s = _curSort;
+      if (s === 'date-asc') return [...notes].sort((a, b) => parseG(a.dG || '') - parseG(b.dG || ''));
+      if (s === 'date-desc') return [...notes].sort((a, b) => parseG(b.dG || '') - parseG(a.dG || ''));
+      if (s === 'st-active') return notes.filter(n => n.status === 'قيد التنفيذ');
+      if (s === 'st-delayed') return notes.filter(n => n.status === 'مؤجل');
+      if (s === 'st-done') return notes.filter(n => n.status === 'مكتمل');
+      if (s === 'st-cancel') return notes.filter(n => n.status === 'ملغي');
+      return notes; /* default */
+    }
+    function _stClass(status) {
+      if (status === 'قيد التنفيذ') return 'st-active';
+      if (status === 'مكتمل') return 'st-done';
+      if (status === 'مؤجل') return 'st-delayed';
+      if (status === 'ملغي') return 'st-cancel';
+      return '';
+    }
+
+    /* ══════════════════════════════════════
+       أيقونة نوع الملف
+    ══════════════════════════════════════ */
+    function _fileIcon(file) {
+      if (!file) return '📎';
+      const name = (typeof file === 'object' ? file.name : file) || '';
+      const ext = name.split('.').pop().toLowerCase();
+      if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'heic'].includes(ext)) return '🖼️';
+      if (ext === 'pdf') return '📕';
+      if (['doc', 'docx'].includes(ext)) return '📘';
+      if (['xls', 'xlsx'].includes(ext)) return '📗';
+      if (['ppt', 'pptx'].includes(ext)) return '📙';
+      if (['mp4', 'mov', 'avi', 'mkv'].includes(ext)) return '🎬';
+      if (['mp3', 'wav', 'aac', 'ogg'].includes(ext)) return '🎵';
+      if (['zip', 'rar', '7z', 'tar'].includes(ext)) return '🗜️';
+      return '📎';
+    }
+
+    /* ══════════════════════════════════════
+       تعديل الملاحظة
+    ══════════════════════════════════════ */
+    let _editId = null;
+    let _editStatus = '';
+    let _editDH = '', _editDG = '';
+    let _editMain = '', _editSub = '', _editSec = '';
+
+    function openNote(id) {
+      const n = DB.get().find(x => x.id === id); if (!n) return;
+      _editId = id;
+      _editStatus = n.status || '';
+      _editDH = n.dH || '';
+      _editDG = n.dG || '';
+      _editMain = n.main || '';
+      _editSub  = n.sub  || '';
+      _editSec  = n.sec  || '';
+      document.getElementById('edit-text').value = n.text || '';
+      document.getElementById('edit-num').value  = n.num  || '';
+      /* الحالة */
+      const ic = SMAP[_editStatus]?.ic || '📊';
+      document.getElementById('edit-status-ic').textContent = ic;
+      document.getElementById('edit-status-tx').textContent = _editStatus || 'اختر الحالة';
+      /* التصنيف */
+      _refreshEditCat();
+      /* التاريخ */
+      const dtx = document.getElementById('edit-date-tx');
+      if (_editDH) { dtx.textContent = _editDH + ' | ' + _editDG; dtx.style.color = '#fff'; }
+      else { dtx.textContent = 'اختر التاريخ'; dtx.style.color = 'rgba(255,255,255,.5)'; }
+      /* المرفق */
+      _refreshEditAtt(n);
+      /* الملاحظات المرتبطة */
+      _renderEditLinks(n);
+      document.getElementById('edit-ov').classList.add('open');
+      hPush();
+    }
+
+    /* عرض الملاحظات المرتبطة (ثنائي الاتجاه) في نافذة التعديل */
+    function _renderEditLinks(n) {
+      const sec  = document.getElementById('edit-links-section');
+      const list = document.getElementById('edit-links-list');
+      if (!sec || !list) return;
+      const all = DB.get();
+      /* اجمع الروابط من الاتجاهين: ما تربطه هذه الملاحظة + ما يربطها */
+      const ids = new Set(Array.isArray(n.links) ? n.links : []);
+      all.forEach(x => { if (Array.isArray(x.links) && x.links.includes(n.id)) ids.add(x.id); });
+      const linked = [...ids].map(id => all.find(x => x.id === id)).filter(Boolean);
+      if (!linked.length) { sec.style.display = 'none'; list.innerHTML = ''; return; }
+      sec.style.display = 'block';
+      list.innerHTML = '';
+      linked.forEach(ln => {
+        const row = document.createElement('div');
+        row.style.cssText = 'display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:10px;background:rgba(102,126,234,.18);border:1px solid rgba(167,139,250,.35);cursor:pointer;';
+        const mainIc = (ln.main && CATS[ln.main]?.ic) || '📝';
+        const cat = [ln.main, ln.sub].filter(Boolean).join(' › ');
+        const label = (ln.text || cat || 'ملاحظة').slice(0, 50);
+        const stIc = SMAP[ln.status]?.ic || '';
+        row.innerHTML = `
+          <span style="font-size:16px;flex-shrink:0;">${mainIc}</span>
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:12px;color:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(label)}</div>
+            ${cat ? `<div style="font-size:10px;color:rgba(255,255,255,.5);">${esc(cat)}${ln.num ? ' · ' + esc(ln.num) : ''} ${stIc}</div>` : (ln.num || stIc ? `<div style="font-size:10px;color:rgba(255,255,255,.5);">${esc(ln.num || '')} ${stIc}</div>` : '')}
+          </div>
+          <span class="edit-link-unlink" style="cursor:pointer;color:#fca5a5;font-size:14px;padding:2px 4px;" title="فك الربط">🔗✕</span>
+          <span style="color:rgba(255,255,255,.4);font-size:13px;">›</span>`;
+        /* فتح الملاحظة المرتبطة */
+        row.onclick = () => { closeEdit(); setTimeout(() => openNote(ln.id), 120); };
+        /* فك الربط من الاتجاهين */
+        row.querySelector('.edit-link-unlink').onclick = (e) => {
+          e.stopPropagation();
+          if (!confirm('فك الربط بين الملاحظتين؟')) return;
+          const data = DB.get();
+          const a = data.find(x => x.id === _editId);
+          const b = data.find(x => x.id === ln.id);
+          if (a && Array.isArray(a.links)) a.links = a.links.filter(x => x !== ln.id);
+          if (b && Array.isArray(b.links)) b.links = b.links.filter(x => x !== _editId);
+          DB.set(data); _autoBackup(data);
+          const cur = data.find(x => x.id === _editId);
+          if (cur) _renderEditLinks(cur);
+          showFb('🔗 تم فك الربط');
+        };
+        list.appendChild(row);
+      });
+    }
+
+    function _refreshEditCat() {
+      const ic = document.getElementById('edit-cat-ic');
+      const tx = document.getElementById('edit-cat-tx');
+      if (!ic || !tx) return;
+      const parts = [_editMain, _editSub, _editSec].filter(Boolean);
+      if (parts.length) {
+        const lastIc = _editSec
+          ? (_editSec.match(/^(\p{Emoji_Presentation}|\p{Extended_Pictographic})/u)?.[0] || '🔸')
+          : (_editSub ? CATS[_editMain]?.sub[_editSub]?.ic || '📌' : CATS[_editMain]?.ic || '🗂️');
+        ic.textContent = lastIc;
+        tx.textContent = parts.join(' › ');
+        tx.style.color = '#fff';
+      } else {
+        ic.textContent = '🗂️';
+        tx.textContent = 'اختر التصنيف';
+        tx.style.color = 'rgba(255,255,255,.5)';
+      }
+    }
+
+    function openEditCatPicker() {
+      /* الخطوة ١: الرئيسية */
+      const mainItems = [{ n: 'بدون تصنيف', i: '🗂️', v: '' },
+        ...Object.keys(CATS).map(k => ({ n: k, i: CATS[k].ic, v: k }))];
+      openDragPicker('🗂️ الرئيسية', mainItems, _editMain, item => {
+        _editMain = item.v; _editSub = ''; _editSec = '';
+        _refreshEditCat();
+        if (item.v && CATS[item.v] && Object.keys(CATS[item.v].sub || {}).length) {
+          setTimeout(() => _openEditSubPicker(), 80);
+        } else { _closeDp(); }
+      });
+    }
+
+    function _openEditSubPicker() {
+      const subs = CATS[_editMain]?.sub || {};
+      const subKeys = Object.keys(subs);
+      if (!subKeys.length) return;
+      const items = [{ n: 'الكل', i: '📋', v: '' },
+        ...subKeys.map(k => ({ n: k, i: subs[k].ic, v: k }))];
+      openDragPicker(`📌 ${_editMain}`, items, _editSub, item => {
+        _editSub = item.v; _editSec = '';
+        _refreshEditCat();
+        if (item.v && subs[item.v]?.det?.length) {
+          setTimeout(() => _openEditSecPicker(), 80);
+        } else { _closeDp(); }
+      });
+    }
+
+    function _openEditSecPicker() {
+      const det = CATS[_editMain]?.sub[_editSub]?.det || [];
+      if (!det.length) return;
+      const items = [{ n: 'الكل', i: '🔸', v: '' }, ...det.map(x => {
+        const m = x.match(/^(\p{Emoji_Presentation}|\p{Extended_Pictographic})/u);
+        return { n: m ? x.slice(m[0].length).trim() : x, i: m ? m[0] : '🔸', v: x };
+      })];
+      openDragPicker(`🎯 ${_editSub}`, items, _editSec, item => {
+        _closeDp(); _editSec = item.v; _refreshEditCat();
+      });
+    }
+
+    function _refreshEditAtt(n) {
+      if (!n && _editId) n = DB.get().find(x => x.id === _editId);
+      const fName = n?.file ? (typeof n.file === 'object' ? n.file.name : n.file) : '';
+      const hasFile = !!fName;
+      const canOpen = hasFile && window.AndroidFS && typeof window.AndroidFS.openFile === 'function';
+      const icEl    = document.getElementById('edit-att-ic');
+      const lblEl   = document.getElementById('edit-att-label');
+      const hintEl  = document.getElementById('edit-att-open-hint');
+      const delBtn  = document.getElementById('edit-att-del-btn');
+      const nameDiv = document.getElementById('edit-att-name');
+      if (icEl)    icEl.textContent = hasFile ? _fileIcon(n.file) : '📎';
+      if (lblEl)   lblEl.textContent = hasFile ? fName : 'لا يوجد مرفق';
+      if (hintEl)  hintEl.style.display = canOpen ? 'inline' : 'none';
+      if (delBtn)  delBtn.style.opacity = hasFile ? '1' : '0.35';
+      if (nameDiv) nameDiv.style.cursor = canOpen ? 'pointer' : (hasFile ? 'default' : 'pointer');
+      if (nameDiv && !hasFile) nameDiv.onclick = triggerAttFromEdit;
+      if (nameDiv && hasFile)  nameDiv.onclick = openAttFromEdit;
+    }
+
+    function openAttFromEdit() {
+      const n = DB.get().find(x => x.id === _editId); if (!n?.file) return;
+      const fName = typeof n.file === 'object' ? n.file.name : n.file;
+      if (window.AndroidFS && typeof window.AndroidFS.openFile === 'function') {
+        window.AndroidFS.openFile('المرفقات', fName);
+      }
+    }
+
+    function triggerAttFromEdit() {
+      document.getElementById('edit-att-input').click();
+    }
+
+    async function handleAttFromEdit(e) {
+      const f = e.target.files[0]; if (!f || !_editId) return;
+      const fName = f.name.replace(/[\\/:*?"<>|]/g, '');
+      const fileObj = { name: fName, type: f.type, lastMod: f.lastModified };
+      const notes = DB.get();
+      const idx = notes.findIndex(x => x.id === _editId);
+      if (idx >= 0) { notes[idx].file = fileObj; DB.set(notes); _autoBackup(notes); }
+      await _saveAttachment(f);
+      _refreshEditAtt(notes[idx]);
+      renderNotes();
+      showFb('📎 تم تغيير المرفق: ' + fName);
+      e.target.value = '';
+    }
+
+    function removeAttFromEdit() {
+      if (!_editId) return;
+      if (!confirm('حذف المرفق من هذه الملاحظة؟')) return;
+      const notes = DB.get();
+      const idx = notes.findIndex(x => x.id === _editId);
+      if (idx >= 0) { notes[idx].file = null; DB.set(notes); _autoBackup(notes); }
+      _refreshEditAtt(notes[idx]);
+      renderNotes();
+      showFb('🗑️ تم حذف المرفق');
+    }
+    function closeEdit(skipSave) {
+      if (!skipSave && _editId) {
+        if (_doSaveEdit()) { renderNotes(); showFb('💾 حُفظ التعديل تلقائياً'); }
+      }
+      document.getElementById('edit-ov').classList.remove('open');
+      _editId = null;
+    }
+    function deleteFromEdit() {
+      if (!_editId) return;
+      if (!confirm('حذف هذه الملاحظة نهائياً؟')) return;
+      const notes = DB.get().filter(x => x.id !== _editId);
+      DB.set(notes);
+      _autoBackup(notes);
+      closeEdit(true);
+      renderNotes();
+      showFb('🗑️ تم حذف الملاحظة');
+    }
+    function _doSaveEdit() {
+      if (!_editId) return false;
+      const notes = DB.get();
+      const idx = notes.findIndex(x => x.id === _editId);
+      if (idx < 0) return false;
+      notes[idx].text   = document.getElementById('edit-text').value.trim();
+      notes[idx].num    = document.getElementById('edit-num').value.trim();
+      notes[idx].status = _editStatus;
+      notes[idx].dH     = _editDH;
+      notes[idx].dG     = _editDG;
+      notes[idx].main   = _editMain;
+      notes[idx].sub    = _editSub;
+      notes[idx].sec    = _editSec;
+      DB.set(notes);
+      _autoBackup(notes);
+      return true;
+    }
+    function saveEdit() {
+      if (!_editId) return;
+      if (_doSaveEdit()) { closeEdit(true); renderNotes(); showFb('✅ تم حفظ التعديل'); }
+    }
+    function openEditStatusPicker() {
+      const items = [{ n: '—', i: '📊', v: '' }, ...Object.keys(SMAP).map(k => ({ n: k, i: SMAP[k].ic, v: k }))];
+      openDragPicker('📊 الحالة', items, _editStatus, item => {
+        _closeDp();
+        _editStatus = item.v;
+        document.getElementById('edit-status-ic').textContent = item.i;
+        document.getElementById('edit-status-tx').textContent = item.n || 'اختر الحالة';
+      });
+    }
+
+    /* ══════════════════════════════════════
+       إدارة المرفقات (نافذة الضغط الطويل)
+    ══════════════════════════════════════ */
+    let _attNoteId = null;
+    function openAttOv(noteId) {
+      _attNoteId = noteId;
+      const n = DB.get().find(x => x.id === noteId);
+      const fName = n?.file ? (typeof n.file === 'object' ? n.file.name : n.file) : '';
+      const hasFile = !!fName;
+      document.getElementById('att-title').textContent = _fileIcon(n?.file) + ' المرفق';
+      document.getElementById('att-file-name').textContent = fName || 'لا يوجد مرفق';
+      document.getElementById('att-btn-open').style.display = hasFile ? 'flex' : 'none';
+      _updateAttOpenBtn();
+      document.getElementById('att-ov').classList.add('open');
+      hPush();
+    }
+    function closeAttOv() {
+      document.getElementById('att-ov').classList.remove('open');
+      _attNoteId = null;
+    }
+    function openAttFile() {
+      const n = DB.get().find(x => x.id === _attNoteId); if (!n?.file) return;
+      const fName = typeof n.file === 'object' ? n.file.name : n.file;
+      if (window.AndroidFS && typeof window.AndroidFS.openFile === 'function') {
+        window.AndroidFS.openFile('المرفقات', fName);
+        closeAttOv();
+      }
+    }
+    function _updateAttOpenBtn() {
+      const btn = document.getElementById('att-btn-open');
+      if (!btn) return;
+      btn.style.display = (window.AndroidFS && typeof window.AndroidFS.openFile === 'function') ? 'flex' : 'none';
+    }
+    function triggerAttChange() {
+      document.getElementById('att-change-input').click();
+    }
+    async function handleAttChange(e) {
+      const f = e.target.files[0]; if (!f || !_attNoteId) return;
+      const fName = f.name.replace(/[\\/:*?"<>|]/g, '');
+      const fileObj = { name: fName, type: f.type, lastMod: f.lastModified };
+      const notes = DB.get();
+      const idx = notes.findIndex(x => x.id === _attNoteId);
+      if (idx >= 0) { notes[idx].file = fileObj; DB.set(notes); _autoBackup(notes); }
+      await _saveAttachment(f);
+      closeAttOv();
+      renderNotes();
+      showFb('📎 تم تغيير المرفق: ' + fName);
+      e.target.value = '';
+    }
+    function removeAttachment() {
+      if (!_attNoteId) return;
+      if (!confirm('حذف المرفق من هذه الملاحظة؟')) return;
+      const notes = DB.get();
+      const idx = notes.findIndex(x => x.id === _attNoteId);
+      if (idx >= 0) { notes[idx].file = null; DB.set(notes); _autoBackup(notes); }
+      closeAttOv();
+      renderNotes();
+      showFb('🗑️ تم حذف المرفق');
+    }
+
+    /* ══════════════════════════════════════
+       التذكيرات (Notification API)
+    ══════════════════════════════════════ */
+    /* ══ التذكيرات الأصلية (Android AlarmManager / Windows Electron) ══ */
+    function _remindHour() {
+      const h = parseInt(localStorage.getItem('notes_remind_hour'), 10);
+      return (h >= 0 && h <= 23) ? h : 9;
+    }
+    function _syncNativeReminders() {
+      const fsb = window.AndroidFS;
+      if (!fsb || typeof fsb.scheduleReminder !== 'function') return;
+      try { if (typeof fsb.cancelAllReminders === 'function') fsb.cancelAllReminders(); } catch (e) { }
+      const now = Date.now();
+      const hour = _remindHour();
+      const today = new Date(); today.setHours(0, 0, 0, 0);
+      DB.get().forEach(n => {
+        if (n.status !== 'قيد التنفيذ' || !n.dG) return;
+        const base = parseG(n.dG); if (!base) return;
+        const nDay = new Date(base); nDay.setHours(0, 0, 0, 0);
+        if (nDay.getTime() < today.getTime()) return; /* متأخرة → يكفي تنبيه المقدّمة */
+        const dt = new Date(base); dt.setHours(hour, 0, 0, 0);
+        let when = dt.getTime();
+        if (when <= now) {
+          if (nDay.getTime() === today.getTime()) when = now + 60000; /* اليوم وقد فات الوقت */
+          else return;
+        }
+        const cat = [n.main, n.sub].filter(Boolean).join(' › ');
+        const title = '📋 تذكير' + (cat ? ': ' + cat : '');
+        const body = (n.text || cat || 'لديك مهمة') + (n.num ? ' — ' + n.num : '');
+        try { fsb.scheduleReminder(String(n.id), String(when), title, body); } catch (e) { }
+      });
+    }
+    let _syncRemTimer = null;
+    function _syncRemindersDebounced() {
+      clearTimeout(_syncRemTimer);
+      _syncRemTimer = setTimeout(_syncNativeReminders, 1500);
+    }
+    function setRemindHour(v) {
+      let h = parseInt(v, 10); if (isNaN(h) || h < 0 || h > 23) h = 9;
+      localStorage.setItem('notes_remind_hour', String(h));
+      _syncNativeReminders();
+      showFb('🔔 وقت التنبيه: ' + h + ':00');
+    }
+    function requestNotifPerm() {
+      try { if (window.AndroidFS && window.AndroidFS.requestNotificationPermission) window.AndroidFS.requestNotificationPermission(); } catch (e) { }
+      try { if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission(); } catch (e) { }
+      _syncNativeReminders();
+      const el = document.getElementById('remind-status');
+      if (el) el.textContent = '✅ تم — ستصلك تنبيهات المهام في موعدها.';
+      showFb('🔔 تم تفعيل الإشعارات');
+    }
+
+    function _scheduleReminders() {
+      if (!('Notification' in window)) return;
+      if (Notification.permission === 'default') { Notification.requestPermission(); return; }
+      if (Notification.permission !== 'granted') return;
+      const today = new Date(); today.setHours(0, 0, 0, 0);
+      const tKey = 'notes_reminded_' + today.getTime();
+      let done = {};
+      try { done = JSON.parse(localStorage.getItem(tKey) || '{}'); } catch (e) { }
+      /* نظّف مفاتيح الأيام السابقة */
+      try { Object.keys(localStorage).forEach(k => { if (k.indexOf('notes_reminded_') === 0 && k !== tKey) localStorage.removeItem(k); }); } catch (e) { }
+      const notes = DB.get();
+      let overdue = 0;
+      notes.forEach(n => {
+        if (n.status !== 'قيد التنفيذ' || !n.dG) return;
+        const nd = parseG(n.dG); if (!nd) return;
+        const nDate = new Date(nd); nDate.setHours(0, 0, 0, 0);
+        const diff = nDate.getTime() - today.getTime();
+        if (diff === 0) {
+          if (!done['t' + n.id]) {
+            new Notification('📋 مهمة اليوم', {
+              body: (n.text || n.main || 'ملاحظة') + (n.num ? ` — ${n.num}` : ''),
+              tag: 'note-' + n.id
+            });
+            done['t' + n.id] = 1;
+          }
+        } else if (diff < 0) { overdue++; }
+      });
+      if (overdue > 0 && !done['_overdue']) {
+        new Notification('⏰ مهام متأخرة', {
+          body: 'لديك ' + overdue + (overdue === 1 ? ' مهمة متأخرة' : ' مهام متأخرة') + ' بحاجة للمتابعة',
+          tag: 'overdue'
+        });
+        done['_overdue'] = 1;
+      }
+      try { localStorage.setItem(tKey, JSON.stringify(done)); } catch (e) { }
+    }
+    /* تشغيل التذكيرات بعد التحميل وعند العودة للتطبيق */
+    setTimeout(_scheduleReminders, 2000);
+    /* تفعيل وجدولة التذكيرات الأصلية */
+    try { if (window.AndroidFS && window.AndroidFS.requestNotificationPermission) window.AndroidFS.requestNotificationPermission(); } catch (e) { }
+    setTimeout(_syncNativeReminders, 2800);
+
+    /* ══ التحديث التلقائي ══ */
+    const _APK_MANIFEST = 'https://raw.githubusercontent.com/sulasm/MyNotes-releases/main/latest.json';
+    function _autoUpdateHtmlOnLaunch() {
+      if (window._winAutoUpdate) return;            /* ويندوز يحدّث المحتوى تلقائياً من preload */
+      if (window._htmlAutoChecked) return; window._htmlAutoChecked = true;
+      if (!window.AndroidFS || typeof window.AndroidFS.downloadAndApplyUpdate !== 'function') return;
+      window._autoUpdCb = function (result, err) {
+        if (result === 'updated') {
+          try { showFb('🔄 جارٍ تطبيق تحديث جديد...', 0); } catch (e) { }
+          setTimeout(function () {
+            if (window.AndroidFS && typeof window.AndroidFS.reloadApp === 'function') window.AndroidFS.reloadApp();
+            else window.location.reload();
+          }, 900);
+        }
+      };
+      try { window.AndroidFS.downloadAndApplyUpdate(_UPDATE_URL, _getLocalHash(), 'window._autoUpdCb'); } catch (e) { }
+    }
+    function _autoUpdateApkOnLaunch() {
+      const fsb = window.AndroidFS;
+      if (!fsb || typeof fsb.checkAndInstallApk !== 'function') return;  /* يتطلب إصداراً يدعم تحديث APK */
+      if (window._apkAutoChecked) return; window._apkAutoChecked = true;
+      window._apkUpdCb = function (result, err) {
+        if (result === 'downloading') { try { showFb('⬇️ جارٍ تنزيل تحديث التطبيق...', 0); } catch (e) { } }
+        else if (result === 'prompt') { try { showFb('📦 اضغط «تثبيت» لإكمال التحديث', 0); } catch (e) { } }
+      };
+      try { fsb.checkAndInstallApk(_APK_MANIFEST, 'window._apkUpdCb'); } catch (e) { }
+    }
+    setTimeout(_autoUpdateHtmlOnLaunch, 3500);
+    setTimeout(_autoUpdateApkOnLaunch, 6500);
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) setTimeout(_scheduleReminders, 500); });
+
+  </script>
+
+  <!-- عناصر مخفية للمنطق -->
+  <div style="display:none">
+    <span id="btn-sort-ic">⚡</span>
+    <select id="f-main"></select>
+    <select id="f-sub"></select>
+    <select id="f-sec"></select>
+    <select id="f-status"></select>
+    <select id="f-view"></select>
+    <span id="s-count">0</span>
+  </div>
+
+  <!-- نافذة تعديل الملاحظة — كل المعلومات بدون تمرير -->
+  <div id="edit-ov" class="edit-ov">
+    <div class="edit-sheet">
+
+      <!-- رأس: رجوع + عنوان + حفظ -->
+      <div class="edit-sheet-header">
+        <button onclick="closeEdit()" style="background:rgba(255,255,255,.15);border:none;color:#fff;border-radius:8px;padding:5px 12px;font-size:12px;cursor:pointer;font-family:inherit;">✕ إغلاق</button>
+        <h3>✏️ تعديل</h3>
+        <button onclick="saveEdit()" style="background:rgba(34,197,94,.8);border:none;color:#fff;border-radius:8px;padding:5px 12px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">💾 حفظ</button>
+      </div>
+
+      <!-- المحتوى — بدون تمرير -->
+      <div class="edit-sheet-body">
+
+        <!-- ص١: التصنيف (عرض كامل) -->
+        <div class="edit-field-lbl">🗂️ التصنيف</div>
+        <div id="edit-cat-cell" class="edit-inp" style="cursor:pointer;display:flex;align-items:center;gap:6px;padding:7px 10px;" onclick="openEditCatPicker()">
+          <span id="edit-cat-ic">🗂️</span>
+          <span id="edit-cat-tx" style="flex:1;color:rgba(255,255,255,.5);font-size:12px;">اختر التصنيف</span>
+          <span style="color:rgba(255,255,255,.4);font-size:11px;">›</span>
+        </div>
+
+        <!-- ص٢: النص -->
+        <div class="edit-field-lbl">📝 النص</div>
+        <textarea id="edit-text" class="edit-inp" rows="2" placeholder="النص..." style="resize:none;"></textarea>
+
+        <!-- ص٣: الرقم + الحالة (عمودان) -->
+        <div class="edit-row2">
+          <div>
+            <div class="edit-field-lbl">🔢 الرقم</div>
+            <input type="number" id="edit-num" class="edit-inp" placeholder="—" style="padding:7px 10px;">
+          </div>
+          <div>
+            <div class="edit-field-lbl">📊 الحالة</div>
+            <div id="edit-status-cell" class="edit-inp" style="cursor:pointer;display:flex;align-items:center;gap:6px;padding:7px 10px;" onclick="openEditStatusPicker()">
+              <span id="edit-status-ic">📊</span>
+              <span id="edit-status-tx" style="flex:1;font-size:12px;">الحالة</span>
+              <span style="color:rgba(255,255,255,.4);font-size:11px;">›</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- ص٤: التاريخ + المرفق (عمودان) -->
+        <div class="edit-row2" style="margin-top:0;">
+          <div>
+            <div class="edit-field-lbl">📅 التاريخ</div>
+            <div id="edit-date-cell" class="edit-inp" style="cursor:pointer;display:flex;align-items:center;gap:6px;padding:7px 10px;" onclick="openCal('edit')">
+              <span style="font-size:14px;">📅</span>
+              <span id="edit-date-tx" style="flex:1;color:rgba(255,255,255,.5);font-size:11px;">اختر</span>
+            </div>
+          </div>
+          <div>
+            <div class="edit-field-lbl">📎 المرفق</div>
+            <div id="edit-att-name" class="edit-inp"
+              style="cursor:pointer;display:flex;align-items:center;gap:6px;padding:7px 10px;"
+              onclick="openAttFromEdit()">
+              <span id="edit-att-ic" style="font-size:16px;">📎</span>
+              <span id="edit-att-label" style="flex:1;font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">لا يوجد</span>
+              <span id="edit-att-open-hint" style="font-size:10px;color:rgba(255,255,255,0.4);display:none;">فتح</span>
+            </div>
+          </div>
+        </div>
+        <input type="file" id="edit-att-input" style="display:none" onchange="handleAttFromEdit(event)">
+
+        <!-- الملاحظات المرتبطة -->
+        <div id="edit-links-section" style="display:none;margin-top:4px;">
+          <div class="edit-field-lbl">🔗 ملاحظات مرتبطة</div>
+          <div id="edit-links-list" style="display:flex;flex-direction:column;gap:6px;"></div>
+        </div>
+
+      </div>
+
+      <!-- الذيل — أزرار المرفق والحذف -->
+      <div class="edit-sheet-footer">
+        <div style="display:flex;gap:6px;margin-bottom:8px;">
+          <button onclick="triggerAttFromEdit()"
+            style="flex:1;padding:8px;border-radius:10px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.15);color:#fff;font-size:12px;cursor:pointer;font-family:inherit;">🔄 تغيير المرفق</button>
+          <button id="edit-att-del-btn" onclick="removeAttFromEdit()"
+            style="padding:8px 12px;border-radius:10px;background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.3);color:#fca5a5;font-size:12px;cursor:pointer;font-family:inherit;">🗑️</button>
+        </div>
+        <button onclick="deleteFromEdit()"
+          style="width:100%;padding:10px;border-radius:12px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.25);color:#fca5a5;font-size:13px;cursor:pointer;font-family:inherit;box-sizing:border-box;">🗑️ حذف الملاحظة نهائياً</button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- نافذة إدارة المرفق -->
+  <div id="att-ov" class="att-ov" onclick="if(event.target===this)closeAttOv()">
+    <div class="att-sheet">
+      <div class="att-handle"></div>
+      <div class="att-title" id="att-title">📎 المرفق</div>
+      <div class="att-file-name" id="att-file-name"></div>
+      <button class="att-btn att-btn-open" id="att-btn-open" onclick="openAttFile()">🔗 فتح الملف</button>
+      <button class="att-btn att-btn-change" onclick="triggerAttChange()">🔄 تغيير المرفق</button>
+      <button class="att-btn att-btn-del" onclick="removeAttachment()">🗑️ حذف المرفق</button>
+      <button class="att-btn att-btn-cancel" onclick="closeAttOv()">إلغاء</button>
+      <input type="file" id="att-change-input" style="display:none" onchange="handleAttChange(event)">
+    </div>
+  </div>
+
+</body>
+
+</html>
