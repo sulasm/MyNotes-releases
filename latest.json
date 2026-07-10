@@ -1,5 +1,6 @@
 {
-  "versionCode": 3,
-  "versionName": "1.4.2",
-  "apkUrl": "https://github.com/sulasm/MyNotes-releases/releases/download/android-v1.4.2-3/app-release.apk"
+  "versionCode": 6,
+  "versionName": "1.5.0",
+  "apkUrl": "https://github.com/sulasm/MyNotes-releases/releases/download/android-v1.5.0-6/app-release.apk",
+  "sha256": "e7a6213445d6f45036f911b898f6472faab7179ad49f179530f849f719a5e273"
 }
