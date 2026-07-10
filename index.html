@@ -5,7 +5,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
   <meta name="theme-color" content="#667eea">
-  <meta name="app-version" content="1.4.6">
+  <meta name="app-version" content="1.5.0">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <title>المنظم</title>
@@ -2222,7 +2222,7 @@
   <div id="setup-screen" style="display:none">
     <div class="setup-logo">📋</div>
     <div class="setup-title">منظم الملاحظات</div>
-    <div class="setup-sub">بياناتك محفوظة محلياً داخل التطبيق بشكل آمن، مع نسخ احتياطي تلقائي لمجلد Downloads</div>
+    <div class="setup-sub">بياناتك محفوظة محلياً داخل التطبيق بشكل آمن، مع نسخة احتياطية تلقائية داخل مجلد الملاحظات</div>
     <div class="setup-card">
       <div class="setup-option selected">
         <span class="setup-opt-ic">⚡</span>
@@ -2235,7 +2235,7 @@
         <span class="setup-opt-ic">📥</span>
         <div class="setup-opt-tx">
           <span class="setup-opt-title">نسخ احتياطي تلقائي</span>
-          <span class="setup-opt-sub">ملف JSON في Downloads كل 10 ملاحظات</span>
+          <span class="setup-opt-sub">ملف احتياطي (منظم_notes_backup.json) في مجلد الملاحظات كل 10 عمليات حفظ، مع نسخة .bak من الإصدار السابق</span>
         </div>
       </div>
     </div>
@@ -2277,6 +2277,14 @@
           <div class="srow">
             <div class="srow-l">تصدير جميع الملاحظات (JSON)</div>
             <button class="sm-btn" onclick="exportData()">تصدير</button>
+          </div>
+          <div class="srow">
+            <div class="srow-l">استيراد ملاحظات (JSON)</div>
+            <button class="sm-btn" onclick="document.getElementById('import-file-input').click()">📥 استيراد</button>
+            <input type="file" id="import-file-input" accept=".json,application/json" style="display:none" onchange="importData(event)">
+          </div>
+          <div class="srow">
+            <div class="srow-l" style="font-size:11px;color:var(--text-m);">نسخة احتياطية تلقائية: ملف منظم_notes_backup.json في مجلد الملاحظات كل 10 عمليات حفظ + نسخة .bak من الإصدار السابق تحفظها الطبقة الأصلية.</div>
           </div>
         </div>
 
@@ -2349,7 +2357,7 @@
             <div class="orgtbl-field of-text">
               <div class="orgtbl-label">📝 النص</div>
               <div class="orgtbl-cell" style="padding:0;overflow:hidden;">
-                <input type="text" id="f-text" placeholder="بحث..." oninput="renderNotes()"
+                <input type="text" id="f-text" placeholder="بحث..." oninput="_debouncedRender()"
                   style="width:100%;background:transparent;border:none;color:#fff;font-size:13px;padding:8px 10px;font-family:inherit;direction:rtl;outline:none;">
               </div>
             </div>
@@ -2357,7 +2365,7 @@
             <div class="orgtbl-field of-num">
               <div class="orgtbl-label">🔢 رقم</div>
               <div class="orgtbl-cell">
-                <input type="number" id="f-num" oninput="renderNotes()">
+                <input type="text" inputmode="numeric" id="f-num" oninput="_debouncedRender()">
               </div>
             </div>
 
@@ -2651,14 +2659,14 @@
         const mainHead = document.createElement('div');
         mainHead.style.cssText = 'display:flex;align-items:center;gap:8px;padding:11px 14px;background:rgba(255,255,255,0.07);cursor:pointer;user-select:none;-webkit-tap-highlight-color:transparent;';
         mainHead.innerHTML = `
-          <span style="font-size:22px;line-height:1">${cat.ic || '📂'}</span>
-          <span style="flex:1;font-weight:700;color:#fca5a5;font-size:14px">${k}</span>
+          <span style="font-size:22px;line-height:1">${esc(cat.ic || '📂')}</span>
+          <span style="flex:1;font-weight:700;color:#fca5a5;font-size:14px">${esc(k)}</span>
           <span style="font-size:11px;color:rgba(255,255,255,0.4);margin-left:4px">${subKeys.length} فئة</span>
           ${mainCount > 0 ? `<span style="font-size:11px;background:rgba(102,126,234,0.4);color:#c7d2fe;border-radius:8px;padding:1px 7px;margin-left:2px">${mainCount}</span>` : ''}
           <span class="acc-arrow" style="font-size:13px;color:rgba(255,255,255,0.45);transition:transform .22s;margin-left:6px">▼</span>
-          <button class="sm-btn danger" style="font-size:10px;padding:3px 9px;margin-right:4px"
-            onclick="event.stopPropagation();delCat('${k.replace(/'/g, "\\'")}')">حذف</button>
+          <button class="sm-btn danger del-main-btn" style="font-size:10px;padding:3px 9px;margin-right:4px">حذف</button>
         `;
+        mainHead.querySelector('.del-main-btn').addEventListener('click', ev => { ev.stopPropagation(); delCat(k); });
 
         /* ── حاوية الفئات الفرعية (مخفية افتراضياً) ── */
         const subsWrap = document.createElement('div');
@@ -2684,14 +2692,14 @@
           const subHead = document.createElement('div');
           subHead.style.cssText = 'display:flex;align-items:center;gap:6px;padding:8px 18px;cursor:pointer;user-select:none;-webkit-tap-highlight-color:transparent;';
           subHead.innerHTML = `
-            <span style="font-size:17px;line-height:1">${sub.ic || '📌'}</span>
-            <span style="flex:1;color:#fdba74;font-size:13px;font-weight:600">${sk}</span>
+            <span style="font-size:17px;line-height:1">${esc(sub.ic || '📌')}</span>
+            <span style="flex:1;color:#fdba74;font-size:13px;font-weight:600">${esc(sk)}</span>
             <span style="font-size:10px;color:rgba(255,255,255,0.35)">${dets.length} تفصيل</span>
             ${subCount > 0 ? `<span style="font-size:10px;background:rgba(34,197,94,0.25);color:#86efac;border-radius:6px;padding:1px 6px">${subCount}</span>` : ''}
             <span class="sub-arrow" style="font-size:12px;color:rgba(255,255,255,0.35);transition:transform .18s;margin-left:5px">›</span>
-            <button class="sm-btn danger" style="font-size:10px;padding:2px 7px"
-              onclick="event.stopPropagation();delCat('${k.replace(/'/g, "\\'")}','${sk.replace(/'/g, "\\'")}')">حذف</button>
+            <button class="sm-btn danger del-sub-btn" style="font-size:10px;padding:2px 7px">حذف</button>
           `;
+          subHead.querySelector('.del-sub-btn').addEventListener('click', ev => { ev.stopPropagation(); delCat(k, sk); });
 
           const detsWrap = document.createElement('div');
           detsWrap.style.cssText = 'display:none;background:rgba(0,0,0,0.12);padding:2px 0;';
@@ -2709,11 +2717,11 @@
             const detRow = document.createElement('div');
             detRow.style.cssText = 'display:flex;align-items:center;gap:6px;padding:6px 32px;';
             detRow.innerHTML = `
-              <span style="flex:1;font-size:12px;color:rgba(255,255,255,0.6)">${det}</span>
-              <button class="sm-btn danger"
-                style="font-size:10px;padding:2px 6px;background:transparent;border:1px solid rgba(239,68,68,0.45)"
-                onclick="delCat('${k.replace(/'/g, "\\'")}','${sk.replace(/'/g, "\\'")}',${i})">حذف</button>
+              <span style="flex:1;font-size:12px;color:rgba(255,255,255,0.6)">${esc(det)}</span>
+              <button class="sm-btn danger del-det-btn"
+                style="font-size:10px;padding:2px 6px;background:transparent;border:1px solid rgba(239,68,68,0.45)">حذف</button>
             `;
+            detRow.querySelector('.del-det-btn').addEventListener('click', ev => { ev.stopPropagation(); delCat(k, sk, i); });
             detsWrap.appendChild(detRow);
           });
 
@@ -2744,6 +2752,32 @@
       return m ? (m.getAttribute('content') || '') : '';
     }
 
+    /* مقارنة إصدارات نقطية: 1 إذا a>b، -1 إذا a<b، 0 إذا تساويا */
+    function _verCmp(a, b) {
+      const pa = String(a || '').trim().split('.').map(x => parseInt(x, 10) || 0);
+      const pb = String(b || '').trim().split('.').map(x => parseInt(x, 10) || 0);
+      const len = Math.max(pa.length, pb.length);
+      for (let i = 0; i < len; i++) {
+        const d = (pa[i] || 0) - (pb[i] || 0);
+        if (d) return d > 0 ? 1 : -1;
+      }
+      return 0;
+    }
+
+    /* منع تطبيق إصدار أقدم/مساوٍ: يعيد true إذا كان التحديث مسموحاً.
+       newVer قد لا تُبلّغه الأصداف القديمة — عندها لا يمكن المقارنة فنسمح. */
+    function _updateAllowed(newVer) {
+      if (!newVer) return true;
+      if (_verCmp(newVer, _getLocalHash()) > 0) return true;
+      /* الطبقة الأصلية ربما طبّقته بالفعل — نظّفه وارفض إعادة التشغيل */
+      try {
+        if (window.AndroidFS && typeof window.AndroidFS.clearLocalUpdate === 'function') {
+          window.AndroidFS.clearLocalUpdate();
+        }
+      } catch (e) { }
+      return false;
+    }
+
     function checkAndUpdate() {
       if (!window.AndroidFS || typeof window.AndroidFS.downloadAndApplyUpdate !== 'function') {
         _setUpdateStatus('⚠️ يعمل فقط في تطبيق الأندرويد', '#fbbf24'); return;
@@ -2752,7 +2786,11 @@
       if (btn) { btn.disabled = true; btn.textContent = '⏳ جارٍ التحقق...'; }
       _setUpdateStatus('جارٍ جلب آخر إصدار...', '#a78bfa');
 
-      window._updateCallback = function(result, err) {
+      /* حارس «مرة واحدة»: قد يصل الرد عبر الـ callback العام (أندرويد/EXE قديم)
+         أو عبر Promise (EXE جديد) — نعالج أول رد فقط */
+      let _updHandled = false;
+      const onResult = function (result, err, newVer) {
+        if (_updHandled) return; _updHandled = true;
         if (btn) { btn.disabled = false; btn.textContent = '⬇️ تحقق وحدّث'; }
         if (err) {
           _setUpdateStatus('❌ ' + err, '#f87171');
@@ -2762,6 +2800,10 @@
         if (result === 'same') {
           _setUpdateStatus('✅ التطبيق محدَّث — لا يوجد إصدار جديد', '#86efac');
         } else {
+          if (!_updateAllowed(newVer)) {
+            _setUpdateStatus('⚠️ الإصدار المُنزَّل ليس أحدث — تم تجاهله', '#fbbf24');
+            return;
+          }
           _setUpdateStatus('✅ تم تطبيق التحديث — جارٍ إعادة التشغيل...', '#86efac');
           setTimeout(function() {
             if (window.AndroidFS && typeof window.AndroidFS.reloadApp === 'function') {
@@ -2770,7 +2812,22 @@
           }, 1200);
         }
       };
-      window.AndroidFS.downloadAndApplyUpdate(_UPDATE_URL, _getLocalHash(), 'window._updateCallback');
+      window._updateCallback = onResult;
+      try {
+        const r = window.AndroidFS.downloadAndApplyUpdate(_UPDATE_URL, _getLocalHash(), 'window._updateCallback');
+        if (r && typeof r.then === 'function') {
+          /* عقد Electron الجديد: Promise<{status, err}> — قيمة بلا معنى تعني أن الرد سيصل عبر callback */
+          r.then(res => {
+            if (res && typeof res === 'object' && ('status' in res || 'err' in res)) {
+              onResult(res.status, res.err || '', res.version || res.newVersion || '');
+            } else if (typeof res === 'string' && res) {
+              onResult(res, '');
+            }
+          }).catch(e2 => onResult(null, String((e2 && e2.message) || e2)));
+        }
+      } catch (e) {
+        onResult(null, String((e && e.message) || e));
+      }
     }
 
     function clearUpdate() {
@@ -2818,15 +2875,43 @@
       uq: { 1445: [30, 29, 30, 29, 30, 29, 30, 29, 30, 29, 30, 29], 1446: [30, 29, 30, 29, 30, 29, 30, 29, 30, 29, 30, 30], 1447: [30, 29, 30, 29, 30, 29, 30, 29, 30, 29, 30, 29], 1448: [30, 29, 30, 29, 30, 29, 30, 29, 30, 29, 30, 30], 1449: [30, 29, 30, 29, 30, 29, 30, 29, 30, 29, 30, 29] },
       base: { g: new Date('2024-12-24'), h: { y: 1446, m: 6, d: 23 } },
       md(y, m0) { if (this.uq[y]) return this.uq[y][m0] || 29; return [2, 5, 7, 10, 13, 16, 18, 21, 24, 26, 29].includes(y % 30) ? 30 : 29 },
-      toH(gd) {
+      /* تحويل ميلادي→هجري عبر Intl (أم القرى) — للسنوات خارج تغطية الجدول */
+      _intlH(gd) {
+        try {
+          const parts = new Intl.DateTimeFormat('en-u-ca-islamic-umalqura', { day: 'numeric', month: 'numeric', year: 'numeric' }).formatToParts(gd);
+          const o = {};
+          parts.forEach(p => { if (p.type === 'day' || p.type === 'month' || p.type === 'year') o[p.type] = parseInt(p.value, 10); });
+          if (o.year && o.month && o.day) return { y: o.year, m: o.month, d: o.day };
+        } catch (e) { }
+        return null;
+      },
+      _arithToH(gd) {
         let r = Math.floor((gd - this.base.g) / 864e5), { y, m, d } = { y: this.base.h.y, m: this.base.h.m - 1, d: this.base.h.d };
         while (r !== 0) { const dm = this.md(y, m); if (r > 0) { const e = dm - d + 1; if (r >= e) { r -= e; d = 1; m++; if (m >= 12) { m = 0; y++; } } else { d += r; r = 0; } } else { if (Math.abs(r) < d) { d += r; r = 0; } else { r += d; m--; if (m < 0) { m = 11; y--; } d = this.md(y, m); } } if (Math.abs(r) > 4e5) break; }
         return { y, m: m + 1, d };
       },
-      toG(h) {
+      toH(gd) {
+        const approx = this._arithToH(gd);
+        if (this.uq[approx.y]) return approx;          /* داخل تغطية الجدول — سلوك قديم بلا تغيير */
+        return this._intlH(gd) || approx;              /* خارجها: Intl، والحساب التقريبي كملاذ أخير */
+      },
+      _arithToG(h) {
         let days = 0, cy = this.base.h.y, cm = this.base.h.m - 1, cd = this.base.h.d, ty = h.y, tm = h.m - 1, td = h.d;
         while (cy !== ty || cm !== tm || cd !== td) { const dm = this.md(cy, cm); if (cy < ty || (cy === ty && cm < tm)) { const e = dm - cd + 1; days += e; cd = 1; cm++; if (cm >= 12) { cm = 0; cy++; } } else if (cy > ty || (cy === ty && cm > tm)) { cm--; if (cm < 0) { cm = 11; cy--; } const d2 = this.md(cy, cm); days -= (d2 - cd + 1); cd = d2; } else { days += td - cd; cd = td; } if (Math.abs(days) > 4e5) break; }
         const r = new Date(this.base.g); r.setDate(r.getDate() + days); return r;
+      },
+      toG(h) {
+        if (this.uq[h.y]) return this._arithToG(h);    /* داخل تغطية الجدول — سلوك قديم بلا تغيير */
+        const est = this._arithToG(h);
+        /* خارجها: قدّر بالحساب ثم امسح ±4 أيام وقارن أجزاء Intl الهجرية */
+        try {
+          for (let off = -4; off <= 4; off++) {
+            const cand = new Date(est); cand.setDate(cand.getDate() + off);
+            const hp = this._intlH(cand);
+            if (hp && hp.y === h.y && hp.m === h.m && hp.d === h.d) return cand;
+          }
+        } catch (e) { }
+        return est;                                    /* ملاذ أخير: الحساب التقريبي */
       },
       today() { return this.toH(new Date()) },
       p2(n) { return String(n).padStart(2, '0') },
@@ -2838,7 +2923,6 @@
        حالة التطبيق
     ══════════════════════════════════════ */
     const S = {
-      cap: { main: '', sub: '', sec: '', status: '', dH: '', dG: '', file: null },
       q: { main: '', sub: '', sec: '', status: '', dH: '', dG: '', file: null, links: [] },
       fDate: { g: '', h: '' },
       fFile: null
@@ -2850,16 +2934,103 @@
        ذاكرة مؤقتة (_notesCache) تبقي واجهة DB.get() متزامنة.
     ══════════════════════════════════════ */
     let _notesCache = [];
+    let _notesLoaded = false;          /* لا كتابة قبل نجاح التحميل — حماية من مسح الملف */
     const NOTES_FILE = 'منظم_notes.json';
+    const BACKUP_FILE = 'منظم_notes_backup.json';
+    const FLUSH_SNAPSHOT_KEY = 'notes_flush_snapshot';
+
+    /* ── IndexedDB: مخزن key/value بسيط (قاعدة munazzam / مخزن kv) ── */
+    function _idbKV(mode, fn) {
+      return new Promise((res, rej) => {
+        let req;
+        try { req = indexedDB.open('munazzam', 1); } catch (e) { rej(e); return; }
+        req.onupgradeneeded = e => { try { e.target.result.createObjectStore('kv'); } catch (e2) { } };
+        req.onerror = () => rej(req.error || new Error('idb-open'));
+        req.onsuccess = e => {
+          const db = e.target.result;
+          try {
+            const tx = db.transaction('kv', mode);
+            const r = fn(tx.objectStore('kv'));
+            tx.oncomplete = () => { db.close(); res(r ? r.result : undefined); };
+            tx.onerror = () => { db.close(); rej(tx.error || new Error('idb-tx')); };
+            tx.onabort = () => { db.close(); rej(tx.error || new Error('idb-abort')); };
+          } catch (err) { try { db.close(); } catch (e3) { } rej(err); }
+        };
+      });
+    }
+    function idbGet(key) { return _idbKV('readonly', st => st.get(key)); }
+    function idbSet(key, val) { return _idbKV('readwrite', st => st.put(val, key)); }
+
+    /* ── تنسيق الحفظ v2: {v, savedAt, notes} مع توافق رجعي كامل مع المصفوفة المجردة ── */
+    function _serializeNotes() {
+      return JSON.stringify({ v: 2, savedAt: Date.now(), notes: _notesCache });
+    }
+    function _deserializeNotes(text) {
+      const p = JSON.parse(text);
+      if (Array.isArray(p)) return { v: 1, savedAt: 0, notes: p };
+      if (p && Array.isArray(p.notes)) return { v: p.v || 2, savedAt: +p.savedAt || 0, notes: p.notes };
+      throw new Error('bad-notes-format');
+    }
+
+    /* ── شريط خطأ أحمر ثابت وقابل للإغلاق (فشل تحميل/حفظ) ── */
+    function showSaveError(msg, retryFn) {
+      hideSaveError();
+      document.querySelectorAll('.org-fb').forEach(x => x.remove()); /* لا توست نجاح فوق الخطأ */
+      const bar = document.createElement('div');
+      bar.id = 'save-err-banner';
+      bar.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:100000;background:#dc2626;color:#fff;padding:10px 14px;font-size:13px;font-weight:600;display:flex;align-items:center;gap:10px;direction:rtl;box-shadow:0 4px 16px rgba(0,0,0,.45);';
+      const txt = document.createElement('span');
+      txt.style.cssText = 'flex:1;line-height:1.5;';
+      txt.textContent = msg;
+      const retry = document.createElement('button');
+      retry.textContent = 'إعادة المحاولة';
+      retry.style.cssText = 'background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.45);color:#fff;border-radius:8px;padding:5px 12px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;flex-shrink:0;';
+      retry.onclick = () => { hideSaveError(); (retryFn || _writeNotesNow)(); };
+      const close = document.createElement('button');
+      close.textContent = '✕';
+      close.style.cssText = 'background:transparent;border:none;color:rgba(255,255,255,.85);font-size:14px;cursor:pointer;padding:2px 6px;flex-shrink:0;';
+      close.onclick = hideSaveError;
+      bar.appendChild(txt); bar.appendChild(retry); bar.appendChild(close);
+      (document.body || document.documentElement).appendChild(bar);
+    }
+    function hideSaveError() {
+      const ex = document.getElementById('save-err-banner');
+      if (ex) ex.remove();
+    }
+
+    function _onSaveFail() {
+      showSaveError('⚠️ فشل حفظ الملاحظات — التغييرات غير محفوظة', () => _writeNotesNow());
+    }
+    function _onSaveOk() {
+      hideSaveError();
+      _autoBackup();
+    }
 
     /* كتابة فعلية لكل الملاحظات إلى ملف المجلد (غير متزامنة قدر الإمكان) */
     function _writeNotesNow() {
+      if (!_notesLoaded) {
+        /* لم يكتمل التحميل بنجاح — الكتابة الآن قد تمسح الملف الأصلي */
+        _persistPending = false;
+        showSaveError('⚠️ فشل تحميل الملاحظات — الحفظ متوقف لحماية ملفك', () => { _loadNotes(); });
+        return;
+      }
       _persistPending = false;
-      const json = JSON.stringify(_notesCache);
+      const json = _serializeNotes();
       /* أندرويد / ويندوز (جسر AndroidFS) */
       if (window.AndroidFS && typeof window.AndroidFS.writeJson === 'function'
         && localStorage.getItem('notes_storage') === 'android_fs') {
-        try { window.AndroidFS.writeJson(NOTES_FILE, json); } catch (e) { }
+        try {
+          const r = window.AndroidFS.writeJson(NOTES_FILE, json);
+          if (r && typeof r.then === 'function') {
+            /* عقد Electron الجديد: Promise<boolean> */
+            r.then(ok => { if (ok === false) _onSaveFail(); else _onSaveOk(); })
+              .catch(() => _onSaveFail());
+          } else if (r === false) {
+            _onSaveFail();
+          } else {
+            _onSaveOk();
+          }
+        } catch (e) { _onSaveFail(); }
         return;
       }
       /* سطح المكتب: File System Access (غير متزامن) */
@@ -2870,12 +3041,56 @@
             const w = await fh.createWritable();
             await w.write(json);
             await w.close();
-          } catch (e) { }
+            try { localStorage.removeItem(FLUSH_SNAPSHOT_KEY); } catch (e) { }
+            _onSaveOk();
+          } catch (e) { _onSaveFail(); }
         })();
         return;
       }
-      /* احتياطي أخير: لا يوجد مجلد */
-      try { localStorage.setItem('notes', json); } catch (e) { }
+      /* احتياطي أخير: لا يوجد مجلد → IndexedDB أولاً + مرآة localStorage للتوافق الرجعي */
+      _writeFallback(json);
+    }
+
+    function _writeFallback(json) {
+      let lsOk = false;
+      try {
+        const bare = JSON.stringify(_notesCache);
+        if (bare.length < 2000000) { localStorage.setItem('notes', bare); lsOk = true; }
+      } catch (e) { }
+      idbSet('notes', json).then(() => _onSaveOk()).catch(() => {
+        if (lsOk) _onSaveOk(); else _onSaveFail();
+      });
+    }
+
+    /* ── نسخ احتياطي تلقائي حقيقي: كل 10 عمليات حفظ ناجحة ── */
+    let _saveCount = parseInt(localStorage.getItem('notes_save_count'), 10) || 0;
+    let _backupWarned = false;
+    function _backupWarnOnce() {
+      if (_backupWarned) return; _backupWarned = true;
+      try { showFb('⚠️ تعذّر إنشاء النسخة الاحتياطية التلقائية', 1); } catch (e) { }
+    }
+    function _autoBackup() {
+      _saveCount++;
+      try { localStorage.setItem('notes_save_count', String(_saveCount)); } catch (e) { }
+      if (_saveCount % 10 !== 0) return;
+      const json = JSON.stringify(_notesCache);   /* مصفوفة مجردة — يقبلها الاستيراد في كل الإصدارات */
+      const storage = localStorage.getItem('notes_storage');
+      try {
+        if (window.AndroidFS && storage === 'android_fs') {
+          if (typeof window.AndroidFS.writeFile === 'function') {
+            window.AndroidFS.writeFile('', BACKUP_FILE, json);
+          }
+        } else if (_dirHandle) {
+          (async () => {
+            try {
+              const fh = await _dirHandle.getFileHandle(BACKUP_FILE, { create: true });
+              const w = await fh.createWritable(); await w.write(json); await w.close();
+            } catch (e) { _backupWarnOnce(); }
+          })();
+        } else {
+          idbSet('notes_backup', json).catch(() => _backupWarnOnce());
+        }
+      } catch (e) { _backupWarnOnce(); }
     }
 
     let _persistTimer = null;
@@ -2890,32 +3105,123 @@
 
     /* حفظ فوري لما هو معلّق (يُستدعى عند إخفاء/إغلاق التطبيق) */
     function _flushNotes() {
+      const wasPending = _persistPending || !!_persistTimer;
       if (_persistTimer) { clearTimeout(_persistTimer); _persistTimer = null; }
       if (_persistPending) _writeNotesNow();
+      /* سطح المكتب FS-Access: الكتابة غير متزامنة وقد لا تكتمل قبل الإغلاق —
+         نحفظ لقطة متزامنة تُفضَّل عند التحميل التالي إذا كانت أحدث من الملف */
+      if (wasPending && _dirHandle && _notesLoaded) {
+        try { localStorage.setItem(FLUSH_SNAPSHOT_KEY, _serializeNotes()); } catch (e) { }
+      }
     }
     document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') _flushNotes(); });
     window.addEventListener('pagehide', _flushNotes);
     window.addEventListener('beforeunload', _flushNotes);
 
+    /* قراءة النسخة الاحتياطية عبر نفس قناة التخزين */
+    async function _readBak() {
+      const storage = localStorage.getItem('notes_storage');
+      if (window.AndroidFS && typeof window.AndroidFS.readJson === 'function' && storage === 'android_fs') {
+        try {
+          let b = window.AndroidFS.readJson(NOTES_FILE + '.bak');
+          if (b && typeof b.then === 'function') b = await b;
+          return b || '';
+        } catch (e) { return ''; }
+      }
+      if (_dirHandle) {
+        try {
+          const fh = await _dirHandle.getFileHandle(NOTES_FILE + '.bak');
+          const f = await fh.getFile();
+          return await f.text();
+        } catch (e) { return ''; }
+      }
+      try { return (await idbGet('notes_backup')) || ''; } catch (e) { return ''; }
+    }
+
     /* تحميل الملاحظات من ملف المجلد إلى الذاكرة */
     async function _loadNotes() {
-      let raw = '';
-      if (window.AndroidFS && typeof window.AndroidFS.readJson === 'function'
-        && localStorage.getItem('notes_storage') === 'android_fs') {
-        try { raw = window.AndroidFS.readJson(NOTES_FILE) || ''; } catch (e) { }
+      let raw = null;           /* null = لا يوجد ملف بعد (تشغيل أول = نجاح بمصفوفة فارغة) */
+      let readFailed = false;   /* القناة نفسها فشلت (استثناء) */
+      const storage = localStorage.getItem('notes_storage');
+      if (window.AndroidFS && typeof window.AndroidFS.readJson === 'function' && storage === 'android_fs') {
+        try {
+          raw = window.AndroidFS.readJson(NOTES_FILE);
+          if (raw && typeof raw.then === 'function') raw = await raw;
+          if (raw === undefined) raw = null;
+        } catch (e) { readFailed = true; }
       } else if (_dirHandle) {
         try {
           const fh = await _dirHandle.getFileHandle(NOTES_FILE);
           const f = await fh.getFile();
           raw = await f.text();
-        } catch (e) { /* لا يوجد ملف بعد */ }
+        } catch (e) {
+          if (e && (e.name === 'NotFoundError' || e.name === 'TypeMismatchError')) raw = null; /* لا يوجد ملف بعد */
+          else readFailed = true;
+        }
       } else {
-        raw = localStorage.getItem('notes') || '';
+        /* احتياطي: IndexedDB أولاً ثم localStorage (مع ترحيل إلى IDB) */
+        try { raw = await idbGet('notes'); } catch (e) { raw = null; }
+        if (raw == null || raw === '') {
+          try { raw = localStorage.getItem('notes'); } catch (e) { raw = null; }
+          if (raw) { try { idbSet('notes', raw).catch(() => { }); } catch (e) { } }
+        }
       }
-      try {
-        const arr = JSON.parse(raw);
-        if (Array.isArray(arr)) _notesCache = arr;
-      } catch (e) { /* ملف فارغ أو غير صالح */ }
+
+      let parsed = null;
+      let loadedOk = false;
+      let fromBak = false;
+      if (!readFailed) {
+        if (raw == null || String(raw).trim() === '') {
+          parsed = { v: 2, savedAt: 0, notes: [] };  /* لا ملف بعد — تشغيل أول */
+          loadedOk = true;
+        } else {
+          try { parsed = _deserializeNotes(String(raw)); loadedOk = true; }
+          catch (e) { loadedOk = false; /* الملف موجود لكنه تالف */ }
+        }
+      }
+
+      /* محاولة الاستعادة من النسخة الاحتياطية إذا فشل الملف الرئيسي */
+      if (!loadedOk) {
+        try {
+          const bak = await _readBak();
+          if (bak && String(bak).trim() !== '') {
+            parsed = _deserializeNotes(String(bak));
+            loadedOk = true; fromBak = true;
+          }
+        } catch (e) { }
+      }
+
+      if (!loadedOk) {
+        /* الملف تالف أو القراءة فشلت والنسخة الاحتياطية فشلت أيضاً:
+           لا نكتب أبداً فوق ملف قد يكون قابلاً للاستعادة */
+        _notesLoaded = false;
+        showSaveError('⚠️ فشل تحميل الملاحظات — الحفظ متوقف لحماية ملفك', () => { _loadNotes(); });
+        updCount();
+        if (typeof renderNotes === 'function') renderNotes();
+        return;
+      }
+
+      /* سطح المكتب: إذا كانت لقطة الطوارئ أحدث من الملف فهي المرجع */
+      let needResave = fromBak;
+      if (_dirHandle) {
+        try {
+          const snapRaw = localStorage.getItem(FLUSH_SNAPSHOT_KEY);
+          if (snapRaw) {
+            const snap = _deserializeNotes(snapRaw);
+            if ((snap.savedAt || 0) > (parsed.savedAt || 0)) {
+              parsed = snap; needResave = true;
+              showFb('↩️ استُعيدت آخر التغييرات غير المحفوظة');
+            }
+            localStorage.removeItem(FLUSH_SNAPSHOT_KEY);
+          }
+        } catch (e) { }
+      }
+
+      _notesCache = parsed.notes;
+      _notesLoaded = true;
+      hideSaveError();
+      if (fromBak) showFb('تمت الاستعادة من النسخة الاحتياطية');
+      if (needResave) _persistNotes();
       updCount();
       if (typeof renderNotes === 'function') renderNotes();
       /* تأكيد نجاح الإقلاع بعد تطبيق تحديث (يلغي التراجع التلقائي) */
@@ -2927,9 +3233,6 @@
       set(a) { _notesCache = Array.isArray(a) ? a : []; _persistNotes(); updCount(); _syncRemindersDebounced(); },
       add(n) { _notesCache.unshift(n); _persistNotes(); updCount(); _syncRemindersDebounced(); }
     };
-
-    /* لم تعد هناك ازدواجية تخزين — الملف في المجلد هو المصدر */
-    function _autoBackup() { /* مُلغاة عمداً */ }
 
     function updCount() {
       const n = DB.get().length;
@@ -2959,7 +3262,7 @@
       if (!_inSettings) {
         _inSettings = true;
         goto('settings');
-        history.pushState({ mn: 'settings' }, '');
+        hPush();
       } else {
         _closeSettings();
       }
@@ -3033,8 +3336,7 @@
         e.preventDefault();
         toggleSettings();
       });
-      /* مفتاح Esc: يُغلق الإعدادات أو أي نافذة مفتوحة */
-      document.addEventListener('keydown', (e) => { if (e.key === 'Escape') _handleBack(); });
+      /* مفتاح Esc: يُعالج في مستمع الاختصارات الموحّد (أسفل) عبر _handleBack */
     }
 
     function _closeSettings() {
@@ -3080,14 +3382,20 @@
     });
 
     /* ٣ — popstate (احتياطي لمتصفحات الويب العادية) */
+    /* عمق حالات الحماية فوق قاع التاريخ — يمنع النمو غير المحدود (E5) */
+    var _histDepth = 0;
     window.addEventListener('load', function () {
       history.pushState({ mn: 'guard' }, '');
-      history.pushState({ mn: 'guard' }, '');
+      _histDepth = 1;
     });
 
     window.addEventListener('popstate', function () {
+      _histDepth = Math.max(0, _histDepth - 1);
       _handleBack();
-      history.pushState({ mn: 'guard' }, '');
+      if (_histDepth === 0) {
+        history.pushState({ mn: 'guard' }, '');
+        _histDepth = 1;
+      }
     });
 
     /* ══ واجهة JS للـ Native back button ══ */
@@ -3096,44 +3404,41 @@
     };
 
     function hPush() {
+      /* إذا كانت حالة من نفس النوع أعلى المكدس فعلاً: استبدال بدل إضافة */
+      if (_histDepth > 0) { history.replaceState({ mn: 'guard' }, ''); return; }
       history.pushState({ mn: 'guard' }, '');
+      _histDepth = 1;
     }
-    function openPicker(t) {
-      hPush();
-      let items = [], title = '', cols = 2, create = false;
-      if (t === 'main') {
-        title = '🗂️ الفئة الرئيسية';
-        items = Object.keys(CATS).map(k => ({ n: k, i: CATS[k].ic }));
-        create = true;
-      } else if (t === 'sub') {
-        if (!S.cap.main) { showFb('اختر الرئيسية أولاً', 1); return; }
-        title = `📌 ${S.cap.main}`;
-        items = Object.keys(CATS[S.cap.main].sub).map(k => ({ n: k, i: CATS[S.cap.main].sub[k].ic }));
-        create = true;
-      } else if (t === 'sec') {
-        if (!S.cap.main || !S.cap.sub) { showFb('اختر الرئيسية والفرعية', 1); return; }
-        const d = CATS[S.cap.main].sub[S.cap.sub].det;
-        if (!d.length) { showFb('لا توجد تفاصيل لهذه الفئة', 1); return; }
-        title = `🎯 ${S.cap.sub}`;
-        items = d.map(x => { const m = x.match(/^(\p{Emoji_Presentation}|\p{Extended_Pictographic})/u); return { n: m ? x.slice(m[0].length).trim() : x, i: m ? m[0] : '🔸', full: x }; });
-      } else if (t === 'status') {
-        title = '📊 الحالة';
-        items = Object.keys(SMAP).map(k => ({ n: k, i: SMAP[k].ic }));
-        cols = 1;
-      }
-      showPicker(title, items, cols, create, (ic, nm, full) => {
-        if (t === 'main') {
-          S.cap.main = nm; S.cap.sub = ''; S.cap.sec = '';
-          setCC('main', ic, nm); setCC('sub', '📌', 'اختر الفرعية', 1); setCC('sec', '🎯', 'اختر الثانوية', 1);
-        } else if (t === 'sub') {
-          S.cap.sub = nm; S.cap.sec = '';
-          setCC('sub', ic, nm); setCC('sec', '🎯', 'اختر الثانوية', 1);
-        } else if (t === 'sec') {
-          S.cap.sec = full || nm; setCC('sec', ic, nm);
-        } else if (t === 'status') {
-          S.cap.status = nm; setCC('status', ic, nm);
+    /* ══ أدوات مساعدة عامة ══ */
+    /* مقارنة معرّفات آمنة (أرقام قديمة + نصوص جديدة) */
+    function _sameId(a, b) { return String(a) === String(b); }
+
+    /* معرّف جديد فريد: طابع زمني + ٣ أرقام عشوائية (متوافق نصياً/رقمياً) */
+    function newNoteId() {
+      return String(Date.now()) + String(Math.floor(Math.random() * 900) + 100);
+    }
+
+    /* أول Grapheme cluster كامل — يحافظ على رموز ZWJ مثل 👨‍💼 */
+    function firstGrapheme(s) {
+      s = String(s || '');
+      if (!s) return '';
+      try {
+        if (typeof Intl !== 'undefined' && Intl.Segmenter) {
+          const it = new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(s)[Symbol.iterator]().next();
+          if (!it.done) return it.value.segment;
         }
-      });
+      } catch (e) { }
+      const m = s.match(/^(\p{Emoji_Presentation}|\p{Extended_Pictographic})/u);
+      return m ? m[0] : '';
+    }
+    /* فصل الأيقونة التعبيرية في بداية النص عن الباقي */
+    function splitLeadingEmoji(s) {
+      s = String(s || '');
+      const g = firstGrapheme(s);
+      if (g && /(\p{Emoji_Presentation}|\p{Extended_Pictographic})/u.test(g)) {
+        return { ic: g, rest: s.slice(g.length).trim() };
+      }
+      return { ic: '', rest: s };
     }
 
     function openQPicker(t) {
@@ -3148,7 +3453,7 @@
         const d = CATS[S.q.main].sub[S.q.sub].det;
         if (!d.length) { showFb('لا توجد تفاصيل', 1); return; }
         title = `🎯 ${S.q.sub}`;
-        items = d.map(x => { const m = x.match(/^(\p{Emoji_Presentation}|\p{Extended_Pictographic})/u); return { n: m ? x.slice(m[0].length).trim() : x, i: m ? m[0] : '🔸', v: x, full: x }; });
+        items = d.map(x => { const sp = splitLeadingEmoji(x); return { n: sp.ic ? sp.rest : x, i: sp.ic || '🔸', v: x, full: x }; });
       } else if (t === 'status') {
         title = '📊 الحالة'; items = Object.keys(SMAP).map(k => ({ n: k, i: SMAP[k].ic, v: k }));
       }
@@ -3174,32 +3479,8 @@
       });
     }
 
-    function showPicker(title, items, cols, create, cb) {
-      const box = document.getElementById('picker-box');
-      let h = `<div class="org-picker-title">${title}</div>`;
-      if (create) h += `<button class="org-picker-create-btn">➕ إضافة جديد</button>`;
-      h += `<div class="org-picker-grid" style="--org-cols:${cols}">`;
-      items.forEach((it, i) => h += `<button class="org-picker-btn" data-i="${i}"><span class="org-picker-btn-icon">${it.i}</span><span class="org-picker-btn-text">${it.n}</span></button>`);
-      h += `</div><button class="org-picker-close-btn">إغلاق</button>`;
-      box.innerHTML = h;
-      box.querySelectorAll('.org-picker-btn').forEach((b, i) => {
-        b.onclick = () => { cb(items[i].i, items[i].n, items[i].full || items[i].n, items[i].v); closePicker(); };
-      });
-      box.querySelector('.org-picker-close-btn').onclick = closePicker;
-      const cr = box.querySelector('.org-picker-create-btn');
-      if (cr) cr.onclick = () => showFb('يمكن إضافة الفئات من ملف الفئات.md');
-      document.getElementById('picker-ov').classList.add('open');
-    }
     function closePicker() { document.getElementById('picker-ov').classList.remove('open'); }
 
-    function setCC(k, ic, tx, ph = 0) {
-      const i = document.getElementById('c-ic-' + k), t = document.getElementById('c-tx-' + k);
-      if (i) i.textContent = ic;
-      if (t) {
-        t.textContent = tx;
-        t.style.color = ph ? 'rgba(255,255,255,.45)' : 'rgba(255,255,255,.95)';
-      }
-    }
     function setQC(k, ic, tx, ph = 0) {
       const i = document.getElementById('q-ic-' + k), t = document.getElementById('q-tx-' + k);
       if (i) i.textContent = ic;
@@ -3228,8 +3509,7 @@
       const th = H.today();
       // التاريخ المحدد حسب الهدف
       let selH = '';
-      if (calTarget === 'cap') selH = S.cap.dH;
-      else if (calTarget === 'quick') selH = S.q.dH;
+      if (calTarget === 'quick') selH = S.q.dH;
       else if (calTarget === 'filter') selH = S.fDate.h;
       for (let d = 1; d <= days; d++) {
         const gd = H.toG({ y, m, d });
@@ -3240,8 +3520,7 @@
         const _y = y, _m = m, _d = d, _gd = new Date(gd);
         c.onclick = () => {
           const dh = H.fmtH({ y: _y, m: _m, d: _d }), dg = H.fmtG(_gd);
-          if (calTarget === 'cap') { S.cap.dH = dh; S.cap.dG = dg; setDateDisp('cap', dh, dg); }
-          else if (calTarget === 'quick') { S.q.dH = dh; S.q.dG = dg; setDateDisp('quick', dh, dg); }
+          if (calTarget === 'quick') { S.q.dH = dh; S.q.dG = dg; setDateDisp('quick', dh, dg); }
           else if (calTarget === 'edit') {
             _editDH = dh; _editDG = dg;
             const dtx = document.getElementById('edit-date-tx');
@@ -3289,20 +3568,18 @@
         }
       }
 
-      const pfx = t === 'cap' ? 'c' : 'q';
-      const elMon = document.getElementById(pfx + '-cal-month');
-      const elDay = document.getElementById(pfx + '-cal-day');
-      const elPh = document.getElementById(pfx + '-dph');
-      const elDh = document.getElementById(pfx + '-dh');
-      const elDg = document.getElementById(pfx + '-dg');
-      const elTxt = document.getElementById('f-date-txt-' + (t === 'cap' ? 'cap' : 'quick'));
+      /* النافذة السريعة هي الهدف الوحيد المتبقي */
+      const elMon = document.getElementById('q-cal-month');
+      const elDay = document.getElementById('q-cal-day');
+      const elPh = document.getElementById('q-dph');
+      const elDh = document.getElementById('q-dh');
+      const elDg = document.getElementById('q-dg');
 
       if (elMon) elMon.textContent = gMon;
       if (elDay) elDay.textContent = toArabic(gDay);
       if (elPh) elPh.style.display = 'none';
-      if (elTxt) elTxt.style.display = 'flex';
-      if (elDh) elDh.textContent = toArabic(dh);
-      if (elDg) elDg.textContent = toArabic(dg);
+      if (elDh) { elDh.textContent = toArabic(dh); elDh.style.display = 'inline'; }
+      if (elDg) { elDg.textContent = toArabic(dg); elDg.style.display = 'inline'; }
     }
 
     /* ══════════════════════════════════════
@@ -3352,7 +3629,7 @@
     }
     function buildNote(st, tid, nid, file) {
       return {
-        id: Date.now(),
+        id: newNoteId(),
         main: st.main, sub: st.sub, sec: st.sec,
         text: (document.getElementById(tid)?.value || '').trim(),
         num: (document.getElementById(nid)?.value || '').trim(),
@@ -3362,10 +3639,20 @@
         ts: new Date().toISOString()
       };
     }
-    function saveCapture() {
-      const n = buildNote(S.cap, 'c-inp-text', 'c-inp-num', S.cap.file);
-      if (!n.main && !n.text) { showFb('أدخل الفئة الرئيسية أو النص', 1); return; }
-      DB.add(n); resetCap(); showFb('✅ تم حفظ الملاحظة');
+    /* تفريغ كل حقول التسجيل السريع — يمنع إعادة حفظ نفس الملاحظة عند الإغلاق */
+    function _resetQuickForm() {
+      S.q = { main: '', sub: '', sec: '', status: '', dH: '', dG: '', file: null, links: [] };
+      setQC('main', '📁', 'الرئيسية', 1); setQC('sub', '📌', 'الفرعية', 1);
+      setQC('sec', '🎯', 'الثانوية', 1); setQC('status', '📊', 'حالة', 1);
+      const qt = document.getElementById('q-text'); if (qt) qt.value = '';
+      const qn = document.getElementById('q-num'); if (qn) qn.value = '';
+      const qa = document.getElementById('q-attach-cell'); if (qa) qa.style.background = '';
+      const qd = document.getElementById('q-dph'); if (qd) qd.style.display = '';
+      const qdh = document.getElementById('q-dh'); if (qdh) { qdh.textContent = ''; qdh.style.display = 'none'; }
+      const qdg = document.getElementById('q-dg'); if (qdg) { qdg.textContent = ''; qdg.style.display = 'none'; }
+      const qcd = document.getElementById('q-cal-day'); if (qcd) qcd.textContent = '📅';
+      const qcm = document.getElementById('q-cal-month'); if (qcm) qcm.textContent = '';
+      if (typeof _renderQLinkChips === 'function') _renderQLinkChips();
     }
     function _doSaveQuick() {
       const n = buildNote(S.q, 'q-text', 'q-num', S.q.file);
@@ -3375,12 +3662,13 @@
       if (n.links && n.links.length) {
         const all = DB.get();
         n.links.forEach(lid => {
-          const t = all.find(x => x.id === lid);
-          if (t) { if (!Array.isArray(t.links)) t.links = []; if (!t.links.includes(n.id)) t.links.push(n.id); }
+          const t = all.find(x => _sameId(x.id, lid));
+          if (t) { if (!Array.isArray(t.links)) t.links = []; if (!t.links.some(l => _sameId(l, n.id))) t.links.push(n.id); }
         });
         DB.set(all);
-        _autoBackup(all);
       }
+      /* بعد حفظ ناجح: تفريغ الحقول حتى لا يُعاد حفظها عند الإغلاق التالي */
+      _resetQuickForm();
       return n;
     }
     function saveQuick() {
@@ -3402,7 +3690,7 @@
     }
     function _doSaveFromFilter(main, sub, sec, txt, status, dg) {
       DB.add({
-        id: Date.now(), main: main||'', sub: sub||'', sec: sec||'',
+        id: newNoteId(), main: main||'', sub: sub||'', sec: sec||'',
         text: txt||'', num: document.getElementById('f-num')?.value.trim()||'',
         status: status||'', dH: S.fDate.h||'', dG: dg||S.fDate.g||'',
         file: S.fFile||null, ts: new Date().toISOString()
@@ -3412,49 +3700,6 @@
       S.fFile = null;
       document.getElementById('f-attach-cell').style.background = '';
       setTimeout(renderNotes, 100);
-    }
-
-    function resetCap() {
-      S.cap = { main: '', sub: '', sec: '', status: '', dH: '', dG: '', file: null };
-      setCC('main', '📁', 'الكل', 1); setCC('sub', '📌', 'الكل', 1);
-      setCC('sec', '🎯', 'الكل', 1); setCC('status', '📊', 'الكل', 1);
-      document.getElementById('c-inp-text').value = '';
-      document.getElementById('c-inp-num').value = '';
-      // إعادة خلية التاريخ
-      const calDay = document.getElementById('c-cal-day');
-      const calMon = document.getElementById('c-cal-month');
-      const elPh = document.getElementById('c-dph');
-      const elTxt = document.getElementById('f-date-txt-cap');
-      if (calDay) calDay.textContent = '—';
-      if (calMon) calMon.textContent = '';
-      if (elPh) elPh.style.display = '';
-      if (elTxt) elTxt.style.display = 'none';
-      setToday('cap');
-    }
-
-    /* ══════════════════════════════════════
-       الفلاتر المتسلسلة لصفحة الملاحظات
-    ══════════════════════════════════════ */
-    function fillSel(id, opts) {
-      const s = document.getElementById(id); if (!s) return;
-      const v = s.value; s.innerHTML = '';
-      opts.forEach(o => { const el = document.createElement('option'); el.value = o.v; el.textContent = o.t; s.appendChild(el); });
-      s.value = v;
-    }
-    function onFMain() {
-      const m = document.getElementById('f-main').value;
-      let sub = [{ v: '', t: 'الكل' }];
-      if (m && CATS[m]) sub = [...sub, ...Object.keys(CATS[m].sub).map(k => ({ v: k, t: `${CATS[m].sub[k].ic} ${k}` }))];
-      fillSel('f-sub', sub);
-      fillSel('f-sec', [{ v: '', t: 'الكل' }]);
-      renderNotes();
-    }
-    function onFSub() {
-      const m = document.getElementById('f-main').value, s = document.getElementById('f-sub').value;
-      let sec = [{ v: '', t: 'الكل' }];
-      if (m && s && CATS[m]?.sub[s]) sec = [...sec, ...CATS[m].sub[s].det.map(d => ({ v: d, t: d }))];
-      fillSel('f-sec', sec);
-      renderNotes();
     }
 
     /* ══════════════════════════════════════
@@ -3546,8 +3791,8 @@
         if (!sub || !sub.det || !sub.det.length) return;
         title = `🎯 ${FP.sub}`;
         items = [{ n: 'الكل', i: '🔸', v: '' }, ...sub.det.map(x => {
-          const m = x.match(/^(\p{Emoji_Presentation}|\p{Extended_Pictographic})/u);
-          return { n: m ? x.slice(m[0].length).trim() : x, i: m ? m[0] : '🔸', v: x };
+          const sp = splitLeadingEmoji(x);
+          return { n: sp.ic ? sp.rest : x, i: sp.ic || '🔸', v: x };
         })];
         openDragPicker(title, items, FP.sec || '', (item) => {
           _closeDp();
@@ -3564,9 +3809,9 @@
       const tx = document.getElementById('fp-cat-tx');
       if (!ic || !tx) return;
       if (FP.sec) {
-        const m = FP.sec.match(/^(\p{Emoji_Presentation}|\p{Extended_Pictographic})/u);
-        ic.textContent = m ? m[0] : '🔸';
-        tx.textContent = FP.sec.replace(/^(\p{Emoji_Presentation}|\p{Extended_Pictographic})\s*/u, '').slice(0, 14);
+        const sp = splitLeadingEmoji(FP.sec);
+        ic.textContent = sp.ic || '🔸';
+        tx.textContent = (sp.ic ? sp.rest : FP.sec).slice(0, 14);
       } else if (FP.sub) {
         const sub = CATS[FP.main]?.sub[FP.sub];
         ic.textContent = sub?.ic || '📋'; tx.textContent = FP.sub;
@@ -3582,6 +3827,19 @@
     function _updateFilterButtonStates() {
       const sc = document.getElementById('fp-status-cell'); if (sc) sc.classList.toggle('active', !!FP.status);
       const vc = document.getElementById('fp-view-cell'); if (vc) vc.classList.toggle('active', FP.view !== 'cards');
+    }
+
+    /* نص البحث للملاحظة: الحقول الظاهرة للمستخدم فقط (E1) */
+    function _noteSearchText(n) {
+      return [n.text, n.main, n.sub, n.sec, n.det, n.num, n.dH, n.dG, n.status]
+        .filter(Boolean).join(' ').toLowerCase();
+    }
+
+    /* إعادة عرض مؤجّلة 150ms لحقلي البحث */
+    let _rnDebT = null;
+    function _debouncedRender() {
+      clearTimeout(_rnDebT);
+      _rnDebT = setTimeout(renderNotes, 150);
     }
 
     function renderNotes() {
@@ -3611,10 +3869,11 @@
           if (fM && n.main !== fM) return false;
           if (fS && n.sub !== fS) return false;
           if (fSc && cleanTxt(n.sec) !== cleanTxt(fSc)) return false;
-          if (fTx && !JSON.stringify(n).toLowerCase().includes(fTx)) return false;
-          if (fN && !normalizeD(JSON.stringify(n)).includes(fN)) return false;
+          if (fTx && !_noteSearchText(n).includes(fTx)) return false;
+          if (fN && !normalizeD(String(n.num || '')).includes(fN)) return false;
           if (fSt && n.status !== fSt) return false;
-          if (fD) { const _ng = parseG(n.dG); if (!_ng || _ng > parseG(fD)) return false; }
+          /* فلتر التاريخ: مطابقة نفس اليوم الميلادي بالضبط (E2) */
+          if (fD) { const _ng = parseG(n.dG); if (!_ng || _ng !== parseG(fD)) return false; }
           return true;
         });
         notes = _applySort(notes);
@@ -3680,8 +3939,8 @@
         const b = document.createElement('span'); b.className = 'org-badge ' + badgeCls(n.status);
         b.textContent = `${SMAP[n.status]?.ic || ''} ${n.status || '—'}`; td4.appendChild(b);
         const td5 = tr.insertCell(); td5.className = 'td-date';
-        const hDate = n.dH ? `<span style="color:rgba(255,255,255,.85);font-weight:600">${n.dH}</span>` : '—';
-        const gDate = n.dG ? `<span style="color:rgba(255,255,255,.45);font-size:11px">${fmtGDisp(n.dG)}</span>` : '';
+        const hDate = n.dH ? `<span style="color:rgba(255,255,255,.85);font-weight:600">${esc(n.dH)}</span>` : '—';
+        const gDate = n.dG ? `<span style="color:rgba(255,255,255,.45);font-size:11px">${esc(fmtGDisp(n.dG))}</span>` : '';
         td5.innerHTML = hDate + (gDate ? '<br>' + gDate : '');
         /* عمود المرفق */
         const td6 = tr.insertCell(); td6.className = 'td-c';
@@ -3698,6 +3957,17 @@
     }
     function renderCards(ns, con) {
       const g = document.createElement('div'); g.className = 'orgtbl-cards';
+      /* E3: حساب الروابط الواردة مرة واحدة لكل تمريرة عرض بدل O(n²) */
+      const _allNotes = DB.get();
+      const _inbound = new Map();   /* String(id) → Set(معرّفات الملاحظات التي تربط إليه) */
+      _allNotes.forEach(x => {
+        if (!Array.isArray(x.links)) return;
+        x.links.forEach(l => {
+          const k = String(l);
+          if (!_inbound.has(k)) _inbound.set(k, new Set());
+          _inbound.get(k).add(String(x.id));
+        });
+      });
       ns.forEach(n => {
         const c = document.createElement('div');
         c.className = 'orgtbl-card ' + _stClass(n.status);
@@ -3710,8 +3980,8 @@
           const mainIc = (n.main && CATS[n.main]?.ic) || '';
           const subIc  = (n.main && n.sub && CATS[n.main]?.sub[n.sub]?.ic) || '';
           let catHtml = '';
-          if (n.main) catHtml += `<span>${mainIc} ${n.main}</span>`;
-          if (n.sub)  catHtml += `<span style="opacity:.7">›</span><span style="color:rgba(255,255,255,0.6)">${subIc} ${n.sub}</span>`;
+          if (n.main) catHtml += `<span>${esc(mainIc)} ${esc(n.main)}</span>`;
+          if (n.sub)  catHtml += `<span style="opacity:.7">›</span><span style="color:rgba(255,255,255,0.6)">${esc(subIc)} ${esc(n.sub)}</span>`;
           catLine.innerHTML = catHtml;
           c.appendChild(catLine);
         }
@@ -3722,10 +3992,12 @@
         }
         if (n.sec) { const s = document.createElement('small'); s.textContent = cleanTxt(n.sec); s.style.cssText = 'color:#a78bfa;font-size:10px'; c.appendChild(s); }
 
-        /* مؤشر الروابط */
-        const _allNotes = DB.get();
-        const _linkCount = (Array.isArray(n.links) ? n.links.length : 0)
-          + _allNotes.filter(x => Array.isArray(x.links) && x.links.includes(n.id) && !(n.links || []).includes(x.id)).length;
+        /* مؤشر الروابط — من الخريطة المحسوبة مسبقاً */
+        const _own = Array.isArray(n.links) ? n.links : [];
+        const _ownSet = new Set(_own.map(String));
+        let _linkCount = _own.length;
+        const _inSet = _inbound.get(String(n.id));
+        if (_inSet) _inSet.forEach(xid => { if (!_ownSet.has(xid)) _linkCount++; });
         if (_linkCount > 0) {
           const lk = document.createElement('div');
           lk.style.cssText = 'font-size:10px;color:#a78bfa;margin-top:3px;display:flex;align-items:center;gap:3px;';
@@ -3737,7 +4009,7 @@
         const b = document.createElement('span'); b.className = 'org-badge ' + badgeCls(n.status);
         b.textContent = `${SMAP[n.status]?.ic || ''} ${n.status || '—'}`;
         const d = document.createElement('span');
-        d.innerHTML = n.dH ? `<span style="font-size:10px">${n.dH}</span>` : (fmtGDisp(n.dG) || '—');
+        d.innerHTML = n.dH ? `<span style="font-size:10px">${esc(n.dH)}</span>` : (esc(fmtGDisp(n.dG)) || '—');
 
         /* أيقونة المرفق الديناميكية */
         if (n.file) {
@@ -3786,14 +4058,7 @@
        التسجيل السريع
     ══════════════════════════════════════ */
     function openQuick() {
-      S.q = { main: '', sub: '', sec: '', status: '', dH: '', dG: '', file: null, links: [] };
-      setQC('main', '📁', 'الرئيسية', 1); setQC('sub', '📌', 'الفرعية', 1);
-      setQC('sec', '🎯', 'الثانوية', 1); setQC('status', '📊', 'حالة', 1);
-      document.getElementById('q-attach-cell').style.background = '';
-      document.getElementById('q-text').value = ''; document.getElementById('q-num').value = '';
-      const qd = document.getElementById('q-dph'); if (qd) qd.style.display = '';
-      document.getElementById('q-dh').textContent = ''; document.getElementById('q-dg').textContent = '';
-      _renderQLinkChips();
+      _resetQuickForm();
       document.getElementById('q-ov').classList.add('open');
       hPush();
       setTimeout(() => document.getElementById('q-text').focus(), 200);
@@ -3827,7 +4092,7 @@
       const all = DB.get();
       wrap.innerHTML = '';
       links.forEach(lid => {
-        const n = all.find(x => x.id === lid);
+        const n = all.find(x => _sameId(x.id, lid));
         if (!n) return;
         const chip = document.createElement('span');
         chip.style.cssText = 'background:rgba(102,126,234,.35);border:1px solid rgba(167,139,250,.5);border-radius:10px;padding:4px 8px;font-size:11px;color:#fff;display:inline-flex;align-items:center;gap:5px;max-width:160px;';
@@ -3835,7 +4100,7 @@
         chip.innerHTML = `<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(label)}</span><span style="cursor:pointer;font-weight:700;opacity:.8;">✕</span>`;
         chip.querySelector('span:last-child').onclick = (e) => {
           e.stopPropagation();
-          S.q.links = S.q.links.filter(x => x !== lid);
+          S.q.links = S.q.links.filter(x => !_sameId(x, lid));
           _renderQLinkChips();
         };
         wrap.appendChild(chip);
@@ -3866,21 +4131,21 @@
       }
       const sel = S.q.links || [];
       notes.forEach(n => {
-        const on = sel.includes(n.id);
+        const on = sel.some(x => _sameId(x, n.id));
         const row = document.createElement('div');
         row.style.cssText = `display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;cursor:pointer;border:2px solid ${on ? 'rgba(167,139,250,.8)' : 'transparent'};background:${on ? 'rgba(102,126,234,.35)' : 'rgba(255,255,255,.06)'};transition:all .12s;`;
         const mainIc = (n.main && CATS[n.main]?.ic) || '📝';
         const cat = [n.main, n.sub].filter(Boolean).join(' › ');
         const label = (n.text || cat || 'ملاحظة').slice(0, 60);
         row.innerHTML = `
-          <span style="font-size:18px;flex-shrink:0;">${on ? '✅' : mainIc}</span>
+          <span style="font-size:18px;flex-shrink:0;">${on ? '✅' : esc(mainIc)}</span>
           <div style="flex:1;min-width:0;">
             <div style="font-size:13px;color:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(label)}</div>
             ${cat ? `<div style="font-size:10px;color:rgba(255,255,255,.5);">${esc(cat)}${n.num ? ' · ' + esc(n.num) : ''}</div>` : (n.num ? `<div style="font-size:10px;color:rgba(255,255,255,.5);">${esc(n.num)}</div>` : '')}
           </div>`;
         row.onclick = () => {
           if (!Array.isArray(S.q.links)) S.q.links = [];
-          if (S.q.links.includes(n.id)) S.q.links = S.q.links.filter(x => x !== n.id);
+          if (S.q.links.some(x => _sameId(x, n.id))) S.q.links = S.q.links.filter(x => !_sameId(x, n.id));
           else S.q.links.push(n.id);
           renderLinkResults();
         };
@@ -3888,11 +4153,14 @@
       });
     }
     function closeQuick(skipSave) {
+      const ov = document.getElementById('q-ov');
+      /* لا حفظ تلقائي إلا إذا كانت النافذة مفتوحة فعلاً وفيها محتوى */
+      if (!ov || !ov.classList.contains('open')) return;
       if (!skipSave) {
-        const n = _doSaveQuick();
+        const n = _doSaveQuick();   /* يعيد null إن لم يكن هناك محتوى */
         if (n) { showFb('💾 حُفظت تلقائياً'); setTimeout(renderNotes, 300); }
       }
-      document.getElementById('q-ov').classList.remove('open');
+      ov.classList.remove('open');
     }
     function closeQOut(e) { if (e.target === document.getElementById('q-ov')) closeQuick(); }
 
@@ -3901,14 +4169,13 @@
     ══════════════════════════════════════ */
     document.addEventListener('keydown', e => {
       if (e.ctrlKey && e.shiftKey && e.key === 'N') { e.preventDefault(); openQuick(); }
-      if (e.ctrlKey && e.key === 'Enter') { e.preventDefault(); document.getElementById('q-ov').classList.contains('open') ? saveQuick() : saveCapture(); }
-      if (e.key === 'Escape') { closeQuick(); closeCal(); closePicker(); }
+      if (e.ctrlKey && e.key === 'Enter') {
+        e.preventDefault();
+        if (document.getElementById('q-ov')?.classList.contains('open')) saveQuick();
+      }
+      /* Esc: مسار واحد موحّد — _handleBack يقرر ما يُغلق */
+      if (e.key === 'Escape') _handleBack();
     });
-
-    /* ══════════════════════════════════════
-       توسيع النص
-    ══════════════════════════════════════ */
-    function toggleExp() { document.getElementById('c-inp-text').classList.toggle('exp'); }
 
     /* ══════════════════════════════════════
        Feedback
@@ -3930,34 +4197,50 @@
       const f = e.target.files[0]; if (!f) return;
       const r = new FileReader();
       r.onload = ev => {
+        e.target.value = '';   /* السماح باختيار نفس الملف مجدداً */
+        let incoming;
         try {
-          const d = JSON.parse(ev.target.result); if (!Array.isArray(d)) throw 0;
-          const ex = DB.get(); DB.set([...d, ...ex.filter(n => !d.find(x => x.id === n.id))]);
-          showFb(`✅ استُوردت ${d.length} ملاحظة`);
-        } catch { showFb('❌ فشل الاستيراد', 1); }
-      }; r.readAsText(f);
-    }
-    function clearAll() { if (confirm('مسح جميع الملاحظات؟')) { DB.set([]); showFb('🗑️ تم المسح'); } }
+          const parsed = _deserializeNotes(String(ev.target.result));  /* يقبل المصفوفة المجردة و v2 */
+          incoming = parsed.notes;
+          if (!Array.isArray(incoming)) throw new Error('bad');
+        } catch (err) { showFb('❌ ملف غير صالح — يجب أن يكون JSON بتنسيق الملاحظات', 1); return; }
 
-    /* ══════════════════════════════════════
-       تهيئة فئات صفحة الفلاتر
-    ══════════════════════════════════════ */
-    function initFMainSel() { /* لا حاجة لها — FP يتحكم بالفلترة */ }
-
-    /* ══════════════════════════════════════
-       تعيين تاريخ اليوم
-    ══════════════════════════════════════ */
-    function setToday(t) {
-      const h = H.today(), g = new Date(), dh = H.fmtH(h), dg = H.fmtG(g);
-      if (t === 'cap') { S.cap.dH = dh; S.cap.dG = dg; setDateDisp('cap', dh, dg); }
+        /* خيارا الدمج أو الاستبدال */
+        const doMerge = confirm(
+          'استيراد ' + incoming.length + ' ملاحظة.\n\n' +
+          '«موافق» = دمج مع الملاحظات الحالية (حسب المعرّف، الأحدث يفوز)\n' +
+          '«إلغاء» = خيار الاستبدال الكامل'
+        );
+        let result;
+        if (doMerge) {
+          const map = new Map();
+          DB.get().forEach(n => map.set(String(n.id), n));
+          incoming.forEach(n => {
+            const k = String(n.id);
+            const ex = map.get(k);
+            if (!ex || String(n.ts || '') > String(ex.ts || '')) map.set(k, n);
+          });
+          result = [...map.values()];
+        } else {
+          if (!confirm('⚠️ سيتم استبدال جميع الملاحظات الحالية (' + DB.get().length + ') بمحتوى الملف نهائياً. متابعة؟')) {
+            showFb('أُلغي الاستيراد'); return;
+          }
+          result = incoming;
+        }
+        /* الاستيراد يُعد تحميلاً ناجحاً */
+        _notesLoaded = true;
+        hideSaveError();
+        DB.set(result);
+        renderNotes();
+        showFb('✅ استُوردت ' + incoming.length + ' ملاحظة');
+      };
+      r.readAsText(f);
     }
 
     /* ══════════════════════════════════════
        تهيئة
     ══════════════════════════════════════ */
     (function init() {
-      initFMainSel();
-      setToday('cap');
       updCount();
       /* تحميل الملاحظات يحدث بعد تحديد المجلد في checkSetup */
     })();
@@ -3975,7 +4258,7 @@
         const el = document.createElement('div');
         el.className = 'dp-item' + (it.v === curVal ? ' sel' : '');
         el.dataset.idx = i;
-        el.innerHTML = `<span class="dp-ic">${it.i}</span><span class="dp-tx">${it.n}</span>`;
+        el.innerHTML = `<span class="dp-ic">${esc(it.i)}</span><span class="dp-tx">${esc(it.n)}</span>`;
         list.appendChild(el);
       });
       /* scroll للأعلى */
@@ -4096,8 +4379,18 @@
             await _loadNotes();   /* تحميل الملاحظات من المجلد */
             return;
           }
-          /* أول تشغيل على أندرويد/ويندوز */
           try { if (window.AndroidFS && typeof window.AndroidFS.confirmUpdate === 'function') window.AndroidFS.confirmUpdate(); } catch (e) { }
+          /* الإعداد تم (أو تُخُطِّي) سابقاً — لا تُعِد شاشة الإعداد، حمّل وتابع */
+          if (localStorage.getItem('notes_setup_done')) {
+            /* صلاحية المجلد فُقدت رغم أن التخزين كان android_fs → استخدم الاحتياطي الداخلي
+               (يمكن استعادة المجلد من الإعدادات ← تغيير المجلد) */
+            if (localStorage.getItem('notes_storage') === 'android_fs') {
+              localStorage.removeItem('notes_storage');
+            }
+            await _loadNotes();   /* يحمّل من القناة المناسبة (أو الاحتياطي الداخلي) */
+            return;
+          }
+          /* أول تشغيل فعلي على أندرويد/ويندوز */
           document.getElementById('setup-screen').style.display = 'flex';
           return;
         }
@@ -4137,32 +4430,65 @@
     var _dirHandle = null;
     var _dirFolderName = '';
 
-    /* ══ Android Bridge Callbacks ══ */
-    window._androidFolderPicked = function (name) {
+    /* ══ اختيار المجلد — معالج موحّد لكل المصادر ══
+       المصادر: callback عام (أندرويد + EXE قديم) أو Promise (EXE جديد).
+       _folderPickMode يحدد السياق (إعداد أول أم تغيير مجلد) بدل استبدال الدالة. */
+    var _folderPickMode = 'setup';       /* 'setup' | 'change' */
+    var _folderPickHandled = true;       /* حارس «مرة واحدة» لكل استدعاء pickFolder */
+
+    function _onFolderPicked(name) {
+      if (_folderPickHandled) return;    /* عولج مسبقاً (وصل الرد من قناة أخرى) */
+      _folderPickHandled = true;
+      const btn = document.getElementById('setup-folder-btn');
+      if (btn) { btn.disabled = false; btn.textContent = '📂 اختيار مجلد الملاحظات ›'; }
+      if (!name) return;                 /* إلغاء الاختيار */
       _dirFolderName = name;
       localStorage.setItem('notes_storage', 'android_fs');
       localStorage.setItem('notes_setup_done', '1');
-      const btn = document.getElementById('setup-folder-btn');
-      if (btn) { btn.disabled = false; btn.textContent = '📂 اختيار مجلد الملاحظات ›'; }
-      finishSetup();
-      _loadNotes();   /* تحميل ما في المجلد (أو ملف فارغ جديد) */
-    };
-    window._androidFolderPickedForChange = function (name) {
-      _dirFolderName = name;
-      localStorage.setItem('notes_storage', 'android_fs');
-      _loadNotes();   /* تحميل ملاحظات المجلد الجديد */
-      if (typeof renderSettings === 'function') renderSettings();
-    };
-    window._androidFolderCancelled = function () {
-      const btn = document.getElementById('setup-folder-btn');
-      if (btn) { btn.disabled = false; btn.textContent = '📂 اختيار مجلد الملاحظات ›'; }
-    };
+      /* لا نبقي أبداً ذاكرة المجلد القديم — إعادة تحميل كاملة من المجلد الجديد */
+      _notesCache = [];
+      _notesLoaded = false;
+      (async () => {
+        if (_folderPickMode === 'setup') {
+          await finishSetup();           /* يخفي شاشة الإعداد ويحمّل الملاحظات */
+          showFb('✅ تم تحديد المجلد: ' + name);
+        } else {
+          await _loadNotes();            /* تحميل ملاحظات المجلد الجديد */
+          showFb('✅ تم تغيير المجلد: ' + name);
+        }
+        if (typeof renderSettings === 'function' && _inSettings) renderSettings();
+        if (typeof renderNotes === 'function') renderNotes();
+      })();
+    }
 
+    /* استدعاء pickFolder بشكل مزدوج الوضع (callback عام + Promise) */
+    function _pickFolderNative(mode) {
+      _folderPickMode = mode;
+      _folderPickHandled = false;
+      const r = window.AndroidFS.pickFolder();  /* القديم: الرد عبر window._androidFolderPicked */
+      if (r && typeof r.then === 'function') {
+        /* عقد Electron الجديد: Promise<string|null> بدون callbacks عامة.
+           قيمة undefined تعني صدَفة قديمة أعادت Promise بلا معنى — الرد سيصل عبر الـ callback العام */
+        r.then(name => {
+          if (typeof name === 'string' && name) _onFolderPicked(name);
+          else if (name === null) _onFolderPicked(null);
+        }).catch(() => {
+          /* لا نستهلك الحارس — قد يصل الرد عبر callback؛ نعيد زر الإعداد فقط */
+          const btn = document.getElementById('setup-folder-btn');
+          if (btn) { btn.disabled = false; btn.textContent = '📂 اختيار مجلد الملاحظات ›'; }
+        });
+      }
+    }
 
+    window._androidFolderPicked = function (name) { _onFolderPicked(name); };
+    window._androidFolderCancelled = function () { _onFolderPicked(null); };
 
-    function finishSetup() {
+    async function finishSetup() {
       localStorage.setItem('notes_setup_done', '1');
       document.getElementById('setup-screen').style.display = 'none';
+      /* كل مسارات إنهاء الإعداد تنتهي بتحميل الملاحظات (بما فيها مسار «تخطي»
+         الذي يحمّل من التخزين الداخلي localStorage/IndexedDB) */
+      await _loadNotes();
     }
 
     async function setupFolder() {
@@ -4178,12 +4504,13 @@
 
       _hideSetupErr();
 
-      /* ── أندرويد: استخدم Bridge الأصلي ── */
+      /* ── أندرويد / EXE: استخدم Bridge الأصلي (مزدوج الوضع) ── */
       if (window.AndroidFS && typeof window.AndroidFS.pickFolder === 'function') {
         if (btn) { btn.disabled = true; btn.textContent = '⏳ جاري فتح المجلد...'; }
         try {
-          window.AndroidFS.pickFolder(); /* النتيجة تأتي عبر window._androidFolderPicked */
+          _pickFolderNative('setup');
         } catch (e) {
+          _folderPickHandled = true;
           if (btn) { btn.disabled = false; btn.textContent = '📂 اختيار مجلد الملاحظات ›'; }
           _showSetupErr('⚠️ تعذر فتح نافذة المجلد. حاول مرة أخرى.');
         }
@@ -4210,9 +4537,10 @@
         await _saveHandleToIDB(handle);
         _dirHandle = handle;
         localStorage.setItem('notes_storage', 'folder');
+        _notesCache = [];
+        _notesLoaded = false;
         if (btn) { btn.disabled = false; btn.textContent = '📂 اختيار مجلد الملاحظات ›'; }
-        finishSetup();
-        _loadNotes();
+        await finishSetup();   /* يحمّل الملاحظات من المجلد */
       } catch (e) {
         if (btn) { btn.disabled = false; btn.textContent = '📂 اختيار مجلد الملاحظات ›'; }
         if (e.message === 'timeout') {
@@ -4232,25 +4560,10 @@
     }
 
     async function changeFolder() {
-      /* ── أندرويد: استخدم Bridge الأصلي ── */
+      /* ── أندرويد / EXE: استخدم Bridge الأصلي (نفس المعالج الموحّد بوضع 'change') ── */
       if (window.AndroidFS && typeof window.AndroidFS.pickFolder === 'function') {
-        /* إعادة تعريف الـ callback ليكون لتغيير المجلد وليس للإعداد الأول */
-        window._androidFolderPicked = function (name) {
-          _dirFolderName = name;
-          localStorage.setItem('notes_storage', 'android_fs');
-          localStorage.setItem('notes_setup_done', '1');
-          if (typeof renderSettings === 'function') renderSettings();
-          showFb('✅ تم تغيير المجلد: ' + name);
-          /* إعادة الـ callback للإعداد الأول */
-          window._androidFolderPicked = function (name2) {
-            _dirFolderName = name2;
-            localStorage.setItem('notes_storage', 'android_fs');
-            localStorage.setItem('notes_setup_done', '1');
-            finishSetup();
-            showFb('✅ تم تحديد المجلد: ' + name2);
-          };
-        };
-        window.AndroidFS.pickFolder();
+        try { _pickFolderNative('change'); }
+        catch (e) { _folderPickHandled = true; showFb('⚠️ تعذر فتح نافذة المجلد', 1); }
         return;
       }
 
@@ -4270,7 +4583,12 @@
         await _saveHandleToIDB(handle);
         _dirHandle = handle;
         localStorage.setItem('notes_storage', 'folder');
+        /* لا نبقي ذاكرة المجلد القديم — تحميل كامل من المجلد الجديد */
+        _notesCache = [];
+        _notesLoaded = false;
+        await _loadNotes();
         renderSettings();
+        if (typeof renderNotes === 'function') renderNotes();
         showFb('✅ تم تغيير المجلد: ' + handle.name);
       } catch (e) {
         if (e.message === 'timeout') {
@@ -4318,8 +4636,7 @@
 
     /* checkSetup moved to DOMContentLoaded */
 
-    /* ══ نسخ احتياطي تلقائي ══ */
-    /* (أُزيلت دالة النسخ للملفات — الملاحظات في قاعدة البيانات فقط) */
+    /* النسخ الاحتياطي التلقائي: انظر _autoBackup أعلى قسم التخزين (كل 10 عمليات حفظ) */
 
     /* تصدير يدوي */
     function exportData() {
@@ -4414,7 +4731,7 @@
     let _editMain = '', _editSub = '', _editSec = '';
 
     function openNote(id) {
-      const n = DB.get().find(x => x.id === id); if (!n) return;
+      const n = DB.get().find(x => _sameId(x.id, id)); if (!n) return;
       _editId = id;
       _editStatus = n.status || '';
       _editDH = n.dH || '';
@@ -4449,9 +4766,9 @@
       if (!sec || !list) return;
       const all = DB.get();
       /* اجمع الروابط من الاتجاهين: ما تربطه هذه الملاحظة + ما يربطها */
-      const ids = new Set(Array.isArray(n.links) ? n.links : []);
-      all.forEach(x => { if (Array.isArray(x.links) && x.links.includes(n.id)) ids.add(x.id); });
-      const linked = [...ids].map(id => all.find(x => x.id === id)).filter(Boolean);
+      const ids = new Set((Array.isArray(n.links) ? n.links : []).map(String));
+      all.forEach(x => { if (Array.isArray(x.links) && x.links.some(l => _sameId(l, n.id))) ids.add(String(x.id)); });
+      const linked = [...ids].map(id => all.find(x => _sameId(x.id, id))).filter(Boolean);
       if (!linked.length) { sec.style.display = 'none'; list.innerHTML = ''; return; }
       sec.style.display = 'block';
       list.innerHTML = '';
@@ -4463,7 +4780,7 @@
         const label = (ln.text || cat || 'ملاحظة').slice(0, 50);
         const stIc = SMAP[ln.status]?.ic || '';
         row.innerHTML = `
-          <span style="font-size:16px;flex-shrink:0;">${mainIc}</span>
+          <span style="font-size:16px;flex-shrink:0;">${esc(mainIc)}</span>
           <div style="flex:1;min-width:0;">
             <div style="font-size:12px;color:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(label)}</div>
             ${cat ? `<div style="font-size:10px;color:rgba(255,255,255,.5);">${esc(cat)}${ln.num ? ' · ' + esc(ln.num) : ''} ${stIc}</div>` : (ln.num || stIc ? `<div style="font-size:10px;color:rgba(255,255,255,.5);">${esc(ln.num || '')} ${stIc}</div>` : '')}
@@ -4477,12 +4794,12 @@
           e.stopPropagation();
           if (!confirm('فك الربط بين الملاحظتين؟')) return;
           const data = DB.get();
-          const a = data.find(x => x.id === _editId);
-          const b = data.find(x => x.id === ln.id);
-          if (a && Array.isArray(a.links)) a.links = a.links.filter(x => x !== ln.id);
-          if (b && Array.isArray(b.links)) b.links = b.links.filter(x => x !== _editId);
-          DB.set(data); _autoBackup(data);
-          const cur = data.find(x => x.id === _editId);
+          const a = data.find(x => _sameId(x.id, _editId));
+          const b = data.find(x => _sameId(x.id, ln.id));
+          if (a && Array.isArray(a.links)) a.links = a.links.filter(x => !_sameId(x, ln.id));
+          if (b && Array.isArray(b.links)) b.links = b.links.filter(x => !_sameId(x, _editId));
+          DB.set(data);
+          const cur = data.find(x => _sameId(x.id, _editId));
           if (cur) _renderEditLinks(cur);
           showFb('🔗 تم فك الربط');
         };
@@ -4497,7 +4814,7 @@
       const parts = [_editMain, _editSub, _editSec].filter(Boolean);
       if (parts.length) {
         const lastIc = _editSec
-          ? (_editSec.match(/^(\p{Emoji_Presentation}|\p{Extended_Pictographic})/u)?.[0] || '🔸')
+          ? (splitLeadingEmoji(_editSec).ic || '🔸')
           : (_editSub ? CATS[_editMain]?.sub[_editSub]?.ic || '📌' : CATS[_editMain]?.ic || '🗂️');
         ic.textContent = lastIc;
         tx.textContent = parts.join(' › ');
@@ -4541,8 +4858,8 @@
       const det = CATS[_editMain]?.sub[_editSub]?.det || [];
       if (!det.length) return;
       const items = [{ n: 'الكل', i: '🔸', v: '' }, ...det.map(x => {
-        const m = x.match(/^(\p{Emoji_Presentation}|\p{Extended_Pictographic})/u);
-        return { n: m ? x.slice(m[0].length).trim() : x, i: m ? m[0] : '🔸', v: x };
+        const sp = splitLeadingEmoji(x);
+        return { n: sp.ic ? sp.rest : x, i: sp.ic || '🔸', v: x };
       })];
       openDragPicker(`🎯 ${_editSub}`, items, _editSec, item => {
         _closeDp(); _editSec = item.v; _refreshEditCat();
@@ -4550,7 +4867,7 @@
     }
 
     function _refreshEditAtt(n) {
-      if (!n && _editId) n = DB.get().find(x => x.id === _editId);
+      if (!n && _editId) n = DB.get().find(x => _sameId(x.id, _editId));
       const fName = n?.file ? (typeof n.file === 'object' ? n.file.name : n.file) : '';
       const hasFile = !!fName;
       const canOpen = hasFile && window.AndroidFS && typeof window.AndroidFS.openFile === 'function';
@@ -4569,7 +4886,7 @@
     }
 
     function openAttFromEdit() {
-      const n = DB.get().find(x => x.id === _editId); if (!n?.file) return;
+      const n = DB.get().find(x => _sameId(x.id, _editId)); if (!n?.file) return;
       const fName = typeof n.file === 'object' ? n.file.name : n.file;
       if (window.AndroidFS && typeof window.AndroidFS.openFile === 'function') {
         window.AndroidFS.openFile('المرفقات', fName);
@@ -4585,8 +4902,8 @@
       const fName = f.name.replace(/[\\/:*?"<>|]/g, '');
       const fileObj = { name: fName, type: f.type, lastMod: f.lastModified };
       const notes = DB.get();
-      const idx = notes.findIndex(x => x.id === _editId);
-      if (idx >= 0) { notes[idx].file = fileObj; DB.set(notes); _autoBackup(notes); }
+      const idx = notes.findIndex(x => _sameId(x.id, _editId));
+      if (idx >= 0) { notes[idx].file = fileObj; DB.set(notes); }
       await _saveAttachment(f);
       _refreshEditAtt(notes[idx]);
       renderNotes();
@@ -4598,8 +4915,8 @@
       if (!_editId) return;
       if (!confirm('حذف المرفق من هذه الملاحظة؟')) return;
       const notes = DB.get();
-      const idx = notes.findIndex(x => x.id === _editId);
-      if (idx >= 0) { notes[idx].file = null; DB.set(notes); _autoBackup(notes); }
+      const idx = notes.findIndex(x => _sameId(x.id, _editId));
+      if (idx >= 0) { notes[idx].file = null; DB.set(notes); }
       _refreshEditAtt(notes[idx]);
       renderNotes();
       showFb('🗑️ تم حذف المرفق');
@@ -4614,9 +4931,8 @@
     function deleteFromEdit() {
       if (!_editId) return;
       if (!confirm('حذف هذه الملاحظة نهائياً؟')) return;
-      const notes = DB.get().filter(x => x.id !== _editId);
+      const notes = DB.get().filter(x => !_sameId(x.id, _editId));
       DB.set(notes);
-      _autoBackup(notes);
       closeEdit(true);
       renderNotes();
       showFb('🗑️ تم حذف الملاحظة');
@@ -4624,7 +4940,7 @@
     function _doSaveEdit() {
       if (!_editId) return false;
       const notes = DB.get();
-      const idx = notes.findIndex(x => x.id === _editId);
+      const idx = notes.findIndex(x => _sameId(x.id, _editId));
       if (idx < 0) return false;
       notes[idx].text   = document.getElementById('edit-text').value.trim();
       notes[idx].num    = document.getElementById('edit-num').value.trim();
@@ -4635,7 +4951,6 @@
       notes[idx].sub    = _editSub;
       notes[idx].sec    = _editSec;
       DB.set(notes);
-      _autoBackup(notes);
       return true;
     }
     function saveEdit() {
@@ -4658,7 +4973,7 @@
     let _attNoteId = null;
     function openAttOv(noteId) {
       _attNoteId = noteId;
-      const n = DB.get().find(x => x.id === noteId);
+      const n = DB.get().find(x => _sameId(x.id, noteId));
       const fName = n?.file ? (typeof n.file === 'object' ? n.file.name : n.file) : '';
       const hasFile = !!fName;
       document.getElementById('att-title').textContent = _fileIcon(n?.file) + ' المرفق';
@@ -4673,7 +4988,7 @@
       _attNoteId = null;
     }
     function openAttFile() {
-      const n = DB.get().find(x => x.id === _attNoteId); if (!n?.file) return;
+      const n = DB.get().find(x => _sameId(x.id, _attNoteId)); if (!n?.file) return;
       const fName = typeof n.file === 'object' ? n.file.name : n.file;
       if (window.AndroidFS && typeof window.AndroidFS.openFile === 'function') {
         window.AndroidFS.openFile('المرفقات', fName);
@@ -4693,8 +5008,8 @@
       const fName = f.name.replace(/[\\/:*?"<>|]/g, '');
       const fileObj = { name: fName, type: f.type, lastMod: f.lastModified };
       const notes = DB.get();
-      const idx = notes.findIndex(x => x.id === _attNoteId);
-      if (idx >= 0) { notes[idx].file = fileObj; DB.set(notes); _autoBackup(notes); }
+      const idx = notes.findIndex(x => _sameId(x.id, _attNoteId));
+      if (idx >= 0) { notes[idx].file = fileObj; DB.set(notes); }
       await _saveAttachment(f);
       closeAttOv();
       renderNotes();
@@ -4705,8 +5020,8 @@
       if (!_attNoteId) return;
       if (!confirm('حذف المرفق من هذه الملاحظة؟')) return;
       const notes = DB.get();
-      const idx = notes.findIndex(x => x.id === _attNoteId);
-      if (idx >= 0) { notes[idx].file = null; DB.set(notes); _autoBackup(notes); }
+      const idx = notes.findIndex(x => _sameId(x.id, _attNoteId));
+      if (idx >= 0) { notes[idx].file = null; DB.set(notes); }
       closeAttOv();
       renderNotes();
       showFb('🗑️ تم حذف المرفق');
@@ -4812,8 +5127,12 @@
       if (window._winAutoUpdate) return;            /* ويندوز يحدّث المحتوى تلقائياً من preload */
       if (window._htmlAutoChecked) return; window._htmlAutoChecked = true;
       if (!window.AndroidFS || typeof window.AndroidFS.downloadAndApplyUpdate !== 'function') return;
-      window._autoUpdCb = function (result, err) {
+      /* حارس «مرة واحدة»: الرد قد يصل عبر الـ callback العام أو عبر Promise (EXE جديد) */
+      let handled = false;
+      const onResult = function (result, err, newVer) {
+        if (handled) return; handled = true;
         if (result === 'updated') {
+          if (!_updateAllowed(newVer)) return;  /* رفض أي إصدار أقدم/مساوٍ (مع clearLocalUpdate) */
           try { showFb('🔄 جارٍ تطبيق تحديث جديد...', 0); } catch (e) { }
           setTimeout(function () {
             if (window.AndroidFS && typeof window.AndroidFS.reloadApp === 'function') window.AndroidFS.reloadApp();
@@ -4821,7 +5140,20 @@
           }, 900);
         }
       };
-      try { window.AndroidFS.downloadAndApplyUpdate(_UPDATE_URL, _getLocalHash(), 'window._autoUpdCb'); } catch (e) { }
+      window._autoUpdCb = onResult;
+      try {
+        const r = window.AndroidFS.downloadAndApplyUpdate(_UPDATE_URL, _getLocalHash(), 'window._autoUpdCb');
+        if (r && typeof r.then === 'function') {
+          /* عقد Electron الجديد: Promise<{status, err}> — قيمة بلا معنى تعني أن الرد سيصل عبر callback */
+          r.then(res => {
+            if (res && typeof res === 'object' && ('status' in res || 'err' in res)) {
+              onResult(res.status, res.err || '', res.version || res.newVersion || '');
+            } else if (typeof res === 'string' && res) {
+              onResult(res, '');
+            }
+          }).catch(() => { });
+        }
+      } catch (e) { }
     }
     function _autoUpdateApkOnLaunch() {
       const fsb = window.AndroidFS;
@@ -4842,11 +5174,6 @@
   <!-- عناصر مخفية للمنطق -->
   <div style="display:none">
     <span id="btn-sort-ic">⚡</span>
-    <select id="f-main"></select>
-    <select id="f-sub"></select>
-    <select id="f-sec"></select>
-    <select id="f-status"></select>
-    <select id="f-view"></select>
     <span id="s-count">0</span>
   </div>
 
@@ -4880,7 +5207,7 @@
         <div class="edit-row2">
           <div>
             <div class="edit-field-lbl">🔢 الرقم</div>
-            <input type="number" id="edit-num" class="edit-inp" placeholder="—" style="padding:7px 10px;">
+            <input type="text" inputmode="numeric" id="edit-num" class="edit-inp" placeholder="—" style="padding:7px 10px;">
           </div>
           <div>
             <div class="edit-field-lbl">📊 الحالة</div>
