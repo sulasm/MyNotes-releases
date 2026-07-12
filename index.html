@@ -5,10 +5,19 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
   <meta name="theme-color" content="#667eea">
-  <meta name="app-version" content="1.5.0">
+  <meta name="app-version" content="1.6.0">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <title>المنظم</title>
+  <script>
+    /* تطبيق مبكّر للسمة قبل الرسم لتجنّب الوميض (الافتراضي: داكن) */
+    (function () {
+      try {
+        var t = localStorage.getItem('notes_theme') || 'dark';
+        if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t);
+      } catch (e) { }
+    })();
+  </script>
   <style>
     /* ════════════════════════════════════════
    أساس + ثيم داكن (مطابق Obsidian)
@@ -16,19 +25,51 @@
     :root {
       --grad: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
       --grad-g: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
-      --cell: rgba(255, 255, 255, 0.13);
-      --cell-b: rgba(255, 255, 255, 0.08);
-      --cell-hv: rgba(255, 255, 255, 0.22);
-      --dim: rgba(255, 255, 255, 0.65);
-      --dimmer: rgba(255, 255, 255, 0.45);
+      /* --ov: قناة اللون للتراكبات (أبيض شفّاف داكناً، أسود شفّاف فاتحاً)
+         --tw: النص القوي (أبيض داكناً، غامق فاتحاً) — تُبقي الوضع الداكن مطابقاً تماماً */
+      --ov: 255, 255, 255;
+      --tw: #ffffff;
+      --cell: rgba(var(--ov), 0.13);
+      --cell-b: rgba(var(--ov), 0.08);
+      --cell-hv: rgba(var(--ov), 0.22);
+      --dim: rgba(var(--ov), 0.65);
+      --dimmer: rgba(var(--ov), 0.45);
       /* ثيم Obsidian dark */
       --bg-p: #1e1e2e;
       --bg-s: #2a2a3e;
-      --bg-b: rgba(255, 255, 255, 0.06);
+      --bg-b: rgba(var(--ov), 0.06);
       --text: #cdd6f4;
       --text-m: #6c7086;
-      --border: rgba(255, 255, 255, 0.08);
+      --border: rgba(var(--ov), 0.08);
       --accent: #667eea;
+    }
+
+    /* ═══ الوضع الفاتح ═══
+       يقلب --ov إلى قناة داكنة و --tw إلى نص غامق، فتنقلب تلقائياً
+       كل التراكبات والنصوص المشتقّة منهما دون لمس بقية الأنماط. */
+    :root[data-theme="light"] {
+      --ov: 30, 41, 59;
+      --tw: #1e293b;
+      --bg-p: #eef1f7;
+      --bg-s: #ffffff;
+      --bg-b: rgba(15, 23, 42, 0.04);
+      --text: #1e293b;
+      --text-m: #64748b;
+    }
+    /* «تلقائي» (بلا سمة صريحة) يتبع تفضيل النظام */
+    @media (prefers-color-scheme: light) {
+      :root:not([data-theme="dark"]):not([data-theme="light"]) {
+        --ov: 30, 41, 59;
+        --tw: #1e293b;
+        --bg-p: #eef1f7;
+        --bg-s: #ffffff;
+        --bg-b: rgba(15, 23, 42, 0.04);
+        --text: #1e293b;
+        --text-m: #64748b;
+      }
+    }
+    .theme-opt.active {
+      background: var(--grad); color: #fff; border-color: transparent;
     }
 
     *,
@@ -86,8 +127,8 @@
     .nb {
       flex: 1;
       border: none;
-      background: rgba(255, 255, 255, 0.1);
-      color: rgba(255, 255, 255, 0.6);
+      background: rgba(var(--ov), 0.1);
+      color: rgba(var(--ov), 0.6);
       padding: 7px 8px;
       cursor: pointer;
       display: flex;
@@ -102,13 +143,13 @@
     }
 
     .nb.active {
-      background: rgba(255, 255, 255, 0.22);
-      color: #fff
+      background: rgba(var(--ov), 0.22);
+      color: var(--tw)
     }
 
     .nb:hover:not(.active) {
-      background: rgba(255, 255, 255, 0.15);
-      color: rgba(255, 255, 255, .85)
+      background: rgba(var(--ov), 0.15);
+      color: rgba(var(--ov), .85)
     }
 
     .nb-ic {
@@ -120,7 +161,7 @@
       flex: 0 0 auto;
       padding: 7px 14px;
       background: var(--grad-g);
-      color: #fff;
+      color: var(--tw);
       box-shadow: 0 3px 10px rgba(34, 197, 94, .4);
     }
 
@@ -136,7 +177,7 @@
       border-radius: 18px;
       margin: auto 8px 8px;
       padding: 10px 14px 14px;
-      box-shadow: 0 8px 32px rgba(102, 126, 234, 0.45), 0 0 0 1px rgba(255, 255, 255, 0.12);
+      box-shadow: 0 8px 32px rgba(102, 126, 234, 0.45), 0 0 0 1px rgba(var(--ov), 0.12);
       position: relative;
       overflow: hidden;
       flex-shrink: 0;
@@ -146,7 +187,7 @@
       content: '';
       position: absolute;
       inset: 0;
-      background: linear-gradient(45deg, rgba(255, 255, 255, 0.06) 0%, transparent 100%);
+      background: linear-gradient(45deg, rgba(var(--ov), 0.06) 0%, transparent 100%);
       pointer-events: none;
     }
 
@@ -196,7 +237,7 @@
     .orgtbl-label {
       font-size: 11px;
       font-weight: 600;
-      color: rgba(255, 255, 255, .8);
+      color: rgba(var(--ov), .8);
       white-space: nowrap;
       text-align: center;
       display: flex;
@@ -207,7 +248,7 @@
 
     /* خلية — أكثر استدارة، نص مركزي */
     .orgtbl-cell {
-      background: rgba(255, 255, 255, 0.15);
+      background: rgba(var(--ov), 0.15);
       border: none;
       border-radius: 14px;
       padding: 8px 12px;
@@ -216,14 +257,14 @@
       justify-content: center;
       height: 46px;
       cursor: pointer;
-      color: #fff;
+      color: var(--tw);
       overflow: hidden;
       transition: background .2s, transform .15s;
       width: 100%;
     }
 
     .orgtbl-cell:hover {
-      background: rgba(255, 255, 255, 0.25);
+      background: rgba(var(--ov), 0.25);
       transform: translateY(-1px)
     }
 
@@ -235,7 +276,7 @@
     .orgtbl-cell input {
       background: transparent;
       border: none;
-      color: #fff;
+      color: var(--tw);
       font-size: 13px;
       font-weight: 600;
       width: 100%;
@@ -249,11 +290,11 @@
 
     .orgtbl-cell select option {
       background: #3b2f6b;
-      color: #fff
+      color: var(--tw)
     }
 
     .orgtbl-cell input::placeholder {
-      color: rgba(255, 255, 255, .5);
+      color: rgba(var(--ov), .5);
       text-align: center
     }
 
@@ -263,7 +304,7 @@
 
     /* خلية التاريخ في الفلاتر — نفس التقويم المصغر */
     .orgtbl-date-cell {
-      background: rgba(255, 255, 255, 0.15);
+      background: rgba(var(--ov), 0.15);
       border: none;
       border-radius: 14px;
       display: flex;
@@ -273,7 +314,7 @@
       gap: 1px;
       height: 46px;
       cursor: pointer;
-      color: #fff;
+      color: var(--tw);
       overflow: hidden;
       transition: background .2s, transform .15s;
       width: 100%;
@@ -281,7 +322,7 @@
     }
 
     .orgtbl-date-cell:hover {
-      background: rgba(255, 255, 255, 0.25);
+      background: rgba(var(--ov), 0.25);
       transform: translateY(-1px)
     }
 
@@ -338,7 +379,7 @@
     .orgtbl-date-h {
       font-size: 10px;
       font-weight: 600;
-      color: rgba(255, 255, 255, .9);
+      color: rgba(var(--ov), .9);
       white-space: nowrap;
       direction: ltr;
       text-align: left;
@@ -347,7 +388,7 @@
 
     .orgtbl-date-g {
       font-size: 9px;
-      color: rgba(255, 255, 255, .55);
+      color: rgba(var(--ov), .55);
       white-space: nowrap;
       direction: ltr;
       text-align: left;
@@ -356,13 +397,13 @@
 
     .orgtbl-date-ph {
       font-size: 20px;
-      color: rgba(255, 255, 255, .5)
+      color: rgba(var(--ov), .5)
     }
 
     /* زر الحفظ */
     .orgtbl-btn-save {
       background: var(--grad-g);
-      color: #fff;
+      color: var(--tw);
       border: none;
       border-radius: 10px;
       height: 42px;
@@ -405,9 +446,9 @@
 
     /* زر المسح */
     .orgtbl-btn-clear {
-      background: rgba(255, 255, 255, .15);
-      color: #fff;
-      border: 1px solid rgba(255, 255, 255, .2);
+      background: rgba(var(--ov), .15);
+      color: var(--tw);
+      border: 1px solid rgba(var(--ov), .2);
       border-radius: 10px;
       height: 42px;
       padding: 0 12px;
@@ -422,7 +463,7 @@
     }
 
     .orgtbl-btn-clear:hover {
-      background: rgba(255, 255, 255, .25)
+      background: rgba(var(--ov), .25)
     }
 
     /* ════════════════════════════════════════
@@ -430,7 +471,7 @@
 ════════════════════════════════════════ */
     .org-wrap {
       background: var(--grad);
-      color: #fff;
+      color: var(--tw);
       padding: 14px;
       border-radius: 14px;
       box-shadow: 0 8px 28px rgba(102, 126, 234, .35);
@@ -448,7 +489,7 @@
       content: '';
       position: absolute;
       inset: 0;
-      background: linear-gradient(45deg, rgba(255, 255, 255, .06) 0%, transparent 100%);
+      background: linear-gradient(45deg, rgba(var(--ov), .06) 0%, transparent 100%);
       pointer-events: none;
     }
 
@@ -509,7 +550,7 @@
       height: 100%;
       overflow: hidden;
       direction: rtl;
-      color: #fff;
+      color: var(--tw);
       transition: background .2s, transform .15s, box-shadow .2s;
     }
 
@@ -521,7 +562,7 @@
 
     .org-cell:active {
       transform: scale(.98);
-      background: rgba(255, 255, 255, .25)
+      background: rgba(var(--ov), .25)
     }
 
     .org-ci {
@@ -537,7 +578,7 @@
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
-      color: #fff;
+      color: var(--tw);
     }
 
     .org-ct.ph {
@@ -548,7 +589,7 @@
     .org-cell-ta {
       background: transparent;
       border: none;
-      color: #fff;
+      color: var(--tw);
       font-size: 13px;
       width: 100%;
       resize: none;
@@ -586,14 +627,14 @@
     }
 
     .org-num-cell:focus-within {
-      border-color: rgba(255, 255, 255, .3);
-      box-shadow: 0 0 0 2px rgba(255, 255, 255, .1)
+      border-color: rgba(var(--ov), .3);
+      box-shadow: 0 0 0 2px rgba(var(--ov), .1)
     }
 
     .org-inp {
       background: transparent;
       border: none;
-      color: #fff;
+      color: var(--tw);
       font-size: 13px;
       width: 100%;
       outline: none;
@@ -612,7 +653,7 @@
     /* زر حفظ org */
     .org-save {
       background: var(--grad-g);
-      color: #fff;
+      color: var(--tw);
       border: none;
       border-radius: 10px;
       padding: 6px 16px;
@@ -650,7 +691,7 @@
       min-height: 46px;
       height: 100%;
       cursor: pointer;
-      color: #fff;
+      color: var(--tw);
       overflow: hidden;
       transition: background .2s, transform .15s;
       direction: ltr;
@@ -719,7 +760,7 @@
     .org-dh {
       font-size: 11px;
       font-weight: 600;
-      color: rgba(255, 255, 255, .95);
+      color: rgba(var(--ov), .95);
       white-space: nowrap;
       font-variant-numeric: lining-nums;
       direction: ltr;
@@ -728,7 +769,7 @@
 
     .org-dg {
       font-size: 10px;
-      color: rgba(255, 255, 255, .55);
+      color: rgba(var(--ov), .55);
       white-space: nowrap;
       font-variant-numeric: lining-nums;
       direction: ltr;
@@ -742,9 +783,9 @@
 
     /* expand btn */
     .org-exp-btn {
-      background: rgba(255, 255, 255, .15);
+      background: rgba(var(--ov), .15);
       border: none;
-      color: #fff;
+      color: var(--tw);
       padding: 3px 7px;
       border-radius: 5px;
       cursor: pointer;
@@ -754,7 +795,7 @@
     }
 
     .org-exp-btn:hover {
-      background: rgba(255, 255, 255, .3)
+      background: rgba(var(--ov), .3)
     }
 
     /* ════════════════════════════════════════
@@ -790,7 +831,7 @@
     .org-picker-box {
       background: var(--grad);
       border-radius: 20px 20px 0 0;
-      color: #fff;
+      color: var(--tw);
       box-shadow: 0 -12px 40px rgba(102, 126, 234, .4);
       display: flex;
       flex-direction: column;
@@ -831,7 +872,7 @@
       background: linear-gradient(45deg, #28a745, #20c997);
       border: none;
       border-radius: 10px;
-      color: #fff;
+      color: var(--tw);
       cursor: pointer;
       font-size: clamp(12px, 3vw, 14px);
       font-weight: bold;
@@ -859,7 +900,7 @@
       overflow-y: auto;
       padding-left: 4px;
       scrollbar-width: thin;
-      scrollbar-color: rgba(255, 255, 255, .25) transparent;
+      scrollbar-color: rgba(var(--ov), .25) transparent;
     }
 
     .org-picker-grid::-webkit-scrollbar {
@@ -867,16 +908,16 @@
     }
 
     .org-picker-grid::-webkit-scrollbar-thumb {
-      background: rgba(255, 255, 255, .2);
+      background: rgba(var(--ov), .2);
       border-radius: 4px
     }
 
     .org-picker-btn {
       padding: clamp(8px, 1.8vw, 12px) clamp(10px, 1.8vw, 14px);
-      background: rgba(255, 255, 255, .14);
-      border: 1px solid rgba(255, 255, 255, .06);
+      background: rgba(var(--ov), .14);
+      border: 1px solid rgba(var(--ov), .06);
       border-radius: 9px;
-      color: #fff;
+      color: var(--tw);
       cursor: pointer;
       text-align: right;
       display: flex;
@@ -889,7 +930,7 @@
 
     .org-picker-btn:hover,
     .org-picker-btn:active {
-      background: rgba(255, 255, 255, .28);
+      background: rgba(var(--ov), .28);
       transform: scale(.98)
     }
 
@@ -912,7 +953,7 @@
       background: rgba(108, 117, 125, .7);
       border: none;
       border-radius: 10px;
-      color: #fff;
+      color: var(--tw);
       cursor: pointer;
       font-size: clamp(12px, 3vw, 14px);
       font-weight: 600;
@@ -1112,9 +1153,9 @@
       font-weight: 600;
       white-space: nowrap;
       cursor: pointer;
-      background: rgba(255, 255, 255, .08);
-      border: 1px solid rgba(255, 255, 255, .12);
-      color: rgba(255, 255, 255, .6);
+      background: rgba(var(--ov), .08);
+      border: 1px solid rgba(var(--ov), .12);
+      color: rgba(var(--ov), .6);
       transition: all .18s;
       user-select: none;
       -webkit-tap-highlight-color: transparent;
@@ -1123,7 +1164,7 @@
     .sort-chip.active {
       background: rgba(102, 126, 234, .35);
       border-color: rgba(167, 139, 250, .6);
-      color: #fff;
+      color: var(--tw);
     }
 
     .sort-chip:active {
@@ -1200,7 +1241,7 @@
     .edit-sheet h3 {
       font-size: 14px;
       font-weight: 700;
-      color: #fff;
+      color: var(--tw);
       margin: 0;
     }
 
@@ -1226,10 +1267,10 @@
     }
     .edit-inp:focus {
       border-color: rgba(102,126,234,.5);
-      background: rgba(255,255,255,.09);
+      background: rgba(var(--ov),.09);
     }
 
-    .edit-inp::placeholder { color: rgba(255,255,255,.3) }
+    .edit-inp::placeholder { color: rgba(var(--ov),.3) }
 
     .edit-row2 {
       display: grid;
@@ -1246,7 +1287,7 @@
     .edit-save-btn {
       flex: 1;
       background: var(--grad-g);
-      color: #fff;
+      color: var(--tw);
       border: none;
       border-radius: 12px;
       padding: 10px;
@@ -1258,8 +1299,8 @@
 
     .edit-cancel-btn {
       flex: 0 0 auto;
-      background: rgba(255, 255, 255, .15);
-      color: #fff;
+      background: rgba(var(--ov), .15);
+      color: var(--tw);
       border: none;
       border-radius: 12px;
       padding: 10px 14px;
@@ -1302,7 +1343,7 @@
     .att-handle {
       width: 40px;
       height: 4px;
-      background: rgba(255, 255, 255, .2);
+      background: rgba(var(--ov), .2);
       border-radius: 2px;
       margin: 0 auto 6px
     }
@@ -1310,13 +1351,13 @@
     .att-title {
       font-size: 15px;
       font-weight: 700;
-      color: #fff;
+      color: var(--tw);
       text-align: center
     }
 
     .att-file-name {
       font-size: 12px;
-      color: rgba(255, 255, 255, .55);
+      color: rgba(var(--ov), .55);
       text-align: center;
       word-break: break-all
     }
@@ -1338,13 +1379,13 @@
 
     .att-btn-open {
       background: var(--grad);
-      color: #fff
+      color: var(--tw)
     }
 
     .att-btn-change {
-      background: rgba(255, 255, 255, .12);
-      color: #fff;
-      border: 1px solid rgba(255, 255, 255, .2)
+      background: rgba(var(--ov), .12);
+      color: var(--tw);
+      border: 1px solid rgba(var(--ov), .2)
     }
 
     .att-btn-del {
@@ -1354,8 +1395,8 @@
     }
 
     .att-btn-cancel {
-      background: rgba(255, 255, 255, .07);
-      color: rgba(255, 255, 255, .6)
+      background: rgba(var(--ov), .07);
+      color: rgba(var(--ov), .6)
     }
 
     /* ════════════════════════════════════════
@@ -1384,7 +1425,7 @@
       max-width: 320px;
       box-shadow: 0 20px 60px rgba(0, 0, 0, .6);
       direction: rtl;
-      color: #fff;
+      color: var(--tw);
     }
 
     .cal-hdr {
@@ -1395,12 +1436,12 @@
     }
 
     .cal-nav {
-      background: rgba(255, 255, 255, .15);
+      background: rgba(var(--ov), .15);
       border: none;
       border-radius: 8px;
       width: 34px;
       height: 34px;
-      color: #fff;
+      color: var(--tw);
       font-size: 18px;
       cursor: pointer;
       display: flex;
@@ -1410,7 +1451,7 @@
     }
 
     .cal-nav:hover {
-      background: rgba(255, 255, 255, .25)
+      background: rgba(var(--ov), .25)
     }
 
     .cal-ttl {
@@ -1433,7 +1474,7 @@
       text-align: center;
       font-size: 11px;
       font-weight: 600;
-      color: rgba(255, 255, 255, .7);
+      color: rgba(var(--ov), .7);
       margin-bottom: 4px;
     }
 
@@ -1456,16 +1497,16 @@
     }
 
     .cal-day:not(.empty):hover {
-      background: rgba(255, 255, 255, .2)
+      background: rgba(var(--ov), .2)
     }
 
     .cal-day.today {
-      background: rgba(255, 255, 255, .12);
-      outline: 1px solid rgba(255, 255, 255, .4)
+      background: rgba(var(--ov), .12);
+      outline: 1px solid rgba(var(--ov), .4)
     }
 
     .cal-day.selected {
-      background: rgba(255, 255, 255, .3)
+      background: rgba(var(--ov), .3)
     }
 
     .cal-day.empty {
@@ -1483,7 +1524,7 @@
     }
 
     .cal-day.selected .dg {
-      color: rgba(255, 255, 255, .7)
+      color: rgba(var(--ov), .7)
     }
 
     .cal-ok {
@@ -1493,7 +1534,7 @@
       border: none;
       border-radius: 10px;
       padding: 10px;
-      color: #fff;
+      color: var(--tw);
       font-size: 14px;
       font-weight: 700;
       cursor: pointer;
@@ -1544,7 +1585,7 @@
     .q-handle {
       width: 36px;
       height: 4px;
-      background: rgba(255, 255, 255, .2);
+      background: rgba(var(--ov), .2);
       border-radius: 2px;
       margin: 0 auto 14px
     }
@@ -1554,7 +1595,7 @@
       font-weight: 700;
       text-align: center;
       margin-bottom: 14px;
-      color: #fff
+      color: var(--tw)
     }
 
     /* ════════════════════════════════════════
@@ -1566,7 +1607,7 @@
       right: 16px;
       z-index: 99999;
       background: var(--grad-g);
-      color: #fff;
+      color: var(--tw);
       padding: 10px 18px;
       border-radius: 10px;
       font-size: 13px;
@@ -1597,7 +1638,7 @@
    صفحة الإعدادات
 ════════════════════════════════════════ */
     .section {
-      background: rgba(255, 255, 255, .04);
+      background: rgba(var(--ov), .04);
       border: 1px solid var(--border);
       border-radius: 14px;
       padding: 14px 16px;
@@ -1632,8 +1673,8 @@
     }
 
     kbd {
-      background: rgba(255, 255, 255, .1);
-      border: 1px solid rgba(255, 255, 255, .2);
+      background: rgba(var(--ov), .1);
+      border: 1px solid rgba(var(--ov), .2);
       border-radius: 4px;
       padding: 2px 7px;
       font-family: monospace;
@@ -1971,7 +2012,7 @@
       background: linear-gradient(170deg, #1f1040, #150d30);
       border-radius: 28px 28px 0 0;
       padding: 10px 12px max(28px, env(safe-area-inset-bottom));
-      box-shadow: 0 -16px 60px rgba(102, 126, 234, .45), 0 0 0 1px rgba(255, 255, 255, .08);
+      box-shadow: 0 -16px 60px rgba(102, 126, 234, .45), 0 0 0 1px rgba(var(--ov), .08);
       animation: shup .22s cubic-bezier(.34, 1.56, .64, 1);
       max-height: 72dvh;
       overflow: visible;
@@ -1987,7 +2028,7 @@
       width: 40px;
       height: 4px;
       border-radius: 2px;
-      background: rgba(255, 255, 255, .2);
+      background: rgba(var(--ov), .2);
       margin: 0 auto 8px;
       flex-shrink: 0
     }
@@ -1995,7 +2036,7 @@
     .dp-title {
       font-size: 14px;
       font-weight: 700;
-      color: rgba(255, 255, 255, .5);
+      color: rgba(var(--ov), .5);
       text-align: center;
       padding: 0 0 8px;
       flex-shrink: 0
@@ -2023,9 +2064,9 @@
       align-items: center;
       gap: 12px;
       padding: 0 16px;
-      background: rgba(255, 255, 255, .07);
+      background: rgba(var(--ov), .07);
       border: 2px solid transparent;
-      color: rgba(255, 255, 255, .7);
+      color: rgba(var(--ov), .7);
       font-size: 14px;
       font-weight: 600;
       pointer-events: none;
@@ -2036,7 +2077,7 @@
     .dp-item.hover {
       background: rgba(102, 126, 234, .4);
       border-color: rgba(167, 139, 250, .8);
-      color: #fff;
+      color: var(--tw);
       transform: scaleX(1.02);
       box-shadow: 0 4px 20px rgba(102, 126, 234, .35);
     }
@@ -2044,7 +2085,7 @@
     .dp-item.sel {
       background: var(--grad);
       border-color: transparent;
-      color: #fff
+      color: var(--tw)
     }
 
     .dp-ic {
@@ -2095,8 +2136,8 @@
     .setup-card {
       width: 100%;
       max-width: 360px;
-      background: rgba(255, 255, 255, .05);
-      border: 1px solid rgba(255, 255, 255, .1);
+      background: rgba(var(--ov), .05);
+      border: 1px solid rgba(var(--ov), .1);
       border-radius: 18px;
       padding: 20px;
       display: flex;
@@ -2110,7 +2151,7 @@
       gap: 14px;
       padding: 14px 16px;
       border-radius: 14px;
-      background: rgba(255, 255, 255, .07);
+      background: rgba(var(--ov), .07);
       border: 2px solid transparent;
       cursor: pointer;
       transition: all .2s;
@@ -2154,7 +2195,7 @@
       background: var(--grad);
       border: none;
       border-radius: 16px;
-      color: #fff;
+      color: var(--tw);
       font-size: 16px;
       font-weight: 700;
       cursor: pointer;
@@ -2195,7 +2236,7 @@
         border-radius: 0 !important;
         width: 100% !important;
         padding: 10px 16px 12px !important;
-        border-top: 1px solid rgba(255, 255, 255, 0.12);
+        border-top: 1px solid rgba(var(--ov), 0.12);
       }
 
       /* تفكيك صفوف الفلتر لتصبح كل الحقول في صف واحد */
@@ -2245,14 +2286,14 @@
     </div>
     <button id="setup-folder-btn" class="setup-btn" onclick="setupFolder()">📂 اختيار مجلد الملاحظات ›</button>
     <button class="setup-btn" onclick="finishSetup()"
-      style="background:rgba(255,255,255,0.1);margin-top:-10px;box-shadow:none;">تخطي والحفظ محلياً</button>
+      style="background:rgba(var(--ov),0.1);margin-top:-10px;box-shadow:none;">تخطي والحفظ محلياً</button>
   </div>
 
   <div id="app">
     <!-- شريط التطبيق العلوي — مضغوط -->
     <div id="top-bar" style="display:flex;align-items:center;justify-content:center;padding:env(safe-area-inset-top,0px) 0 0;background:var(--grad);flex-shrink:0;box-shadow:0 2px 10px rgba(102,126,234,0.4);">
       <div id="app-title"
-        style="color:#fff;font-size:14px;font-weight:700;padding:5px 22px;border-radius:8px;cursor:pointer;user-select:none;-webkit-tap-highlight-color:transparent;transition:background .15s;line-height:1.2;"
+        style="color:var(--tw);font-size:14px;font-weight:700;padding:5px 22px;border-radius:8px;cursor:pointer;user-select:none;-webkit-tap-highlight-color:transparent;transition:background .15s;line-height:1.2;"
         oncontextmenu="event.preventDefault();return false;">📋 المنظم</div>
     </div>
 
@@ -2261,6 +2302,17 @@
       <!-- ══ صفحة الإعدادات ══ -->
       <div class="page" id="pg-settings"
         style="display:none;flex-direction:column;height:100%;overflow-y:auto;padding:16px;padding-bottom:120px;">
+        <div class="section">
+          <div class="sec-t">🎨 المظهر</div>
+          <div class="srow">
+            <div class="srow-l">سمة الألوان</div>
+            <div style="display:flex;gap:6px;">
+              <button class="sm-btn theme-opt" data-theme-opt="dark" onclick="setTheme('dark')">🌙 داكن</button>
+              <button class="sm-btn theme-opt" data-theme-opt="light" onclick="setTheme('light')">☀️ فاتح</button>
+              <button class="sm-btn theme-opt" data-theme-opt="auto" onclick="setTheme('auto')">🔄 تلقائي</button>
+            </div>
+          </div>
+        </div>
         <div class="section">
           <div class="sec-t">📁 مجلد الحفظ الافتراضي</div>
           <div class="srow">
@@ -2288,13 +2340,23 @@
           </div>
         </div>
 
+        <!-- قسم سلة المحذوفات -->
+        <div class="section">
+          <div class="sec-t" style="display:flex;align-items:center;justify-content:space-between;">
+            <span>🗑️ سلة المحذوفات</span>
+            <button class="sm-btn danger" onclick="emptyTrash()" style="font-size:10px;padding:3px 9px;">إفراغ السلة</button>
+          </div>
+          <div style="font-size:11px;color:var(--text-m);padding:2px 0 8px;">المحذوفات تبقى قابلة للاستعادة، وتُمسح نهائياً تلقائياً بعد 30 يوماً.</div>
+          <div id="cfg-trash-list" style="display:flex;flex-direction:column;gap:8px;"></div>
+        </div>
+
         <!-- قسم تحديث التطبيق -->
         <div class="section">
           <div class="sec-t">🔄 تحديث التطبيق</div>
           <div id="update-status" style="font-size:12px;color:var(--text-m);padding:6px 0 8px;"></div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;">
             <button class="sm-btn" onclick="checkAndUpdate()" id="update-btn"
-              style="background:linear-gradient(135deg,#6366f1,#4f46e5);color:#fff;border:none;">
+              style="background:linear-gradient(135deg,#6366f1,#4f46e5);color:var(--tw);border:none;">
               ⬇️ تحقق وحدّث
             </button>
             <button class="sm-btn" onclick="clearUpdate()" id="clear-update-btn" style="display:none;">
@@ -2311,7 +2373,7 @@
           <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
             <span style="font-size:13px;">وقت التنبيه:</span>
             <input type="number" id="remind-hour" min="0" max="23" value="9" onchange="setRemindHour(this.value)"
-              style="width:70px;padding:7px;border-radius:8px;border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.06);color:#fff;text-align:center;font-size:14px;">
+              style="width:70px;padding:7px;border-radius:8px;border:1px solid rgba(var(--ov),.15);background:rgba(var(--ov),.06);color:var(--tw);text-align:center;font-size:14px;">
             <span style="font-size:12px;color:var(--text-m);">الساعة (0–23)</span>
           </div>
           <button class="sm-btn" onclick="requestNotifPerm()" style="margin-top:10px;">🔔 تفعيل الإشعارات</button>
@@ -2350,7 +2412,7 @@
               <div class="orgtbl-cell" id="fp-cat-cell" style="cursor:pointer;gap:6px">
                 <span id="fp-cat-ic" style="font-size:16px">🗂️</span>
                 <span id="fp-cat-tx"
-                  style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:rgba(255,255,255,.55)">الكل</span>
+                  style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:rgba(var(--ov),.55)">الكل</span>
               </div>
             </div>
 
@@ -2358,7 +2420,7 @@
               <div class="orgtbl-label">📝 النص</div>
               <div class="orgtbl-cell" style="padding:0;overflow:hidden;">
                 <input type="text" id="f-text" placeholder="بحث..." oninput="_debouncedRender()"
-                  style="width:100%;background:transparent;border:none;color:#fff;font-size:13px;padding:8px 10px;font-family:inherit;direction:rtl;outline:none;">
+                  style="width:100%;background:transparent;border:none;color:var(--tw);font-size:13px;padding:8px 10px;font-family:inherit;direction:rtl;outline:none;">
               </div>
             </div>
 
@@ -2384,11 +2446,11 @@
             <div class="orgtbl-field of-date">
               <div class="orgtbl-label">📅 التاريخ</div>
               <div class="orgtbl-date-cell" id="f-date-cell" onclick="openCal('filter')">
-                <span id="f-date-ph" style="font-size:12px;font-weight:600;color:rgba(255,255,255,.55)">التاريخ</span>
+                <span id="f-date-ph" style="font-size:12px;font-weight:600;color:rgba(var(--ov),.55)">التاريخ</span>
                 <span id="f-dh"
-                  style="display:none;font-size:11px;font-weight:700;color:#fff;line-height:1.2;white-space:nowrap"></span>
+                  style="display:none;font-size:11px;font-weight:700;color:var(--tw);line-height:1.2;white-space:nowrap"></span>
                 <span id="f-dg"
-                  style="display:none;font-size:10px;color:rgba(255,255,255,.65);line-height:1.2;white-space:nowrap;direction:rtl"></span>
+                  style="display:none;font-size:10px;color:rgba(var(--ov),.65);line-height:1.2;white-space:nowrap;direction:rtl"></span>
               </div>
             </div>
 
@@ -2514,7 +2576,7 @@
           <div style="display:flex;align-items:center;gap:8px;">
             <span class="org-ci">🔗</span>
             <span class="org-ct ph" id="q-link-tx" style="flex:1;">ربط بملاحظة سابقة (اختياري)</span>
-            <span style="color:rgba(255,255,255,.4);font-size:13px;">›</span>
+            <span style="color:rgba(var(--ov),.4);font-size:13px;">›</span>
           </div>
           <div id="q-link-chips" style="display:none;flex-wrap:wrap;gap:5px;"></div>
         </div>
@@ -2539,14 +2601,14 @@
   <!-- نافذة ربط الملاحظات — بحث بالنص -->
   <div id="link-ov" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:9600;align-items:flex-end;justify-content:center;backdrop-filter:blur(6px);" onclick="if(event.target===this)closeLinkPicker()">
     <div style="background:linear-gradient(170deg,#1e1e2e,#181825);border-radius:20px 20px 0 0;width:100%;max-width:700px;padding:14px 14px max(20px,env(safe-area-inset-bottom));box-shadow:0 -12px 40px rgba(102,126,234,0.4);display:flex;flex-direction:column;max-height:78dvh;">
-      <div style="width:36px;height:4px;border-radius:2px;background:rgba(255,255,255,0.2);margin:0 auto 12px;"></div>
-      <div style="font-size:14px;font-weight:700;color:#fff;text-align:center;margin-bottom:10px;">🔗 ربط بملاحظة</div>
+      <div style="width:36px;height:4px;border-radius:2px;background:rgba(var(--ov),0.2);margin:0 auto 12px;"></div>
+      <div style="font-size:14px;font-weight:700;color:var(--tw);text-align:center;margin-bottom:10px;">🔗 ربط بملاحظة</div>
       <input type="text" id="link-search" placeholder="ابحث في الملاحظات بالنص..."
         oninput="renderLinkResults()"
-        style="width:100%;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);border-radius:12px;color:#fff;font-size:14px;padding:11px 14px;font-family:inherit;direction:rtl;outline:none;box-sizing:border-box;margin-bottom:10px;">
+        style="width:100%;background:rgba(var(--ov),0.1);border:1px solid rgba(var(--ov),0.2);border-radius:12px;color:var(--tw);font-size:14px;padding:11px 14px;font-family:inherit;direction:rtl;outline:none;box-sizing:border-box;margin-bottom:10px;">
       <div id="link-results" style="overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:6px;scrollbar-width:none;"></div>
       <button onclick="closeLinkPicker()"
-        style="margin-top:10px;width:100%;padding:11px;border-radius:12px;background:var(--grad-g);border:none;color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;">✓ تم</button>
+        style="margin-top:10px;width:100%;padding:11px;border-radius:12px;background:var(--grad-g);border:none;color:var(--tw);font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;">✓ تم</button>
     </div>
   </div>
 
@@ -2661,10 +2723,47 @@
 
     function saveCats() { localStorage.setItem('notes_cats', JSON.stringify(CATS)); }
 
+    /* ══════════════════════════════════════
+       السمة (فاتح / داكن / تلقائي)
+    ══════════════════════════════════════ */
+    function _applyTheme(t) {
+      const el = document.documentElement;
+      if (t === 'light' || t === 'dark') el.setAttribute('data-theme', t);
+      else el.removeAttribute('data-theme');   /* تلقائي: يتبع تفضيل النظام */
+      const meta = document.querySelector('meta[name="theme-color"]');
+      if (meta) {
+        const attr = el.getAttribute('data-theme');
+        const isDark = attr ? attr === 'dark'
+          : !(window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches);
+        meta.setAttribute('content', isDark ? '#1e1e2e' : '#eef1f7');
+      }
+    }
+    function _reflectThemeButtons() {
+      const cur = (function () { try { return localStorage.getItem('notes_theme') || 'dark'; } catch (e) { return 'dark'; } })();
+      document.querySelectorAll('.theme-opt').forEach(b => b.classList.toggle('active', b.dataset.themeOpt === cur));
+    }
+    function setTheme(t) {
+      if (t !== 'light' && t !== 'dark' && t !== 'auto') t = 'dark';
+      try { localStorage.setItem('notes_theme', t); } catch (e) { }
+      _applyTheme(t);
+      _reflectThemeButtons();
+      showFb(t === 'light' ? '☀️ الوضع الفاتح' : (t === 'dark' ? '🌙 الوضع الداكن' : '🔄 يتبع النظام'));
+    }
+    /* تطبيق عند الإقلاع + متابعة تغيّر تفضيل النظام في الوضع التلقائي */
+    _applyTheme((function () { try { return localStorage.getItem('notes_theme') || 'dark'; } catch (e) { return 'dark'; } })());
+    try {
+      if (window.matchMedia) window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', () => {
+        let cur = 'dark'; try { cur = localStorage.getItem('notes_theme') || 'dark'; } catch (e) { }
+        if (cur === 'auto') _applyTheme('auto');
+      });
+    } catch (e) { }
+
     function renderSettings() {
       const _vl = document.getElementById('app-ver-label');
       if (_vl) _vl.textContent = 'الإصدار ' + (_getLocalHash() || '');
       const _rh = document.getElementById('remind-hour'); if (_rh) _rh.value = _remindHour();
+      if (typeof renderTrash === 'function') renderTrash();
+      if (typeof _reflectThemeButtons === 'function') _reflectThemeButtons();
       const fd = document.getElementById('cfg-folder-path');
       if (window.AndroidFS && localStorage.getItem('notes_storage') === 'android_fs' && _dirFolderName) {
         fd.textContent = '📂 ' + _dirFolderName + ' (أندرويد)';
@@ -2694,17 +2793,17 @@
 
         /* ── الغلاف الكامل للفئة الرئيسية ── */
         const mainWrap = document.createElement('div');
-        mainWrap.style.cssText = 'margin-bottom:10px;border-radius:14px;overflow:hidden;border:1px solid rgba(255,255,255,0.1);';
+        mainWrap.style.cssText = 'margin-bottom:10px;border-radius:14px;overflow:hidden;border:1px solid rgba(var(--ov),0.1);';
 
         /* ── رأس الفئة الرئيسية (قابل للضغط) ── */
         const mainHead = document.createElement('div');
-        mainHead.style.cssText = 'display:flex;align-items:center;gap:8px;padding:11px 14px;background:rgba(255,255,255,0.07);cursor:pointer;user-select:none;-webkit-tap-highlight-color:transparent;';
+        mainHead.style.cssText = 'display:flex;align-items:center;gap:8px;padding:11px 14px;background:rgba(var(--ov),0.07);cursor:pointer;user-select:none;-webkit-tap-highlight-color:transparent;';
         mainHead.innerHTML = `
           <span style="font-size:22px;line-height:1">${esc(cat.ic || '📂')}</span>
           <span style="flex:1;font-weight:700;color:#fca5a5;font-size:14px">${esc(k)}</span>
-          <span style="font-size:11px;color:rgba(255,255,255,0.4);margin-left:4px">${subKeys.length} فئة</span>
+          <span style="font-size:11px;color:rgba(var(--ov),0.4);margin-left:4px">${subKeys.length} فئة</span>
           ${mainCount > 0 ? `<span style="font-size:11px;background:rgba(102,126,234,0.4);color:#c7d2fe;border-radius:8px;padding:1px 7px;margin-left:2px">${mainCount}</span>` : ''}
-          <span class="acc-arrow" style="font-size:13px;color:rgba(255,255,255,0.45);transition:transform .22s;margin-left:6px">▼</span>
+          <span class="acc-arrow" style="font-size:13px;color:rgba(var(--ov),0.45);transition:transform .22s;margin-left:6px">▼</span>
           <button class="sm-btn danger del-main-btn" style="font-size:10px;padding:3px 9px;margin-right:4px">حذف</button>
         `;
         mainHead.querySelector('.del-main-btn').addEventListener('click', ev => { ev.stopPropagation(); delCat(k); });
@@ -2727,7 +2826,7 @@
           const dets = sub.det || [];
 
           const subWrap = document.createElement('div');
-          subWrap.style.cssText = 'border-bottom:1px solid rgba(255,255,255,0.05);';
+          subWrap.style.cssText = 'border-bottom:1px solid rgba(var(--ov),0.05);';
 
           const subCount = allNotes.filter(n => n.main === k && n.sub === sk).length;
           const subHead = document.createElement('div');
@@ -2735,9 +2834,9 @@
           subHead.innerHTML = `
             <span style="font-size:17px;line-height:1">${esc(sub.ic || '📌')}</span>
             <span style="flex:1;color:#fdba74;font-size:13px;font-weight:600">${esc(sk)}</span>
-            <span style="font-size:10px;color:rgba(255,255,255,0.35)">${dets.length} تفصيل</span>
+            <span style="font-size:10px;color:rgba(var(--ov),0.35)">${dets.length} تفصيل</span>
             ${subCount > 0 ? `<span style="font-size:10px;background:rgba(34,197,94,0.25);color:#86efac;border-radius:6px;padding:1px 6px">${subCount}</span>` : ''}
-            <span class="sub-arrow" style="font-size:12px;color:rgba(255,255,255,0.35);transition:transform .18s;margin-left:5px">›</span>
+            <span class="sub-arrow" style="font-size:12px;color:rgba(var(--ov),0.35);transition:transform .18s;margin-left:5px">›</span>
             <button class="sm-btn danger del-sub-btn" style="font-size:10px;padding:2px 7px">حذف</button>
           `;
           subHead.querySelector('.del-sub-btn').addEventListener('click', ev => { ev.stopPropagation(); delCat(k, sk); });
@@ -2758,7 +2857,7 @@
             const detRow = document.createElement('div');
             detRow.style.cssText = 'display:flex;align-items:center;gap:6px;padding:6px 32px;';
             detRow.innerHTML = `
-              <span style="flex:1;font-size:12px;color:rgba(255,255,255,0.6)">${esc(det)}</span>
+              <span style="flex:1;font-size:12px;color:rgba(var(--ov),0.6)">${esc(det)}</span>
               <button class="sm-btn danger del-det-btn"
                 style="font-size:10px;padding:2px 6px;background:transparent;border:1px solid rgba(239,68,68,0.45)">حذف</button>
             `;
@@ -2975,6 +3074,8 @@
        ذاكرة مؤقتة (_notesCache) تبقي واجهة DB.get() متزامنة.
     ══════════════════════════════════════ */
     let _notesCache = [];
+    let _trashCache = [];              /* سلة المحذوفات — تُحفظ ضمن نفس ملف الملاحظات */
+    const TRASH_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;  /* 30 يوماً قبل المسح النهائي التلقائي */
     let _notesLoaded = false;          /* لا كتابة قبل نجاح التحميل — حماية من مسح الملف */
     const NOTES_FILE = 'منظم_notes.json';
     const BACKUP_FILE = 'منظم_notes_backup.json';
@@ -3002,14 +3103,14 @@
     function idbGet(key) { return _idbKV('readonly', st => st.get(key)); }
     function idbSet(key, val) { return _idbKV('readwrite', st => st.put(val, key)); }
 
-    /* ── تنسيق الحفظ v2: {v, savedAt, notes} مع توافق رجعي كامل مع المصفوفة المجردة ── */
+    /* ── تنسيق الحفظ v2: {v, savedAt, notes, trash} مع توافق رجعي كامل مع المصفوفة المجردة ── */
     function _serializeNotes() {
-      return JSON.stringify({ v: 2, savedAt: Date.now(), notes: _notesCache });
+      return JSON.stringify({ v: 2, savedAt: Date.now(), notes: _notesCache, trash: _trashCache });
     }
     function _deserializeNotes(text) {
       const p = JSON.parse(text);
-      if (Array.isArray(p)) return { v: 1, savedAt: 0, notes: p };
-      if (p && Array.isArray(p.notes)) return { v: p.v || 2, savedAt: +p.savedAt || 0, notes: p.notes };
+      if (Array.isArray(p)) return { v: 1, savedAt: 0, notes: p, trash: [] };
+      if (p && Array.isArray(p.notes)) return { v: p.v || 2, savedAt: +p.savedAt || 0, notes: p.notes, trash: Array.isArray(p.trash) ? p.trash : [] };
       throw new Error('bad-notes-format');
     }
 
@@ -3019,17 +3120,17 @@
       document.querySelectorAll('.org-fb').forEach(x => x.remove()); /* لا توست نجاح فوق الخطأ */
       const bar = document.createElement('div');
       bar.id = 'save-err-banner';
-      bar.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:100000;background:#dc2626;color:#fff;padding:10px 14px;font-size:13px;font-weight:600;display:flex;align-items:center;gap:10px;direction:rtl;box-shadow:0 4px 16px rgba(0,0,0,.45);';
+      bar.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:100000;background:#dc2626;color:var(--tw);padding:10px 14px;font-size:13px;font-weight:600;display:flex;align-items:center;gap:10px;direction:rtl;box-shadow:0 4px 16px rgba(0,0,0,.45);';
       const txt = document.createElement('span');
       txt.style.cssText = 'flex:1;line-height:1.5;';
       txt.textContent = msg;
       const retry = document.createElement('button');
       retry.textContent = 'إعادة المحاولة';
-      retry.style.cssText = 'background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.45);color:#fff;border-radius:8px;padding:5px 12px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;flex-shrink:0;';
+      retry.style.cssText = 'background:rgba(var(--ov),.2);border:1px solid rgba(var(--ov),.45);color:var(--tw);border-radius:8px;padding:5px 12px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;flex-shrink:0;';
       retry.onclick = () => { hideSaveError(); (retryFn || _writeNotesNow)(); };
       const close = document.createElement('button');
       close.textContent = '✕';
-      close.style.cssText = 'background:transparent;border:none;color:rgba(255,255,255,.85);font-size:14px;cursor:pointer;padding:2px 6px;flex-shrink:0;';
+      close.style.cssText = 'background:transparent;border:none;color:rgba(var(--ov),.85);font-size:14px;cursor:pointer;padding:2px 6px;flex-shrink:0;';
       close.onclick = hideSaveError;
       bar.appendChild(txt); bar.appendChild(retry); bar.appendChild(close);
       (document.body || document.documentElement).appendChild(bar);
@@ -3259,10 +3360,12 @@
       }
 
       _notesCache = parsed.notes;
+      _trashCache = Array.isArray(parsed.trash) ? parsed.trash : [];
       _notesLoaded = true;
       hideSaveError();
       if (fromBak) showFb('تمت الاستعادة من النسخة الاحتياطية');
       if (needResave) _persistNotes();
+      _purgeOldTrash();   /* حذف نهائي تلقائي لعناصر السلة الأقدم من 30 يوماً */
       updCount();
       if (typeof renderNotes === 'function') renderNotes();
       /* تأكيد نجاح الإقلاع بعد تطبيق تحديث (يلغي التراجع التلقائي) */
@@ -3274,6 +3377,127 @@
       set(a) { _notesCache = Array.isArray(a) ? a : []; _persistNotes(); updCount(); _syncRemindersDebounced(); },
       add(n) { _notesCache.unshift(n); _persistNotes(); updCount(); _syncRemindersDebounced(); }
     };
+
+    /* ══════════════════════════════════════
+       سلة المحذوفات + تنظيف المرفقات اليتيمة
+    ══════════════════════════════════════ */
+    /* مفتاح المرفق للمقارنة (اسم التخزين الفريد أو الاسم للتوافق الرجعي) */
+    function _attKey(file) {
+      if (!file) return '';
+      return (typeof file === 'object' ? (file.saved || file.name) : file) || '';
+    }
+    /* حذف ملف المرفق فعلياً من مجلد «المرفقات» — أفضل جهد عبر قناة التخزين الحالية */
+    async function _deleteAttachmentFile(file) {
+      const name = _attKey(file); if (!name) return;
+      const folderName = 'المرفقات';
+      const storage = localStorage.getItem('notes_storage');
+      try {
+        if (window.AndroidFS && storage === 'android_fs') {
+          if (typeof window.AndroidFS.deleteFile === 'function') window.AndroidFS.deleteFile(folderName, name);
+          else if (typeof window.AndroidFS.deleteAttachment === 'function') window.AndroidFS.deleteAttachment(folderName, name);
+        } else if (_dirHandle) {
+          const attDir = await _dirHandle.getDirectoryHandle(folderName, { create: false });
+          await attDir.removeEntry(name);
+        }
+      } catch (e) { /* الملف قد لا يوجد أو القناة لا تدعم الحذف — تجاهل */ }
+    }
+    /* احذف الملف فقط إن لم تعد أي ملاحظة (حيّة أو في السلة) تشير إليه */
+    function _maybeDeleteOrphanAttachment(note) {
+      const key = _attKey(note && note.file); if (!key) return;
+      const used = _notesCache.some(x => _attKey(x.file) === key)
+        || _trashCache.some(x => x !== note && _attKey(x.file) === key);
+      if (used) return;
+      _deleteAttachmentFile(note.file);
+    }
+    /* مسح نهائي تلقائي لعناصر السلة الأقدم من مدة الاحتفاظ */
+    function _purgeOldTrash() {
+      if (!Array.isArray(_trashCache) || !_trashCache.length) return;
+      const now = Date.now();
+      const keep = [], drop = [];
+      _trashCache.forEach(t => {
+        const del = +(t && t._delAt) || 0;
+        if (del && (now - del) > TRASH_RETENTION_MS) drop.push(t); else keep.push(t);
+      });
+      if (!drop.length) return;
+      _trashCache = keep;
+      drop.forEach(t => _maybeDeleteOrphanAttachment(t));
+      if (_notesLoaded) _persistNotes();
+    }
+    /* نقل ملاحظة إلى السلة بدل الحذف النهائي (مع تنظيف الروابط من الملاحظات الحيّة) */
+    function _moveToTrash(id) {
+      const idx = _notesCache.findIndex(x => _sameId(x.id, id));
+      if (idx < 0) return false;
+      const note = _notesCache[idx];
+      note._delAt = Date.now();
+      _notesCache.forEach(x => { if (Array.isArray(x.links) && x.links.length) x.links = x.links.filter(l => !_sameId(l, id)); });
+      _notesCache.splice(idx, 1);
+      _trashCache.unshift(note);
+      _persistNotes(); updCount(); _syncRemindersDebounced();
+      return true;
+    }
+    function restoreFromTrash(id) {
+      const idx = _trashCache.findIndex(x => _sameId(x.id, id));
+      if (idx < 0) return;
+      const note = _trashCache[idx];
+      delete note._delAt;
+      _trashCache.splice(idx, 1);
+      _notesCache.unshift(note);
+      _persistNotes(); updCount(); _syncRemindersDebounced();
+      renderNotes(); renderTrash();
+      showFb('♻️ تمت الاستعادة');
+    }
+    function purgeTrashItem(id) {
+      const idx = _trashCache.findIndex(x => _sameId(x.id, id));
+      if (idx < 0) return;
+      if (!confirm('حذف هذه الملاحظة نهائياً؟ لا يمكن التراجع.')) return;
+      const note = _trashCache[idx];
+      _trashCache.splice(idx, 1);
+      _maybeDeleteOrphanAttachment(note);
+      _persistNotes();
+      renderTrash();
+      showFb('🗑️ حُذفت نهائياً');
+    }
+    function emptyTrash() {
+      if (!_trashCache.length) { showFb('السلة فارغة'); return; }
+      if (!confirm('إفراغ سلة المحذوفات نهائياً (' + _trashCache.length + ' عنصر)؟ لا يمكن التراجع.')) return;
+      const items = _trashCache.slice();
+      _trashCache = [];
+      items.forEach(t => _maybeDeleteOrphanAttachment(t));
+      _persistNotes();
+      renderTrash();
+      showFb('🗑️ أُفرغت السلة');
+    }
+    function renderTrash() {
+      const box = document.getElementById('cfg-trash-list');
+      if (!box) return;
+      box.innerHTML = '';
+      if (!_trashCache.length) {
+        box.innerHTML = '<div style="text-align:center;color:var(--text-m);font-size:12px;padding:10px;">السلة فارغة</div>';
+        return;
+      }
+      _trashCache.forEach(n => {
+        const row = document.createElement('div');
+        row.style.cssText = 'display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:10px;background:rgba(var(--ov),0.06);border:1px solid rgba(var(--ov),0.1);';
+        const mainIc = (n.main && CATS[n.main]?.ic) || '📝';
+        const cat = [n.main, n.sub].filter(Boolean).join(' › ');
+        const label = (n.text || cat || 'ملاحظة').slice(0, 40);
+        const days = n._delAt ? Math.max(0, 30 - Math.floor((Date.now() - n._delAt) / 86400000)) : 30;
+        const info = document.createElement('div');
+        info.style.cssText = 'flex:1;min-width:0;';
+        info.innerHTML = `<div style="font-size:12px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(mainIc)} ${esc(label)}</div>`
+          + `<div style="font-size:10px;color:var(--text-m);">يُمسح نهائياً بعد ${days} يوم${n.file ? ' · 📎' : ''}</div>`;
+        const rBtn = document.createElement('button');
+        rBtn.className = 'sm-btn'; rBtn.textContent = '♻️'; rBtn.title = 'استعادة';
+        rBtn.style.cssText = 'font-size:13px;padding:4px 9px;flex-shrink:0;';
+        rBtn.onclick = () => restoreFromTrash(n.id);
+        const dBtn = document.createElement('button');
+        dBtn.className = 'sm-btn danger'; dBtn.textContent = '🗑️'; dBtn.title = 'حذف نهائي';
+        dBtn.style.cssText = 'font-size:13px;padding:4px 9px;flex-shrink:0;';
+        dBtn.onclick = () => purgeTrashItem(n.id);
+        row.appendChild(info); row.appendChild(rBtn); row.appendChild(dBtn);
+        box.appendChild(row);
+      });
+    }
 
     function updCount() {
       const n = DB.get().length;
@@ -3324,12 +3548,12 @@
       function onStart() {
         _long = false;
         if (_t) { clearTimeout(_t); _t = null; }
-        var el = _el(); if (el) el.style.background = 'rgba(255,255,255,0.13)';
+        var el = _el(); if (el) el.style.background = 'rgba(var(--ov),0.13)';
         _t = setTimeout(function() {
           _long = true; _t = null;
           var el2 = _el();
           if (el2) {
-            el2.style.background = 'rgba(255,255,255,0.28)';
+            el2.style.background = 'rgba(var(--ov),0.28)';
             setTimeout(function(){ el2.style.background = ''; }, 200);
           }
           toggleSettings();
@@ -3511,7 +3735,7 @@
         else if (t === 'sub') {
           S.q.sub = item.v; S.q.sec = ''; setQC('sub', item.i, item.n);
           setQC('sec', '🎯', 'الثانوية', 1);
-          const det = CATS[S.q.main]?.sub[item.v]?.det || [];
+          const det = CATS[S.q.main]?.sub?.[item.v]?.det || [];
           if (det.length) setTimeout(() => openQPicker('sec'), 80);
           else _closeDp();
         }
@@ -3565,7 +3789,7 @@
           else if (calTarget === 'edit') {
             _editDH = dh; _editDG = dg;
             const dtx = document.getElementById('edit-date-tx');
-            if (dtx) { dtx.textContent = dh + ' | ' + dg; dtx.style.color = '#fff'; }
+            if (dtx) { dtx.textContent = dh + ' | ' + dg; dtx.style.color = 'var(--tw)'; }
           }
           else if (calTarget === 'filter') {
             S.fDate = { g: dg, h: dh };
@@ -3632,15 +3856,20 @@
     async function handleFile(e, t) {
       const f = e.target.files[0]; if (!f) return;
       const fName = f.name.replace(/[\\/:*?"<>|]/g, '');
-      const noteFile = { name: fName, type: f.type, lastMod: f.lastModified };
+      const saved = _uniqueAttName(fName);
+      const noteFile = { name: fName, saved, type: f.type, lastMod: f.lastModified };
       if (t === 'quick') { S.q.file = noteFile; document.getElementById('q-attach-cell').style.background = 'rgba(34,197,94,0.2)'; }
       else { S.fFile = noteFile; document.getElementById('f-attach-cell').style.background = 'rgba(34,197,94,0.2)'; }
       showFb('📎 تم إرفاق: ' + fName);
-      await _saveAttachment(f);
+      await _saveAttachment(f, saved);
     }
-    async function _saveAttachment(file) {
+    /* اسم تخزين فريد للمرفق يمنع تصادم ملفين بنفس الاسم (فقدان صامت) */
+    function _uniqueAttName(cleanName) {
+      return String(Date.now()) + '_' + (Math.floor(Math.random() * 900) + 100) + '_' + cleanName;
+    }
+    async function _saveAttachment(file, savedName) {
       const folderName = "المرفقات";
-      const fName = file.name.replace(/[\\/:*?"<>|]/g, '');
+      const fName = savedName || file.name.replace(/[\\/:*?"<>|]/g, '');
       const storage = localStorage.getItem('notes_storage');
       if (window.AndroidFS && storage === 'android_fs') {
         try {
@@ -3736,8 +3965,9 @@
         status: status||'', dH: S.fDate.h||'', dG: dg||S.fDate.g||'',
         file: S.fFile||null, ts: new Date().toISOString()
       });
-      /* مسح الحقول */
+      /* مسح الحقول — بما فيها الرقم لأنه يعمل أيضاً كمُدخل فلترة حيّ */
       document.getElementById('f-text').value = '';
+      const _fn = document.getElementById('f-num'); if (_fn) _fn.value = '';
       S.fFile = null;
       document.getElementById('f-attach-cell').style.background = '';
       setTimeout(renderNotes, 100);
@@ -3766,7 +3996,7 @@
       const i = document.getElementById('fp-' + k + '-ic');
       const t = document.getElementById('fp-' + k + '-tx');
       if (i) i.textContent = ic;
-      if (t) { t.textContent = tx; t.style.color = val ? 'rgba(255,255,255,.95)' : 'rgba(255,255,255,.55)'; }
+      if (t) { t.textContent = tx; t.style.color = val ? 'rgba(var(--ov),.95)' : 'rgba(var(--ov),.55)'; }
       if (k === 'status') {
         const el = document.getElementById('fp-status-cell'); if (el) el.classList.toggle('active', !!val);
       }
@@ -3828,7 +4058,7 @@
           else { _closeDp(); }
         });
       } else if (step === 'sec') {
-        const sub = FP.main && FP.sub ? CATS[FP.main]?.sub[FP.sub] : null;
+        const sub = FP.main && FP.sub ? CATS[FP.main]?.sub?.[FP.sub] : null;
         if (!sub || !sub.det || !sub.det.length) return;
         title = `🎯 ${FP.sub}`;
         items = [{ n: 'الكل', i: '🔸', v: '' }, ...sub.det.map(x => {
@@ -3854,7 +4084,7 @@
         ic.textContent = sp.ic || '🔸';
         tx.textContent = (sp.ic ? sp.rest : FP.sec).slice(0, 14);
       } else if (FP.sub) {
-        const sub = CATS[FP.main]?.sub[FP.sub];
+        const sub = CATS[FP.main]?.sub?.[FP.sub];
         ic.textContent = sub?.ic || '📋'; tx.textContent = FP.sub;
       } else if (FP.main) {
         ic.textContent = CATS[FP.main]?.ic || '🗂️'; tx.textContent = FP.main;
@@ -3980,8 +4210,8 @@
         const b = document.createElement('span'); b.className = 'org-badge ' + badgeCls(n.status);
         b.textContent = `${SMAP[n.status]?.ic || ''} ${n.status || '—'}`; td4.appendChild(b);
         const td5 = tr.insertCell(); td5.className = 'td-date';
-        const hDate = n.dH ? `<span style="color:rgba(255,255,255,.85);font-weight:600">${esc(n.dH)}</span>` : '—';
-        const gDate = n.dG ? `<span style="color:rgba(255,255,255,.45);font-size:11px">${esc(fmtGDisp(n.dG))}</span>` : '';
+        const hDate = n.dH ? `<span style="color:rgba(var(--ov),.85);font-weight:600">${esc(n.dH)}</span>` : '—';
+        const gDate = n.dG ? `<span style="color:rgba(var(--ov),.45);font-size:11px">${esc(fmtGDisp(n.dG))}</span>` : '';
         td5.innerHTML = hDate + (gDate ? '<br>' + gDate : '');
         /* عمود المرفق */
         const td6 = tr.insertCell(); td6.className = 'td-c';
@@ -4017,12 +4247,12 @@
         /* شريط التصنيف */
         if (n.main || n.sub) {
           const catLine = document.createElement('div');
-          catLine.style.cssText = 'font-size:10px;color:rgba(255,255,255,0.45);margin-bottom:4px;display:flex;align-items:center;gap:4px;flex-wrap:wrap;';
+          catLine.style.cssText = 'font-size:10px;color:rgba(var(--ov),0.45);margin-bottom:4px;display:flex;align-items:center;gap:4px;flex-wrap:wrap;';
           const mainIc = (n.main && CATS[n.main]?.ic) || '';
-          const subIc  = (n.main && n.sub && CATS[n.main]?.sub[n.sub]?.ic) || '';
+          const subIc  = (n.main && n.sub && CATS[n.main]?.sub?.[n.sub]?.ic) || '';
           let catHtml = '';
           if (n.main) catHtml += `<span>${esc(mainIc)} ${esc(n.main)}</span>`;
-          if (n.sub)  catHtml += `<span style="opacity:.7">›</span><span style="color:rgba(255,255,255,0.6)">${esc(subIc)} ${esc(n.sub)}</span>`;
+          if (n.sub)  catHtml += `<span style="opacity:.7">›</span><span style="color:rgba(var(--ov),0.6)">${esc(subIc)} ${esc(n.sub)}</span>`;
           catLine.innerHTML = catHtml;
           c.appendChild(catLine);
         }
@@ -4059,11 +4289,15 @@
           fIc.style.cssText = 'font-size:16px;cursor:pointer;margin-right:4px';
           const fName = typeof n.file === 'object' ? n.file.name : n.file;
           fIc.title = fName;
-          /* ضغطة عادية: فتح الملف */
-          fIc.addEventListener('click', ev => { ev.stopPropagation(); openAttFile._nid = n.id; _attNoteId = n.id; openAttFile(); });
+          /* ضغطة عادية: فتح الملف — مع تجاهل النقرة الاصطناعية التي تعقب الضغط الطويل */
+          fIc.addEventListener('click', ev => {
+            ev.stopPropagation();
+            if (fIc._lpFired) { fIc._lpFired = false; return; }
+            openAttFile._nid = n.id; _attNoteId = n.id; openAttFile();
+          });
           /* ضغطة طويلة: نافذة الإدارة */
           let _lpt;
-          fIc.addEventListener('touchstart', ev => { _lpt = setTimeout(() => { ev.stopPropagation(); openAttOv(n.id); }, 600); }, { passive: true });
+          fIc.addEventListener('touchstart', () => { fIc._lpFired = false; _lpt = setTimeout(() => { fIc._lpFired = true; openAttOv(n.id); }, 600); }, { passive: true });
           fIc.addEventListener('touchend', () => clearTimeout(_lpt), { passive: true });
           fIc.addEventListener('touchmove', () => clearTimeout(_lpt), { passive: true });
           fIc.addEventListener('contextmenu', ev => { ev.preventDefault(); ev.stopPropagation(); openAttOv(n.id); });
@@ -4136,7 +4370,7 @@
         const n = all.find(x => _sameId(x.id, lid));
         if (!n) return;
         const chip = document.createElement('span');
-        chip.style.cssText = 'background:rgba(102,126,234,.35);border:1px solid rgba(167,139,250,.5);border-radius:10px;padding:4px 8px;font-size:11px;color:#fff;display:inline-flex;align-items:center;gap:5px;max-width:160px;';
+        chip.style.cssText = 'background:rgba(102,126,234,.35);border:1px solid rgba(167,139,250,.5);border-radius:10px;padding:4px 8px;font-size:11px;color:var(--tw);display:inline-flex;align-items:center;gap:5px;max-width:160px;';
         const label = (n.text || [n.main, n.sub].filter(Boolean).join(' ') || 'ملاحظة').slice(0, 22);
         chip.innerHTML = `<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(label)}</span><span style="cursor:pointer;font-weight:700;opacity:.8;">✕</span>`;
         chip.querySelector('span:last-child').onclick = (e) => {
@@ -4167,22 +4401,22 @@
       notes = notes.slice(0, 40);
       box.innerHTML = '';
       if (!notes.length) {
-        box.innerHTML = '<div style="text-align:center;color:rgba(255,255,255,.4);font-size:13px;padding:20px;">لا توجد نتائج</div>';
+        box.innerHTML = '<div style="text-align:center;color:rgba(var(--ov),.4);font-size:13px;padding:20px;">لا توجد نتائج</div>';
         return;
       }
       const sel = S.q.links || [];
       notes.forEach(n => {
         const on = sel.some(x => _sameId(x, n.id));
         const row = document.createElement('div');
-        row.style.cssText = `display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;cursor:pointer;border:2px solid ${on ? 'rgba(167,139,250,.8)' : 'transparent'};background:${on ? 'rgba(102,126,234,.35)' : 'rgba(255,255,255,.06)'};transition:all .12s;`;
+        row.style.cssText = `display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;cursor:pointer;border:2px solid ${on ? 'rgba(167,139,250,.8)' : 'transparent'};background:${on ? 'rgba(102,126,234,.35)' : 'rgba(var(--ov),.06)'};transition:all .12s;`;
         const mainIc = (n.main && CATS[n.main]?.ic) || '📝';
         const cat = [n.main, n.sub].filter(Boolean).join(' › ');
         const label = (n.text || cat || 'ملاحظة').slice(0, 60);
         row.innerHTML = `
           <span style="font-size:18px;flex-shrink:0;">${on ? '✅' : esc(mainIc)}</span>
           <div style="flex:1;min-width:0;">
-            <div style="font-size:13px;color:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(label)}</div>
-            ${cat ? `<div style="font-size:10px;color:rgba(255,255,255,.5);">${esc(cat)}${n.num ? ' · ' + esc(n.num) : ''}</div>` : (n.num ? `<div style="font-size:10px;color:rgba(255,255,255,.5);">${esc(n.num)}</div>` : '')}
+            <div style="font-size:13px;color:var(--tw);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(label)}</div>
+            ${cat ? `<div style="font-size:10px;color:rgba(var(--ov),.5);">${esc(cat)}${n.num ? ' · ' + esc(n.num) : ''}</div>` : (n.num ? `<div style="font-size:10px;color:rgba(var(--ov),.5);">${esc(n.num)}</div>` : '')}
           </div>`;
         row.onclick = () => {
           if (!Array.isArray(S.q.links)) S.q.links = [];
@@ -4354,7 +4588,8 @@
           const el = _dpHover || _dpAt(e.changedTouches[0].clientY);
           if (el) {
             const item = _dpItems[parseInt(el.dataset.idx)];
-            const cb = _dpCb; _dpHover = null;
+            /* صفّر _dpCb قبل الاستدعاء حتى لا تُطلق النقرة الاصطناعية اللاحقة الاختيار ثانيةً */
+            const cb = _dpCb; _dpHover = null; _dpCb = null;
             if (cb) cb(item);
           }
         }
@@ -4790,8 +5025,8 @@
       _refreshEditCat();
       /* التاريخ */
       const dtx = document.getElementById('edit-date-tx');
-      if (_editDH) { dtx.textContent = _editDH + ' | ' + _editDG; dtx.style.color = '#fff'; }
-      else { dtx.textContent = 'اختر التاريخ'; dtx.style.color = 'rgba(255,255,255,.5)'; }
+      if (_editDH) { dtx.textContent = _editDH + ' | ' + _editDG; dtx.style.color = 'var(--tw)'; }
+      else { dtx.textContent = 'اختر التاريخ'; dtx.style.color = 'rgba(var(--ov),.5)'; }
       /* المرفق */
       _refreshEditAtt(n);
       /* الملاحظات المرتبطة */
@@ -4823,11 +5058,11 @@
         row.innerHTML = `
           <span style="font-size:16px;flex-shrink:0;">${esc(mainIc)}</span>
           <div style="flex:1;min-width:0;">
-            <div style="font-size:12px;color:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(label)}</div>
-            ${cat ? `<div style="font-size:10px;color:rgba(255,255,255,.5);">${esc(cat)}${ln.num ? ' · ' + esc(ln.num) : ''} ${stIc}</div>` : (ln.num || stIc ? `<div style="font-size:10px;color:rgba(255,255,255,.5);">${esc(ln.num || '')} ${stIc}</div>` : '')}
+            <div style="font-size:12px;color:var(--tw);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(label)}</div>
+            ${cat ? `<div style="font-size:10px;color:rgba(var(--ov),.5);">${esc(cat)}${ln.num ? ' · ' + esc(ln.num) : ''} ${stIc}</div>` : (ln.num || stIc ? `<div style="font-size:10px;color:rgba(var(--ov),.5);">${esc(ln.num || '')} ${stIc}</div>` : '')}
           </div>
           <span class="edit-link-unlink" style="cursor:pointer;color:#fca5a5;font-size:14px;padding:2px 4px;" title="فك الربط">🔗✕</span>
-          <span style="color:rgba(255,255,255,.4);font-size:13px;">›</span>`;
+          <span style="color:rgba(var(--ov),.4);font-size:13px;">›</span>`;
         /* فتح الملاحظة المرتبطة */
         row.onclick = () => { closeEdit(); setTimeout(() => openNote(ln.id), 120); };
         /* فك الربط من الاتجاهين */
@@ -4856,14 +5091,14 @@
       if (parts.length) {
         const lastIc = _editSec
           ? (splitLeadingEmoji(_editSec).ic || '🔸')
-          : (_editSub ? CATS[_editMain]?.sub[_editSub]?.ic || '📌' : CATS[_editMain]?.ic || '🗂️');
+          : (_editSub ? CATS[_editMain]?.sub?.[_editSub]?.ic || '📌' : CATS[_editMain]?.ic || '🗂️');
         ic.textContent = lastIc;
         tx.textContent = parts.join(' › ');
-        tx.style.color = '#fff';
+        tx.style.color = 'var(--tw)';
       } else {
         ic.textContent = '🗂️';
         tx.textContent = 'اختر التصنيف';
-        tx.style.color = 'rgba(255,255,255,.5)';
+        tx.style.color = 'rgba(var(--ov),.5)';
       }
     }
 
@@ -4896,7 +5131,7 @@
     }
 
     function _openEditSecPicker() {
-      const det = CATS[_editMain]?.sub[_editSub]?.det || [];
+      const det = CATS[_editMain]?.sub?.[_editSub]?.det || [];
       if (!det.length) return;
       const items = [{ n: 'الكل', i: '🔸', v: '' }, ...det.map(x => {
         const sp = splitLeadingEmoji(x);
@@ -4928,7 +5163,7 @@
 
     function openAttFromEdit() {
       const n = DB.get().find(x => _sameId(x.id, _editId)); if (!n?.file) return;
-      const fName = typeof n.file === 'object' ? n.file.name : n.file;
+      const fName = typeof n.file === 'object' ? (n.file.saved || n.file.name) : n.file;
       if (window.AndroidFS && typeof window.AndroidFS.openFile === 'function') {
         window.AndroidFS.openFile('المرفقات', fName);
       }
@@ -4941,11 +5176,12 @@
     async function handleAttFromEdit(e) {
       const f = e.target.files[0]; if (!f || !_editId) return;
       const fName = f.name.replace(/[\\/:*?"<>|]/g, '');
-      const fileObj = { name: fName, type: f.type, lastMod: f.lastModified };
+      const saved = _uniqueAttName(fName);
+      const fileObj = { name: fName, saved, type: f.type, lastMod: f.lastModified };
       const notes = DB.get();
       const idx = notes.findIndex(x => _sameId(x.id, _editId));
       if (idx >= 0) { notes[idx].file = fileObj; DB.set(notes); }
-      await _saveAttachment(f);
+      await _saveAttachment(f, saved);
       _refreshEditAtt(notes[idx]);
       renderNotes();
       showFb('📎 تم تغيير المرفق: ' + fName);
@@ -4971,12 +5207,12 @@
     }
     function deleteFromEdit() {
       if (!_editId) return;
-      if (!confirm('حذف هذه الملاحظة نهائياً؟')) return;
-      const notes = DB.get().filter(x => !_sameId(x.id, _editId));
-      DB.set(notes);
+      if (!confirm('نقل هذه الملاحظة إلى سلة المحذوفات؟')) return;
+      /* نقل إلى السلة (قابل للاستعادة) بدل الحذف النهائي — يُنظّف الروابط المعلّقة تلقائياً */
+      _moveToTrash(_editId);
       closeEdit(true);
       renderNotes();
-      showFb('🗑️ تم حذف الملاحظة');
+      showFb('🗑️ نُقلت إلى سلة المحذوفات');
     }
     function _doSaveEdit() {
       if (!_editId) return false;
@@ -5030,7 +5266,7 @@
     }
     function openAttFile() {
       const n = DB.get().find(x => _sameId(x.id, _attNoteId)); if (!n?.file) return;
-      const fName = typeof n.file === 'object' ? n.file.name : n.file;
+      const fName = typeof n.file === 'object' ? (n.file.saved || n.file.name) : n.file;
       if (window.AndroidFS && typeof window.AndroidFS.openFile === 'function') {
         window.AndroidFS.openFile('المرفقات', fName);
         closeAttOv();
@@ -5047,11 +5283,12 @@
     async function handleAttChange(e) {
       const f = e.target.files[0]; if (!f || !_attNoteId) return;
       const fName = f.name.replace(/[\\/:*?"<>|]/g, '');
-      const fileObj = { name: fName, type: f.type, lastMod: f.lastModified };
+      const saved = _uniqueAttName(fName);
+      const fileObj = { name: fName, saved, type: f.type, lastMod: f.lastModified };
       const notes = DB.get();
       const idx = notes.findIndex(x => _sameId(x.id, _attNoteId));
       if (idx >= 0) { notes[idx].file = fileObj; DB.set(notes); }
-      await _saveAttachment(f);
+      await _saveAttachment(f, saved);
       closeAttOv();
       renderNotes();
       showFb('📎 تم تغيير المرفق: ' + fName);
@@ -5083,6 +5320,13 @@
       const now = Date.now();
       const hour = _remindHour();
       const today = new Date(); today.setHours(0, 0, 0, 0);
+      /* أوقات مستقرّة لتنبيهات «اليوم وقد فات الوقت» — تُخزَّن مرة واحدة يومياً
+         حتى لا تُؤجَّل مع كل إعادة مزامنة (استئناف التطبيق / تعديل الملاحظات) */
+      const lateKey = 'notes_late_when_' + today.getTime();
+      let lateMap = {};
+      try { lateMap = JSON.parse(localStorage.getItem(lateKey) || '{}'); } catch (e) { }
+      try { Object.keys(localStorage).forEach(k => { if (k.indexOf('notes_late_when_') === 0 && k !== lateKey) localStorage.removeItem(k); }); } catch (e) { }
+      let lateChanged = false;
       DB.get().forEach(n => {
         if (n.status !== 'قيد التنفيذ' || !n.dG) return;
         const base = parseG(n.dG); if (!base) return;
@@ -5091,14 +5335,23 @@
         const dt = new Date(base); dt.setHours(hour, 0, 0, 0);
         let when = dt.getTime();
         if (when <= now) {
-          if (nDay.getTime() === today.getTime()) when = now + 60000; /* اليوم وقد فات الوقت */
-          else return;
+          if (nDay.getTime() === today.getTime()) {
+            /* اليوم وقد فات وقت التنبيه: استخدم وقتاً مستقرّاً بدل now+دقيقة المتجدّد */
+            const stored = lateMap[n.id];
+            if (stored) {
+              if (stored > now) { when = stored; }   /* لا يزال قادماً — أعد جدولته كما هو */
+              else { return; }                        /* أُطلق سابقاً اليوم — لا تُكرِّر التنبيه */
+            } else {
+              when = now + 60000; lateMap[n.id] = when; lateChanged = true;
+            }
+          } else return;
         }
         const cat = [n.main, n.sub].filter(Boolean).join(' › ');
         const title = '📋 تذكير' + (cat ? ': ' + cat : '');
         const body = (n.text || cat || 'لديك مهمة') + (n.num ? ' — ' + n.num : '');
         try { fsb.scheduleReminder(String(n.id), String(when), title, body); } catch (e) { }
       });
+      if (lateChanged) { try { localStorage.setItem(lateKey, JSON.stringify(lateMap)); } catch (e) { } }
     }
     let _syncRemTimer = null;
     function _syncRemindersDebounced() {
@@ -5224,9 +5477,9 @@
 
       <!-- رأس: رجوع + عنوان + حفظ -->
       <div class="edit-sheet-header">
-        <button onclick="closeEdit()" style="background:rgba(255,255,255,.15);border:none;color:#fff;border-radius:8px;padding:5px 12px;font-size:12px;cursor:pointer;font-family:inherit;">✕ إغلاق</button>
+        <button onclick="closeEdit()" style="background:rgba(var(--ov),.15);border:none;color:var(--tw);border-radius:8px;padding:5px 12px;font-size:12px;cursor:pointer;font-family:inherit;">✕ إغلاق</button>
         <h3>✏️ تعديل</h3>
-        <button onclick="saveEdit()" style="background:rgba(34,197,94,.8);border:none;color:#fff;border-radius:8px;padding:5px 12px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">💾 حفظ</button>
+        <button onclick="saveEdit()" style="background:rgba(34,197,94,.8);border:none;color:var(--tw);border-radius:8px;padding:5px 12px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">💾 حفظ</button>
       </div>
 
       <!-- المحتوى — بدون تمرير -->
@@ -5236,8 +5489,8 @@
         <div class="edit-field-lbl">🗂️ التصنيف</div>
         <div id="edit-cat-cell" class="edit-inp" style="cursor:pointer;display:flex;align-items:center;gap:6px;padding:7px 10px;" onclick="openEditCatPicker()">
           <span id="edit-cat-ic">🗂️</span>
-          <span id="edit-cat-tx" style="flex:1;color:rgba(255,255,255,.5);font-size:12px;">اختر التصنيف</span>
-          <span style="color:rgba(255,255,255,.4);font-size:11px;">›</span>
+          <span id="edit-cat-tx" style="flex:1;color:rgba(var(--ov),.5);font-size:12px;">اختر التصنيف</span>
+          <span style="color:rgba(var(--ov),.4);font-size:11px;">›</span>
         </div>
 
         <!-- ص٢: النص -->
@@ -5255,7 +5508,7 @@
             <div id="edit-status-cell" class="edit-inp" style="cursor:pointer;display:flex;align-items:center;gap:6px;padding:7px 10px;" onclick="openEditStatusPicker()">
               <span id="edit-status-ic">📊</span>
               <span id="edit-status-tx" style="flex:1;font-size:12px;">الحالة</span>
-              <span style="color:rgba(255,255,255,.4);font-size:11px;">›</span>
+              <span style="color:rgba(var(--ov),.4);font-size:11px;">›</span>
             </div>
           </div>
         </div>
@@ -5266,7 +5519,7 @@
             <div class="edit-field-lbl">📅 التاريخ</div>
             <div id="edit-date-cell" class="edit-inp" style="cursor:pointer;display:flex;align-items:center;gap:6px;padding:7px 10px;" onclick="openCal('edit')">
               <span style="font-size:14px;">📅</span>
-              <span id="edit-date-tx" style="flex:1;color:rgba(255,255,255,.5);font-size:11px;">اختر</span>
+              <span id="edit-date-tx" style="flex:1;color:rgba(var(--ov),.5);font-size:11px;">اختر</span>
             </div>
           </div>
           <div>
@@ -5276,7 +5529,7 @@
               onclick="openAttFromEdit()">
               <span id="edit-att-ic" style="font-size:16px;">📎</span>
               <span id="edit-att-label" style="flex:1;font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">لا يوجد</span>
-              <span id="edit-att-open-hint" style="font-size:10px;color:rgba(255,255,255,0.4);display:none;">فتح</span>
+              <span id="edit-att-open-hint" style="font-size:10px;color:rgba(var(--ov),0.4);display:none;">فتح</span>
             </div>
           </div>
         </div>
@@ -5294,7 +5547,7 @@
       <div class="edit-sheet-footer">
         <div style="display:flex;gap:6px;margin-bottom:8px;">
           <button onclick="triggerAttFromEdit()"
-            style="flex:1;padding:8px;border-radius:10px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.15);color:#fff;font-size:12px;cursor:pointer;font-family:inherit;">🔄 تغيير المرفق</button>
+            style="flex:1;padding:8px;border-radius:10px;background:rgba(var(--ov),0.1);border:1px solid rgba(var(--ov),0.15);color:var(--tw);font-size:12px;cursor:pointer;font-family:inherit;">🔄 تغيير المرفق</button>
           <button id="edit-att-del-btn" onclick="removeAttFromEdit()"
             style="padding:8px 12px;border-radius:10px;background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.3);color:#fca5a5;font-size:12px;cursor:pointer;font-family:inherit;">🗑️</button>
         </div>
