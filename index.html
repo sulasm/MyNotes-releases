@@ -3632,15 +3632,20 @@
     async function handleFile(e, t) {
       const f = e.target.files[0]; if (!f) return;
       const fName = f.name.replace(/[\\/:*?"<>|]/g, '');
-      const noteFile = { name: fName, type: f.type, lastMod: f.lastModified };
+      const saved = _uniqueAttName(fName);
+      const noteFile = { name: fName, saved, type: f.type, lastMod: f.lastModified };
       if (t === 'quick') { S.q.file = noteFile; document.getElementById('q-attach-cell').style.background = 'rgba(34,197,94,0.2)'; }
       else { S.fFile = noteFile; document.getElementById('f-attach-cell').style.background = 'rgba(34,197,94,0.2)'; }
       showFb('📎 تم إرفاق: ' + fName);
-      await _saveAttachment(f);
+      await _saveAttachment(f, saved);
     }
-    async function _saveAttachment(file) {
+    /* اسم تخزين فريد للمرفق يمنع تصادم ملفين بنفس الاسم (فقدان صامت) */
+    function _uniqueAttName(cleanName) {
+      return String(Date.now()) + '_' + (Math.floor(Math.random() * 900) + 100) + '_' + cleanName;
+    }
+    async function _saveAttachment(file, savedName) {
       const folderName = "المرفقات";
-      const fName = file.name.replace(/[\\/:*?"<>|]/g, '');
+      const fName = savedName || file.name.replace(/[\\/:*?"<>|]/g, '');
       const storage = localStorage.getItem('notes_storage');
       if (window.AndroidFS && storage === 'android_fs') {
         try {
@@ -3736,8 +3741,9 @@
         status: status||'', dH: S.fDate.h||'', dG: dg||S.fDate.g||'',
         file: S.fFile||null, ts: new Date().toISOString()
       });
-      /* مسح الحقول */
+      /* مسح الحقول — بما فيها الرقم لأنه يعمل أيضاً كمُدخل فلترة حيّ */
       document.getElementById('f-text').value = '';
+      const _fn = document.getElementById('f-num'); if (_fn) _fn.value = '';
       S.fFile = null;
       document.getElementById('f-attach-cell').style.background = '';
       setTimeout(renderNotes, 100);
@@ -4059,11 +4065,15 @@
           fIc.style.cssText = 'font-size:16px;cursor:pointer;margin-right:4px';
           const fName = typeof n.file === 'object' ? n.file.name : n.file;
           fIc.title = fName;
-          /* ضغطة عادية: فتح الملف */
-          fIc.addEventListener('click', ev => { ev.stopPropagation(); openAttFile._nid = n.id; _attNoteId = n.id; openAttFile(); });
+          /* ضغطة عادية: فتح الملف — مع تجاهل النقرة الاصطناعية التي تعقب الضغط الطويل */
+          fIc.addEventListener('click', ev => {
+            ev.stopPropagation();
+            if (fIc._lpFired) { fIc._lpFired = false; return; }
+            openAttFile._nid = n.id; _attNoteId = n.id; openAttFile();
+          });
           /* ضغطة طويلة: نافذة الإدارة */
           let _lpt;
-          fIc.addEventListener('touchstart', ev => { _lpt = setTimeout(() => { ev.stopPropagation(); openAttOv(n.id); }, 600); }, { passive: true });
+          fIc.addEventListener('touchstart', () => { fIc._lpFired = false; _lpt = setTimeout(() => { fIc._lpFired = true; openAttOv(n.id); }, 600); }, { passive: true });
           fIc.addEventListener('touchend', () => clearTimeout(_lpt), { passive: true });
           fIc.addEventListener('touchmove', () => clearTimeout(_lpt), { passive: true });
           fIc.addEventListener('contextmenu', ev => { ev.preventDefault(); ev.stopPropagation(); openAttOv(n.id); });
@@ -4354,7 +4364,8 @@
           const el = _dpHover || _dpAt(e.changedTouches[0].clientY);
           if (el) {
             const item = _dpItems[parseInt(el.dataset.idx)];
-            const cb = _dpCb; _dpHover = null;
+            /* صفّر _dpCb قبل الاستدعاء حتى لا تُطلق النقرة الاصطناعية اللاحقة الاختيار ثانيةً */
+            const cb = _dpCb; _dpHover = null; _dpCb = null;
             if (cb) cb(item);
           }
         }
@@ -4928,7 +4939,7 @@
 
     function openAttFromEdit() {
       const n = DB.get().find(x => _sameId(x.id, _editId)); if (!n?.file) return;
-      const fName = typeof n.file === 'object' ? n.file.name : n.file;
+      const fName = typeof n.file === 'object' ? (n.file.saved || n.file.name) : n.file;
       if (window.AndroidFS && typeof window.AndroidFS.openFile === 'function') {
         window.AndroidFS.openFile('المرفقات', fName);
       }
@@ -4941,11 +4952,12 @@
     async function handleAttFromEdit(e) {
       const f = e.target.files[0]; if (!f || !_editId) return;
       const fName = f.name.replace(/[\\/:*?"<>|]/g, '');
-      const fileObj = { name: fName, type: f.type, lastMod: f.lastModified };
+      const saved = _uniqueAttName(fName);
+      const fileObj = { name: fName, saved, type: f.type, lastMod: f.lastModified };
       const notes = DB.get();
       const idx = notes.findIndex(x => _sameId(x.id, _editId));
       if (idx >= 0) { notes[idx].file = fileObj; DB.set(notes); }
-      await _saveAttachment(f);
+      await _saveAttachment(f, saved);
       _refreshEditAtt(notes[idx]);
       renderNotes();
       showFb('📎 تم تغيير المرفق: ' + fName);
@@ -4972,7 +4984,10 @@
     function deleteFromEdit() {
       if (!_editId) return;
       if (!confirm('حذف هذه الملاحظة نهائياً؟')) return;
-      const notes = DB.get().filter(x => !_sameId(x.id, _editId));
+      const all = DB.get();
+      /* نظّف الروابط المعلّقة: أزل معرّف المحذوفة من روابط بقية الملاحظات (ثنائي الاتجاه) */
+      all.forEach(x => { if (Array.isArray(x.links) && x.links.length) x.links = x.links.filter(l => !_sameId(l, _editId)); });
+      const notes = all.filter(x => !_sameId(x.id, _editId));
       DB.set(notes);
       closeEdit(true);
       renderNotes();
@@ -5030,7 +5045,7 @@
     }
     function openAttFile() {
       const n = DB.get().find(x => _sameId(x.id, _attNoteId)); if (!n?.file) return;
-      const fName = typeof n.file === 'object' ? n.file.name : n.file;
+      const fName = typeof n.file === 'object' ? (n.file.saved || n.file.name) : n.file;
       if (window.AndroidFS && typeof window.AndroidFS.openFile === 'function') {
         window.AndroidFS.openFile('المرفقات', fName);
         closeAttOv();
@@ -5047,11 +5062,12 @@
     async function handleAttChange(e) {
       const f = e.target.files[0]; if (!f || !_attNoteId) return;
       const fName = f.name.replace(/[\\/:*?"<>|]/g, '');
-      const fileObj = { name: fName, type: f.type, lastMod: f.lastModified };
+      const saved = _uniqueAttName(fName);
+      const fileObj = { name: fName, saved, type: f.type, lastMod: f.lastModified };
       const notes = DB.get();
       const idx = notes.findIndex(x => _sameId(x.id, _attNoteId));
       if (idx >= 0) { notes[idx].file = fileObj; DB.set(notes); }
-      await _saveAttachment(f);
+      await _saveAttachment(f, saved);
       closeAttOv();
       renderNotes();
       showFb('📎 تم تغيير المرفق: ' + fName);
