@@ -5,7 +5,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
   <meta name="theme-color" content="#667eea">
-  <meta name="app-version" content="1.6.0">
+  <meta name="app-version" content="1.7.0">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <title>المنظم</title>
@@ -42,6 +42,11 @@
       --text-m: #6c7086;
       --border: rgba(var(--ov), 0.08);
       --accent: #667eea;
+      /* خلفية الأوراق المنبثقة (منتقي السحب، إدارة المرفق، ربط الملاحظات) وخلفية سطح المكتب
+         — متغيّرات كي تنقلب مع الوضع الفاتح بدل بقائها داكنة ثابتة */
+      --sheet-bg: linear-gradient(170deg, #1f1040, #150d30);
+      --sheet-bg2: linear-gradient(170deg, #1e1e2e, #181825);
+      --desktop-bg: #14141f;
     }
 
     /* ═══ الوضع الفاتح ═══
@@ -55,6 +60,9 @@
       --bg-b: rgba(15, 23, 42, 0.04);
       --text: #1e293b;
       --text-m: #64748b;
+      --sheet-bg: linear-gradient(170deg, #ffffff, #eef1f7);
+      --sheet-bg2: linear-gradient(170deg, #ffffff, #eef1f7);
+      --desktop-bg: #e4e8f0;
     }
     /* «تلقائي» (بلا سمة صريحة) يتبع تفضيل النظام */
     @media (prefers-color-scheme: light) {
@@ -66,6 +74,9 @@
         --bg-b: rgba(15, 23, 42, 0.04);
         --text: #1e293b;
         --text-m: #64748b;
+        --sheet-bg: linear-gradient(170deg, #ffffff, #eef1f7);
+        --sheet-bg2: linear-gradient(170deg, #ffffff, #eef1f7);
+        --desktop-bg: #e4e8f0;
       }
     }
     .theme-opt.active {
@@ -272,7 +283,13 @@
       transform: scale(.98)
     }
 
-    .orgtbl-cell select,
+    /* خلية فلتر نشطة: إطار ملوّن يميّزها بصرياً (كان الصنف يُبدَّل بلا أي CSS مطابق) */
+    .orgtbl-cell.active,
+    .orgtbl-date-cell.active {
+      background: rgba(102, 126, 234, 0.28);
+      box-shadow: inset 0 0 0 1.5px var(--accent);
+    }
+
     .orgtbl-cell input {
       background: transparent;
       border: none;
@@ -286,11 +303,6 @@
       text-align: center;
       cursor: pointer;
       padding: 0;
-    }
-
-    .orgtbl-cell select option {
-      background: #3b2f6b;
-      color: var(--tw)
     }
 
     .orgtbl-cell input::placeholder {
@@ -328,44 +340,6 @@
 
     .orgtbl-date-cell:active {
       transform: scale(.98)
-    }
-
-    .orgtbl-cal-icon {
-      display: none;
-      flex-direction: column;
-      align-items: center;
-      background: #fff;
-      border-radius: 5px;
-      width: 32px;
-      min-width: 32px;
-      overflow: hidden;
-      flex-shrink: 0;
-      box-shadow: 0 1px 4px rgba(0, 0, 0, .3);
-    }
-
-    .orgtbl-cal-month {
-      background: #e53e3e;
-      width: 100%;
-      font-size: 7px;
-      font-weight: 700;
-      color: #fff;
-      text-align: center;
-      padding: 2px 0;
-      text-transform: uppercase;
-      letter-spacing: .3px;
-      font-family: system-ui, sans-serif;
-    }
-
-    .orgtbl-cal-day {
-      font-size: 15px;
-      font-weight: 800;
-      color: #1a202c;
-      text-align: center;
-      width: 100%;
-      padding: 1px 0 2px;
-      font-family: system-ui, sans-serif;
-      line-height: 1;
-      font-variant-numeric: lining-nums;
     }
 
     .orgtbl-date-txt {
@@ -608,11 +582,6 @@
       color: var(--dimmer)
     }
 
-    .org-cell-ta.exp {
-      min-height: 80px;
-      height: auto
-    }
-
     .org-num-cell {
       background: var(--cell);
       border: 1px solid var(--cell-b);
@@ -782,190 +751,6 @@
     }
 
     /* expand btn */
-    .org-exp-btn {
-      background: rgba(var(--ov), .15);
-      border: none;
-      color: var(--tw);
-      padding: 3px 7px;
-      border-radius: 5px;
-      cursor: pointer;
-      font-size: 11px;
-      flex-shrink: 0;
-      transition: background .15s;
-    }
-
-    .org-exp-btn:hover {
-      background: rgba(var(--ov), .3)
-    }
-
-    /* ════════════════════════════════════════
-   Picker Overlay — نفس org-picker-overlay
-════════════════════════════════════════ */
-    .org-picker-overlay {
-      position: fixed;
-      inset: 0;
-      background: rgba(0, 0, 0, .65);
-      z-index: 9999;
-      display: none;
-      justify-content: center;
-      align-items: flex-end;
-      backdrop-filter: blur(4px);
-      -webkit-backdrop-filter: blur(4px);
-    }
-
-    .org-picker-overlay.open {
-      display: flex;
-      animation: pfade .2s ease-out
-    }
-
-    @keyframes pfade {
-      from {
-        opacity: 0
-      }
-
-      to {
-        opacity: 1
-      }
-    }
-
-    .org-picker-box {
-      background: var(--grad);
-      border-radius: 20px 20px 0 0;
-      color: var(--tw);
-      box-shadow: 0 -12px 40px rgba(102, 126, 234, .4);
-      display: flex;
-      flex-direction: column;
-      width: 100%;
-      max-width: 700px;
-      max-height: 75dvh;
-      padding: 12px 18px 32px;
-      overflow: hidden;
-      direction: rtl;
-      animation: shup .28s cubic-bezier(.34, 1.56, .64, 1);
-    }
-
-    @keyframes shup {
-      from {
-        transform: translateY(100%)
-      }
-
-      to {
-        transform: translateY(0)
-      }
-    }
-
-    .org-picker-title {
-      text-align: center;
-      font-weight: bold;
-      font-size: clamp(14px, 3.8vw, 18px);
-      margin-bottom: 12px;
-      flex-shrink: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-    }
-
-    .org-picker-create-btn {
-      width: 100%;
-      padding: 10px;
-      background: linear-gradient(45deg, #28a745, #20c997);
-      border: none;
-      border-radius: 10px;
-      color: var(--tw);
-      cursor: pointer;
-      font-size: clamp(12px, 3vw, 14px);
-      font-weight: bold;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-      margin-bottom: 12px;
-      flex-shrink: 0;
-      transition: transform .15s, box-shadow .2s;
-    }
-
-    .org-picker-create-btn:hover {
-      transform: translateY(-1px);
-      box-shadow: 0 4px 12px rgba(40, 167, 69, .35)
-    }
-
-    .org-picker-grid {
-      display: grid;
-      gap: 6px;
-      flex: 1;
-      align-content: start;
-      grid-template-columns: repeat(var(--org-cols, 2), 1fr);
-      direction: rtl;
-      overflow-y: auto;
-      padding-left: 4px;
-      scrollbar-width: thin;
-      scrollbar-color: rgba(var(--ov), .25) transparent;
-    }
-
-    .org-picker-grid::-webkit-scrollbar {
-      width: 5px
-    }
-
-    .org-picker-grid::-webkit-scrollbar-thumb {
-      background: rgba(var(--ov), .2);
-      border-radius: 4px
-    }
-
-    .org-picker-btn {
-      padding: clamp(8px, 1.8vw, 12px) clamp(10px, 1.8vw, 14px);
-      background: rgba(var(--ov), .14);
-      border: 1px solid rgba(var(--ov), .06);
-      border-radius: 9px;
-      color: var(--tw);
-      cursor: pointer;
-      text-align: right;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      font-size: clamp(12px, 3vw, 13px);
-      min-height: 44px;
-      transition: background .15s, transform .1s;
-    }
-
-    .org-picker-btn:hover,
-    .org-picker-btn:active {
-      background: rgba(var(--ov), .28);
-      transform: scale(.98)
-    }
-
-    .org-picker-btn-icon {
-      font-size: clamp(15px, 3.8vw, 18px);
-      flex-shrink: 0
-    }
-
-    .org-picker-btn-text {
-      flex: 1;
-      white-space: normal;
-      word-break: break-word;
-      line-height: 1.35;
-      text-align: right
-    }
-
-    .org-picker-close-btn {
-      width: 100%;
-      padding: 10px;
-      background: rgba(108, 117, 125, .7);
-      border: none;
-      border-radius: 10px;
-      color: var(--tw);
-      cursor: pointer;
-      font-size: clamp(12px, 3vw, 14px);
-      font-weight: 600;
-      margin-top: 10px;
-      flex-shrink: 0;
-      transition: background .15s;
-    }
-
-    .org-picker-close-btn:hover {
-      background: rgba(108, 117, 125, .9)
-    }
-
     /* ════════════════════════════════════════
    جدول النتائج — ثيم Obsidian dark
 ════════════════════════════════════════ */
@@ -1129,48 +914,6 @@
       font-style: italic
     }
 
-    /* ═══ شريط الترتيب ═══ */
-    .sort-bar {
-      display: flex;
-      gap: 6px;
-      padding: 6px 10px 2px;
-      flex-shrink: 0;
-      overflow-x: auto;
-      scrollbar-width: none;
-    }
-
-    .sort-bar::-webkit-scrollbar {
-      display: none
-    }
-
-    .sort-chip {
-      display: flex;
-      align-items: center;
-      gap: 4px;
-      padding: 5px 12px;
-      border-radius: 20px;
-      font-size: 12px;
-      font-weight: 600;
-      white-space: nowrap;
-      cursor: pointer;
-      background: rgba(var(--ov), .08);
-      border: 1px solid rgba(var(--ov), .12);
-      color: rgba(var(--ov), .6);
-      transition: all .18s;
-      user-select: none;
-      -webkit-tap-highlight-color: transparent;
-    }
-
-    .sort-chip.active {
-      background: rgba(102, 126, 234, .35);
-      border-color: rgba(167, 139, 250, .6);
-      color: var(--tw);
-    }
-
-    .sort-chip:active {
-      transform: scale(.95)
-    }
-
     /* ═══ تلوين البطاقات حسب الحالة ═══ */
     .orgtbl-card.st-active {
       border-right: 3px solid #60a5fa
@@ -1327,7 +1070,7 @@
     }
 
     .att-sheet {
-      background: linear-gradient(170deg, #1f1040, #150d30);
+      background: var(--sheet-bg);
       border-radius: 24px 24px 0 0;
       padding: 16px 16px max(28px, env(safe-area-inset-bottom));
       width: 100%;
@@ -2009,7 +1752,7 @@
     }
 
     .drag-picker-sheet {
-      background: linear-gradient(170deg, #1f1040, #150d30);
+      background: var(--sheet-bg);
       border-radius: 28px 28px 0 0;
       padding: 10px 12px max(28px, env(safe-area-inset-bottom));
       box-shadow: 0 -16px 60px rgba(102, 126, 234, .45), 0 0 0 1px rgba(var(--ov), .08);
@@ -2219,7 +1962,7 @@
        بعرض التطبيق كاملاً كصف أفقي واحد بنفس ترتيب الجوال.
     ════════════════════════════════════════════════════ */
     @media (min-width: 700px) {
-      body { background: #14141f; }
+      body { background: var(--desktop-bg); }
       #app { max-width: none !important; margin: 0 !important; }
 
       /* بطاقات متعددة الأعمدة تملأ العرض */
@@ -2385,17 +2128,6 @@
       <div class="page active" id="pg-notes"
         style="display:flex;flex-direction:column;height:100%;overflow:hidden;padding:0;padding-bottom:max(0px,env(safe-area-inset-bottom))">
 
-        <!-- شريط الترتيب — مخفي (مدمج في لوحة الفلاتر) -->
-        <div class="sort-bar" id="sort-bar" style="display:none">
-          <div class="sort-chip active" data-sort="default" onclick="setSort('default')">⚡ الحالية</div>
-          <div class="sort-chip" data-sort="date-asc" onclick="setSort('date-asc')">📅 الأقدم</div>
-          <div class="sort-chip" data-sort="date-desc" onclick="setSort('date-desc')">📅 الأحدث</div>
-          <div class="sort-chip" data-sort="st-active" onclick="setSort('st-active')">🔄 قيد التنفيذ</div>
-          <div class="sort-chip" data-sort="st-delayed" onclick="setSort('st-delayed')">📅 مؤجل</div>
-          <div class="sort-chip" data-sort="st-done" onclick="setSort('st-done')">✅ مكتمل</div>
-          <div class="sort-chip" data-sort="st-cancel" onclick="setSort('st-cancel')">❌ ملغي</div>
-        </div>
-
         <div class="orgtbl-stats" id="stats" style="padding:2px 14px 4px;flex-shrink:0"></div>
         <div id="results" style="flex:1;overflow-y:auto;padding:0 10px 80px"></div>
 
@@ -2445,7 +2177,7 @@
 
             <div class="orgtbl-field of-date">
               <div class="orgtbl-label">📅 التاريخ</div>
-              <div class="orgtbl-date-cell" id="f-date-cell" onclick="openCal('filter')">
+              <div class="orgtbl-date-cell" id="f-date-cell" style="cursor:pointer">
                 <span id="f-date-ph" style="font-size:12px;font-weight:600;color:rgba(var(--ov),.55)">التاريخ</span>
                 <span id="f-dh"
                   style="display:none;font-size:11px;font-weight:700;color:var(--tw);line-height:1.2;white-space:nowrap"></span>
@@ -2456,7 +2188,7 @@
 
             <div class="orgtbl-field of-status">
               <div class="orgtbl-label">📊 الحالة</div>
-              <div class="orgtbl-cell" id="fp-status-cell" onclick="openFPicker('status')"
+              <div class="orgtbl-cell" id="fp-status-cell"
                 style="cursor:pointer;justify-content:center">
                 <span id="fp-status-ic" style="font-size:22px">📊</span>
               </div>
@@ -2464,7 +2196,7 @@
 
             <div class="orgtbl-field of-view">
               <div class="orgtbl-label">🎯 العرض</div>
-              <div class="orgtbl-cell" id="fp-view-cell" onclick="openFPicker('view')"
+              <div class="orgtbl-cell" id="fp-view-cell"
                 style="cursor:pointer;justify-content:center">
                 <span id="fp-view-ic" style="font-size:22px">🃏</span>
               </div>
@@ -2488,9 +2220,6 @@
   </div>
 
   <!-- ══ Picker ══ -->
-  <div class="org-picker-overlay" id="picker-ov">
-    <div class="org-picker-box" id="picker-box"></div>
-  </div>
 
   <!-- ══ التقويم ══ -->
   <div class="cal-ov" id="cal-ov">
@@ -2513,7 +2242,10 @@
         <div>سب</div>
       </div>
       <div class="cal-grid" id="cal-grid"></div>
-      <button class="cal-ok" onclick="closeCal()">✓ تأكيد</button>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <button class="cal-ok" style="flex:1" onclick="clearCalDate()">🚫 بدون تاريخ</button>
+        <button class="cal-ok" style="flex:1" onclick="closeCal()">✓ تأكيد</button>
+      </div>
     </div>
   </div>
 
@@ -2539,7 +2271,7 @@
           </div>
           <div class="org-cell" style="flex-direction:column;align-items:flex-start;cursor:text;flex:1.5"
             onclick="document.getElementById('q-text').focus()">
-            <textarea id="q-text" class="org-cell-ta" placeholder="نص..." rows="1" style="height:28px"></textarea>
+            <textarea id="q-text" class="org-cell-ta" placeholder="نص..." rows="1" style="height:28px;max-height:140px;overflow-y:auto" oninput="_autoGrow(this)"></textarea>
           </div>
           <div class="org-num-cell" style="flex:0.7" onclick="document.getElementById('q-num').focus()">
             <input type="text" id="q-num" class="org-inp" placeholder="رقم" inputmode="numeric"
@@ -2600,7 +2332,7 @@
 
   <!-- نافذة ربط الملاحظات — بحث بالنص -->
   <div id="link-ov" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:9600;align-items:flex-end;justify-content:center;backdrop-filter:blur(6px);" onclick="if(event.target===this)closeLinkPicker()">
-    <div style="background:linear-gradient(170deg,#1e1e2e,#181825);border-radius:20px 20px 0 0;width:100%;max-width:700px;padding:14px 14px max(20px,env(safe-area-inset-bottom));box-shadow:0 -12px 40px rgba(102,126,234,0.4);display:flex;flex-direction:column;max-height:78dvh;">
+    <div style="background:var(--sheet-bg2);border-radius:20px 20px 0 0;width:100%;max-width:700px;padding:14px 14px max(20px,env(safe-area-inset-bottom));box-shadow:0 -12px 40px rgba(102,126,234,0.4);display:flex;flex-direction:column;max-height:78dvh;">
       <div style="width:36px;height:4px;border-radius:2px;background:rgba(var(--ov),0.2);margin:0 auto 12px;"></div>
       <div style="font-size:14px;font-weight:700;color:var(--tw);text-align:center;margin-bottom:10px;">🔗 ربط بملاحظة</div>
       <input type="text" id="link-search" placeholder="ابحث في الملاحظات بالنص..."
@@ -2620,9 +2352,11 @@
        ║  ● البيانات والتخزين                                                ║
        ║      الفئات .............. شجرة التصنيفات + renderSettings + delCat  ║
        ║      حالة التطبيق ........ كائن S للحالة المؤقتة للواجهة              ║
-       ║      التخزين ............. التحميل/الحفظ الذرّي، .bak، IDB، النسخ الآلي ║
-       ║      تصدير / استيراد ..... exportData / importData (دمج أو استبدال)   ║
-       ║      إعداد أول تشغيل ..... checkSetup + اختيار المجلد + _onFolderPicked║
+       ║      التخزين ............. التحميل/الحفظ الذرّي v3، .bak، IDB، النسخ الآلي║
+       ║      تحديث التطبيق ....... _updateAllowed + تنزيل HTML (أحادي الاتجاه)║
+       ║      سلة المحذوفات ....... _moveToTrash/_purgeOldTrash + تنظيف المرفقات║
+       ║      تصدير / استيراد ..... exportData/importData v3 (يشمل السلة والفئات)║
+       ║      (exportData وcheckSetup مُعرَّفتان لاحقاً — انظر تعليقَي «moved»)  ║
        ║                                                                     ║
        ║  ● التقويم والتاريخ                                                  ║
        ║      التقويم الهجري ...... كائن H (ميلادي↔هجري: أم القرى + Intl)      ║
@@ -2630,14 +2364,14 @@
        ║                                                                     ║
        ║  ● التنقل والواجهة العامة                                            ║
        ║      التنقل .............. نظام موحّد للرجوع (_handleBack، goto)      ║
-       ║      شريط العنوان ........ الضغطة المطوّلة                            ║
+       ║      شريط العنوان ........ الضغطة المطوّلة + مؤشر الترتيب النشط         ║
        ║      اختصارات ............ لوحة المفاتيح (Escape / Ctrl+Enter)        ║
        ║      Feedback ............ رسائل التنبيه (showFb)                     ║
        ║      أدوات مساعدة عامة ... esc، firstGrapheme، ...                    ║
        ║                                                                     ║
        ║  ● عرض الملاحظات والفلترة                                            ║
-       ║      عرض الملاحظات ....... renderNotes/renderCards + بحث مفهرس + فلاتر║
-       ║      الترتيب ............. ترتيب القائمة                              ║
+       ║      عرض الملاحظات ....... renderNotes/renderCards + فلاتر            ║
+       ║      الترتيب ............. setSort/_applySort (المؤشر في العنوان)     ║
        ║      Picker للفلاتر ...... منتقي قيم الفلاتر                          ║
        ║      Drag-to-Select ..... منتقي السحب                                ║
        ║      أيقونة نوع الملف .... اختيار أيقونة حسب الامتداد                  ║
@@ -2648,9 +2382,8 @@
        ║      تعديل الملاحظة ...... saveEdit                                  ║
        ║      إدارة المرفقات ...... نافذة الضغط الطويل                         ║
        ║                                                                     ║
-       ║  ● النظام والتحديث والتذكيرات                                        ║
-       ║      تحديث التطبيق ....... تنزيل HTML من GitHub (أحادي الاتجاه)       ║
-       ║      التحديث التلقائي .... الفحص عند الإقلاع                          ║
+       ║  ● النظام والتذكيرات                                                 ║
+       ║      إعداد أول تشغيل ..... checkSetup + اختيار المجلد + _onFolderPicked║
        ║      التذكيرات ........... AlarmManager / Electron + Notification    ║
        ╚══════════════════════════════════════════════════════════════════╝ */
 
@@ -2719,9 +2452,19 @@
     };
 
     let lsCats = localStorage.getItem('notes_cats');
-    if (lsCats) { try { CATS = JSON.parse(lsCats); } catch (e) { } }
+    if (lsCats) {
+      try {
+        const p = JSON.parse(lsCats);
+        /* قيمة تالفة (null/رقم/مصفوفة) كانت تعطّل العرض كله — نقبل الكائن فقط */
+        if (p && typeof p === 'object' && !Array.isArray(p)) CATS = p;
+      } catch (e) { }
+    }
 
-    function saveCats() { localStorage.setItem('notes_cats', JSON.stringify(CATS)); }
+    function saveCats() {
+      try { localStorage.setItem('notes_cats', JSON.stringify(CATS)); } catch (e) { }
+      /* الفئات تُحفظ أيضاً داخل ملف الملاحظات (v3) كي تنجو من إعادة التثبيت وتنتقل مع المجلد */
+      if (_notesLoaded) _persistNotes();
+    }
 
     /* ══════════════════════════════════════
        السمة (فاتح / داكن / تلقائي)
@@ -3103,14 +2846,22 @@
     function idbGet(key) { return _idbKV('readonly', st => st.get(key)); }
     function idbSet(key, val) { return _idbKV('readwrite', st => st.put(val, key)); }
 
-    /* ── تنسيق الحفظ v2: {v, savedAt, notes, trash} مع توافق رجعي كامل مع المصفوفة المجردة ── */
+    /* ── تنسيق الحفظ v3: {v, savedAt, notes, trash, cats} مع توافق رجعي كامل
+       مع v2 (بلا cats) والمصفوفة المجردة (v1) ── */
     function _serializeNotes() {
-      return JSON.stringify({ v: 2, savedAt: Date.now(), notes: _notesCache, trash: _trashCache });
+      return JSON.stringify({ v: 3, savedAt: Date.now(), notes: _notesCache, trash: _trashCache, cats: CATS });
+    }
+    function _validCats(c) {
+      return (c && typeof c === 'object' && !Array.isArray(c) && Object.keys(c).length) ? c : null;
     }
     function _deserializeNotes(text) {
       const p = JSON.parse(text);
-      if (Array.isArray(p)) return { v: 1, savedAt: 0, notes: p, trash: [] };
-      if (p && Array.isArray(p.notes)) return { v: p.v || 2, savedAt: +p.savedAt || 0, notes: p.notes, trash: Array.isArray(p.trash) ? p.trash : [] };
+      if (Array.isArray(p)) return { v: 1, savedAt: 0, notes: p, trash: [], cats: null };
+      if (p && Array.isArray(p.notes)) return {
+        v: p.v || 2, savedAt: +p.savedAt || 0, notes: p.notes,
+        trash: Array.isArray(p.trash) ? p.trash : [],
+        cats: _validCats(p.cats)
+      };
       throw new Error('bad-notes-format');
     }
 
@@ -3196,8 +2947,8 @@
     function _writeFallback(json) {
       let lsOk = false;
       try {
-        const bare = JSON.stringify(_notesCache);
-        if (bare.length < 2000000) { localStorage.setItem('notes', bare); lsOk = true; }
+        if (json.length < 2000000) { localStorage.setItem('notes', json); lsOk = true; }
+        else localStorage.removeItem('notes'); /* لا نُبقي مرآة قديمة قد تُسترجَع لاحقاً كبيانات حالية */
       } catch (e) { }
       idbSet('notes', json).then(() => _onSaveOk()).catch(() => {
         if (lsOk) _onSaveOk(); else _onSaveFail();
@@ -3215,7 +2966,7 @@
       _saveCount++;
       try { localStorage.setItem('notes_save_count', String(_saveCount)); } catch (e) { }
       if (_saveCount % 10 !== 0) return;
-      const json = JSON.stringify(_notesCache);   /* مصفوفة مجردة — يقبلها الاستيراد في كل الإصدارات */
+      const json = _serializeNotes();   /* تنسيق v2 — يشمل السلة، ويقبله الاستيراد والاستعادة */
       const storage = localStorage.getItem('notes_storage');
       try {
         if (window.AndroidFS && storage === 'android_fs') {
@@ -3260,22 +3011,32 @@
     window.addEventListener('pagehide', _flushNotes);
     window.addEventListener('beforeunload', _flushNotes);
 
-    /* قراءة النسخة الاحتياطية عبر نفس قناة التخزين */
+    /* قراءة النسخة الاحتياطية عبر نفس قناة التخزين.
+       يجرّب المرشحَين: .bak (تكتبه الطبقة الأصلية عند كل كتابة) ثم ملف النسخ الدوري
+       — على سطح المكتب لا يوجد .bak أصلاً فالملف الدوري هو المسار الفعلي */
     async function _readBak() {
       const storage = localStorage.getItem('notes_storage');
+      const candidates = [NOTES_FILE + '.bak', BACKUP_FILE];
       if (window.AndroidFS && typeof window.AndroidFS.readJson === 'function' && storage === 'android_fs') {
-        try {
-          let b = window.AndroidFS.readJson(NOTES_FILE + '.bak');
-          if (b && typeof b.then === 'function') b = await b;
-          return b || '';
-        } catch (e) { return ''; }
+        for (const name of candidates) {
+          try {
+            let b = window.AndroidFS.readJson(name);
+            if (b && typeof b.then === 'function') b = await b;
+            if (b && String(b).trim() !== '') return b;
+          } catch (e) { }
+        }
+        return '';
       }
       if (_dirHandle) {
-        try {
-          const fh = await _dirHandle.getFileHandle(NOTES_FILE + '.bak');
-          const f = await fh.getFile();
-          return await f.text();
-        } catch (e) { return ''; }
+        for (const name of candidates) {
+          try {
+            const fh = await _dirHandle.getFileHandle(name);
+            const f = await fh.getFile();
+            const t = await f.text();
+            if (t && t.trim() !== '') return t;
+          } catch (e) { }
+        }
+        return '';
       }
       try { return (await idbGet('notes_backup')) || ''; } catch (e) { return ''; }
     }
@@ -3361,6 +3122,11 @@
 
       _notesCache = parsed.notes;
       _trashCache = Array.isArray(parsed.trash) ? parsed.trash : [];
+      /* ملف v3 يحمل الفئات المخصّصة — اعتمادها يجعلها تنجو من إعادة التثبيت وتنتقل مع مزامنة المجلد */
+      if (parsed.cats) {
+        CATS = parsed.cats;
+        try { localStorage.setItem('notes_cats', JSON.stringify(CATS)); } catch (e) { }
+      }
       _notesLoaded = true;
       hideSaveError();
       if (fromBak) showFb('تمت الاستعادة من النسخة الاحتياطية');
@@ -3409,16 +3175,28 @@
       if (used) return;
       _deleteAttachmentFile(note.file);
     }
-    /* مسح نهائي تلقائي لعناصر السلة الأقدم من مدة الاحتفاظ */
+    /* عند استبدال/حذف مرفق من ملاحظة حيّة: احذف الملف القديم من القرص إن لم يعد
+       مستخدماً في أي ملاحظة — يمنع تراكم المرفقات اليتيمة للأبد */
+    function _cleanupOldAttachment(oldFile) {
+      const key = _attKey(oldFile); if (!key) return;
+      const used = _notesCache.some(x => _attKey(x.file) === key)
+        || _trashCache.some(x => _attKey(x.file) === key);
+      if (!used) _deleteAttachmentFile(oldFile);
+    }
+    /* مسح نهائي تلقائي لعناصر السلة الأقدم من مدة الاحتفاظ.
+       يمنح العناصر بلا طابع حذف (مستوردة/قديمة) طابعاً الآن كي تبدأ مدة احتفاظها
+       بدل بقائها للأبد رغم عرض «يُمسح بعد 30 يوم» في الواجهة. */
     function _purgeOldTrash() {
       if (!Array.isArray(_trashCache) || !_trashCache.length) return;
       const now = Date.now();
+      let stamped = false;
       const keep = [], drop = [];
       _trashCache.forEach(t => {
+        if (t && !(+t._delAt)) { t._delAt = now; stamped = true; }   /* بدء مدة الاحتفاظ */
         const del = +(t && t._delAt) || 0;
         if (del && (now - del) > TRASH_RETENTION_MS) drop.push(t); else keep.push(t);
       });
-      if (!drop.length) return;
+      if (!drop.length) { if (stamped && _notesLoaded) _persistNotes(); return; }
       _trashCache = keep;
       drop.forEach(t => _maybeDeleteOrphanAttachment(t));
       if (_notesLoaded) _persistNotes();
@@ -3470,6 +3248,7 @@
     function renderTrash() {
       const box = document.getElementById('cfg-trash-list');
       if (!box) return;
+      _purgeOldTrash();   /* امسح المنتهية عند فتح السلة أيضاً لا عند الإقلاع فقط */
       box.innerHTML = '';
       if (!_trashCache.length) {
         box.innerHTML = '<div style="text-align:center;color:var(--text-m);font-size:12px;padding:10px;">السلة فارغة</div>';
@@ -3499,11 +3278,9 @@
       });
     }
 
-    function updCount() {
-      const n = DB.get().length;
-      const b = document.getElementById('s-count');
-      if (b) b.textContent = n;
-    }
+    /* عدّاد داخلي محجوز — لا يُعرض حالياً (شريط الترتيب القديم أُزيل)؛ نُبقيه دالةً
+       فارغة آمنة لأن مسارات الحفظ تستدعيه */
+    function updCount() { }
 
     /* ══════════════════════════════════════
        التنقل — نظام موحد للرجوع
@@ -3557,6 +3334,9 @@
             setTimeout(function(){ el2.style.background = ''; }, 200);
           }
           toggleSettings();
+          /* صفّر العلم تلقائياً بعد فترة قصيرة: إن ابتلعت الصدَفة النقرة الاصطناعية
+             (بعد انزلاق مثلاً) لا يبقى العلم عالقاً فيبتلع النقرة العادية التالية */
+          setTimeout(function(){ _long = false; }, 400);
         }, 550);
       }
 
@@ -3585,10 +3365,6 @@
         el.addEventListener('click',       onClick);
       }
       _attach();
-
-      window._titlePressStart  = onStart;
-      window._titlePressEnd    = onStop;
-      window._titlePressCancel = onStop;
     })();
 
     /* ══ سطح المكتب فقط: الزر الأيمن للماوس يفتح الإعدادات ══
@@ -3619,26 +3395,32 @@
         return true;
       }
       const qOpen      = document.getElementById('q-ov')?.classList.contains('open');
-      const pOpen      = document.getElementById('picker-ov')?.classList.contains('open');
       const cOpen      = document.getElementById('cal-ov')?.classList.contains('open');
       const dOpen      = document.getElementById('dp-ov')?.classList.contains('open');
       const eOpen      = document.getElementById('edit-ov')?.classList.contains('open');
       const aOpen      = document.getElementById('att-ov')?.classList.contains('open');
       const linkOpen   = document.getElementById('link-ov')?.style.display === 'flex';
+      /* الترتيب من الأعلى في z-index إلى الأدنى: المنتقي/التقويم يُفتحان فوق النافذة
+         السريعة أو نافذة التعديل، فيجب إغلاقهما أولاً قبل النافذة التي تحتهما */
       if (linkOpen)   { closeLinkPicker(); return true; }
-      if (qOpen)  { closeQuick();   return true; }
-      if (pOpen)  { closePicker();  return true; }
-      if (cOpen)  { closeCal();     return true; }
       if (dOpen)  { _closeDp();     return true; }
+      if (cOpen)  { closeCal();     return true; }
+      if (qOpen)  { closeQuick();   return true; }
       if (eOpen)  { closeEdit();    return true; }
       if (aOpen)  { closeAttOv();   return true; }
       return false;
     }
 
-    /* ١ — حدث Capacitor/Cordova (الأولوية القصوى) */
+    /* ١ — حدث Capacitor/Cordova (الأولوية القصوى)
+       نمنع الافتراضي فقط إذا أغلقنا شيئاً فعلاً؛ وإلا نترك الصدَفة تُنفّذ
+       سلوكها الطبيعي (الخروج من التطبيق) بدل حبس المستخدم داخله */
     document.addEventListener('backbutton', function (e) {
-      e.preventDefault();
-      _handleBack();
+      if (_handleBack()) { e.preventDefault(); return; }
+      try {
+        if (window.navigator && window.navigator.app && typeof window.navigator.app.exitApp === 'function') {
+          window.navigator.app.exitApp();
+        }
+      } catch (err) { }
     }, false);
 
     /* ٢ — حدث ionBackButton (Capacitor 4+) */
@@ -3744,7 +3526,6 @@
       });
     }
 
-    function closePicker() { document.getElementById('picker-ov').classList.remove('open'); }
 
     function setQC(k, ic, tx, ph = 0) {
       const i = document.getElementById('q-ic-' + k), t = document.getElementById('q-tx-' + k);
@@ -3758,11 +3539,35 @@
     let calTarget = null, calView = { y: 0, m: 0 };
 
     function openCal(t) {
-      calTarget = t; const h = H.today(); calView = { y: h.y, m: h.m };
+      calTarget = t;
+      /* افتح على شهر التاريخ المحفوظ (إن وُجد) بدل شهر اليوم دائماً — أسهل للتعديل */
+      const savedG = t === 'quick' ? S.q.dG : (t === 'edit' ? _editDG : (t === 'filter' ? S.fDate.g : ''));
+      let base = null;
+      const gt = parseG(savedG);
+      if (gt) { const hh = H.toH(new Date(gt)); base = { y: hh.y, m: hh.m }; }
+      if (!base) { const h = H.today(); base = { y: h.y, m: h.m }; }
+      calView = base;
       renderCal(); document.getElementById('cal-ov').classList.add('open');
       hPush();
     }
     function closeCal() { document.getElementById('cal-ov').classList.remove('open'); }
+    /* مسح التاريخ المحدَّد للهدف الحالي (بدون تاريخ) */
+    function clearCalDate() {
+      if (calTarget === 'quick') { S.q.dH = ''; S.q.dG = ''; setDateDisp('quick', '', ''); }
+      else if (calTarget === 'edit') {
+        _editDH = ''; _editDG = '';
+        const dtx = document.getElementById('edit-date-tx');
+        if (dtx) { dtx.textContent = 'بدون تاريخ'; dtx.style.color = 'rgba(var(--ov),.5)'; }
+      } else if (calTarget === 'filter') {
+        S.fDate = { g: '', h: '' };
+        const ph = document.getElementById('f-date-ph'); if (ph) ph.style.display = '';
+        const _fdc = document.getElementById('f-date-cell'); if (_fdc) _fdc.classList.remove('active');
+        const fdh = document.getElementById('f-dh'); if (fdh) { fdh.textContent = ''; fdh.style.display = 'none'; }
+        const fdg = document.getElementById('f-dg'); if (fdg) { fdg.textContent = ''; fdg.style.display = 'none'; }
+        renderNotes();
+      }
+      closeCal();
+    }
     function calStep(d) { calView.m += d; if (calView.m < 1) { calView.m = 12; calView.y--; } if (calView.m > 12) { calView.m = 1; calView.y++; } renderCal(); }
 
     function renderCal() {
@@ -3772,10 +3577,11 @@
       const g = document.getElementById('cal-grid'); g.innerHTML = '';
       for (let i = 0; i < fg.getDay(); i++) { const e = document.createElement('div'); e.className = 'cal-day empty'; g.appendChild(e); }
       const th = H.today();
-      // التاريخ المحدد حسب الهدف
+      // التاريخ المحدد حسب الهدف (يشمل هدف التعديل حتى يُظلَّل التاريخ المحفوظ)
       let selH = '';
       if (calTarget === 'quick') selH = S.q.dH;
       else if (calTarget === 'filter') selH = S.fDate.h;
+      else if (calTarget === 'edit') selH = _editDH;
       for (let d = 1; d <= days; d++) {
         const gd = H.toG({ y, m, d });
         const c = document.createElement('div'); c.className = 'cal-day';
@@ -3794,6 +3600,7 @@
           else if (calTarget === 'filter') {
             S.fDate = { g: dg, h: dh };
             document.getElementById('f-date-ph').style.display = 'none';
+            const _fdc = document.getElementById('f-date-cell'); if (_fdc) _fdc.classList.add('active');
             const fdh = document.getElementById('f-dh');
             const fdg = document.getElementById('f-dg');
             fdh.textContent = toArabic(dh); fdh.style.display = 'inline';
@@ -3806,6 +3613,12 @@
         };
         g.appendChild(c);
       }
+    }
+    /* تمدد تلقائي لحقل النص مع الكتابة (حتى max-height ثم تمرير داخلي) */
+    function _autoGrow(el) {
+      if (!el) return;
+      el.style.height = 'auto';
+      el.style.height = Math.min(el.scrollHeight, 140) + 'px';
     }
     /* تحويل الأرقام إلى عربية */
     function toArabic(s) {
@@ -3840,6 +3653,15 @@
       const elDh = document.getElementById('q-dh');
       const elDg = document.getElementById('q-dg');
 
+      /* تاريخ فارغ (بدون تاريخ): أعد عرض النائب بدل ترك حالة نصف فارغة */
+      if (!dh && !dg) {
+        if (elMon) elMon.textContent = '';
+        if (elDay) elDay.textContent = '';
+        if (elPh) elPh.style.display = '';
+        if (elDh) { elDh.textContent = ''; elDh.style.display = 'none'; }
+        if (elDg) { elDg.textContent = ''; elDg.style.display = 'none'; }
+        return;
+      }
       if (elMon) elMon.textContent = gMon;
       if (elDay) elDay.textContent = toArabic(gDay);
       if (elPh) elPh.style.display = 'none';
@@ -3853,49 +3675,71 @@
     function triggerFile(t) {
       document.getElementById(t === 'quick' ? 'q-file-input' : 'f-file-input').click();
     }
+    /* هل تتوفّر قناة تخزين تدعم حفظ المرفقات فعلياً؟ (مجلد أندرويد أو File System Access) */
+    function _canSaveAttachments() {
+      const storage = localStorage.getItem('notes_storage');
+      return !!((window.AndroidFS && storage === 'android_fs') || _dirHandle);
+    }
     async function handleFile(e, t) {
-      const f = e.target.files[0]; if (!f) return;
+      const f = e.target.files[0]; if (!f) { return; }
+      /* بلا مجلد تخزين لا يمكن حفظ المرفق فعلياً — نرفض بدل عرض «تم الإرفاق» كذباً
+         وترك مرجع لملف غير موجود في الملاحظة */
+      if (!_canSaveAttachments()) {
+        showFb('⚠️ إرفاق الملفات يتطلب تحديد مجلد تخزين من الإعدادات', 1);
+        e.target.value = '';
+        return;
+      }
       const fName = f.name.replace(/[\\/:*?"<>|]/g, '');
       const saved = _uniqueAttName(fName);
+      const ok = await _saveAttachment(f, saved);
+      if (!ok) { e.target.value = ''; return; }   /* فشل الحفظ — لا نضع مرجعاً معلّقاً */
       const noteFile = { name: fName, saved, type: f.type, lastMod: f.lastModified };
       if (t === 'quick') { S.q.file = noteFile; document.getElementById('q-attach-cell').style.background = 'rgba(34,197,94,0.2)'; }
       else { S.fFile = noteFile; document.getElementById('f-attach-cell').style.background = 'rgba(34,197,94,0.2)'; }
       showFb('📎 تم إرفاق: ' + fName);
-      await _saveAttachment(f, saved);
+      e.target.value = '';
     }
     /* اسم تخزين فريد للمرفق يمنع تصادم ملفين بنفس الاسم (فقدان صامت) */
     function _uniqueAttName(cleanName) {
       return String(Date.now()) + '_' + (Math.floor(Math.random() * 900) + 100) + '_' + cleanName;
     }
-    async function _saveAttachment(file, savedName) {
-      const folderName = "المرفقات";
-      const fName = savedName || file.name.replace(/[\\/:*?"<>|]/g, '');
-      const storage = localStorage.getItem('notes_storage');
-      if (window.AndroidFS && storage === 'android_fs') {
-        try {
-          const reader = new FileReader();
-          reader.onload = () => {
-            const base64 = reader.result.split(',')[1];
-            if (typeof window.AndroidFS.saveAttachment === 'function') {
-              window.AndroidFS.saveAttachment(folderName, fName, base64);
-              showFb('✅ تم الحفظ في المرفقات');
-            } else if (typeof window.AndroidFS.writeFile === 'function') {
-              window.AndroidFS.writeFile(folderName, fName, base64);
-              showFb('✅ تم الحفظ (تنسيق نصي)');
-            } else {
-              showFb('⚠️ Bridge أندرويد لا يدعم حفظ الملفات حالياً', 1);
-            }
-          };
-          reader.readAsDataURL(file);
-        } catch (e) { showFb('❌ خطأ في معالجة الملف', 1); }
-      } else if (_dirHandle) {
-        try {
-          const attDir = await _dirHandle.getDirectoryHandle(folderName, { create: true });
-          const fh = await attDir.getFileHandle(fName, { create: true });
-          const w = await fh.createWritable(); await w.write(file); await w.close();
-          showFb('✅ تم الحفظ في المرفقات');
-        } catch (e) { showFb('❌ فشل حفظ المرفق', 1); }
-      }
+    /* يُرجع Promise<boolean>: true عند نجاح الحفظ الفعلي على القرص */
+    function _saveAttachment(file, savedName) {
+      return new Promise((resolve) => {
+        const folderName = "المرفقات";
+        const fName = savedName || file.name.replace(/[\\/:*?"<>|]/g, '');
+        const storage = localStorage.getItem('notes_storage');
+        if (window.AndroidFS && storage === 'android_fs') {
+          try {
+            const reader = new FileReader();
+            reader.onerror = () => { showFb('❌ خطأ في قراءة الملف', 1); resolve(false); };
+            reader.onload = () => {
+              const base64 = reader.result.split(',')[1];
+              if (typeof window.AndroidFS.saveAttachment === 'function') {
+                window.AndroidFS.saveAttachment(folderName, fName, base64);
+                showFb('✅ تم الحفظ في المرفقات'); resolve(true);
+              } else if (typeof window.AndroidFS.writeFile === 'function') {
+                window.AndroidFS.writeFile(folderName, fName, base64);
+                showFb('✅ تم الحفظ (تنسيق نصي)'); resolve(true);
+              } else {
+                showFb('⚠️ Bridge أندرويد لا يدعم حفظ الملفات حالياً', 1); resolve(false);
+              }
+            };
+            reader.readAsDataURL(file);
+          } catch (e) { showFb('❌ خطأ في معالجة الملف', 1); resolve(false); }
+        } else if (_dirHandle) {
+          (async () => {
+            try {
+              const attDir = await _dirHandle.getDirectoryHandle(folderName, { create: true });
+              const fh = await attDir.getFileHandle(fName, { create: true });
+              const w = await fh.createWritable(); await w.write(file); await w.close();
+              showFb('✅ تم الحفظ في المرفقات'); resolve(true);
+            } catch (e) { showFb('❌ فشل حفظ المرفق', 1); resolve(false); }
+          })();
+        } else {
+          showFb('⚠️ لا يوجد مجلد تخزين لحفظ المرفق', 1); resolve(false);
+        }
+      });
     }
     function buildNote(st, tid, nid, file) {
       return {
@@ -3914,7 +3758,7 @@
       S.q = { main: '', sub: '', sec: '', status: '', dH: '', dG: '', file: null, links: [] };
       setQC('main', '📁', 'الرئيسية', 1); setQC('sub', '📌', 'الفرعية', 1);
       setQC('sec', '🎯', 'الثانوية', 1); setQC('status', '📊', 'حالة', 1);
-      const qt = document.getElementById('q-text'); if (qt) qt.value = '';
+      const qt = document.getElementById('q-text'); if (qt) { qt.value = ''; qt.style.height = '28px'; }
       const qn = document.getElementById('q-num'); if (qn) qn.value = '';
       const qa = document.getElementById('q-attach-cell'); if (qa) qa.style.background = '';
       const qd = document.getElementById('q-dph'); if (qd) qd.style.display = '';
@@ -3941,11 +3785,23 @@
       _resetQuickForm();
       return n;
     }
+    /* هل ستظهر الملاحظة المحفوظة في العرض الافتراضي الحالي؟ العرض الافتراضي «المهام
+       الحالية» يُظهر فقط «قيد التنفيذ» غير المستقبلية — نُنبّه المستخدم إن لم تظهر
+       حتى لا يظنّ أن الحفظ فشل */
+    function _hintIfHidden(n) {
+      if (!n) return '';
+      const noFilter = !(FP.main || FP.sub || FP.sec || FP.status);
+      if (!noFilter || _curSort !== 'default') return '';
+      const future = n.dG && parseG(n.dG) > Date.now();
+      if (n.status && n.status !== 'قيد التنفيذ') return ' — محفوظة تحت حالة «' + n.status + '»';
+      if (future) return ' — محفوظة بتاريخ مستقبلي';
+      return '';
+    }
     function saveQuick() {
       const n = _doSaveQuick();
       if (!n) { showFb('أدخل الفئة أو النص', 1); return; }
       closeQuick(true);
-      showFb('⚡ تم الحفظ' + (n.links && n.links.length ? ' مع ' + n.links.length + ' ربط' : ''));
+      showFb('⚡ تم الحفظ' + (n.links && n.links.length ? ' مع ' + n.links.length + ' ربط' : '') + _hintIfHidden(n));
       setTimeout(renderNotes, 400);
     }
     function saveFromFilter() {
@@ -4101,9 +3957,19 @@
     }
 
     /* نص البحث للملاحظة: الحقول الظاهرة للمستخدم فقط (E1) */
+    /* نص البحث المفهرس: يُحسب مرة ويُخزَّن على الملاحظة (_st) بمفتاح توقيع (_stKey)
+       يعتمد على الحقول المؤثّرة — فلا يُعاد بناؤه لكل ملاحظة في كل عملية عرض */
     function _noteSearchText(n) {
-      return [n.text, n.main, n.sub, n.sec, n.det, n.num, n.dH, n.dG, n.status]
+      const key = (n.text || '') + ' ' + (n.main || '') + ' ' + (n.sub || '') + ' ' +
+        (n.sec || '') + ' ' + (n.num || '') + ' ' + (n.dH || '') + ' ' +
+        (n.dG || '') + ' ' + (n.status || '');
+      if (n._stKey === key && typeof n._st === 'string') return n._st;
+      const txt = [n.text, n.main, n.sub, n.sec, n.num, n.dH, n.dG, n.status]
         .filter(Boolean).join(' ').toLowerCase();
+      /* غير قابلة للتعداد كي لا تدخل التسلسل/التصدير */
+      Object.defineProperty(n, '_st', { value: txt, writable: true, configurable: true, enumerable: false });
+      Object.defineProperty(n, '_stKey', { value: key, writable: true, configurable: true, enumerable: false });
+      return txt;
     }
 
     /* إعادة عرض مؤجّلة 150ms لحقلي البحث */
@@ -4293,7 +4159,7 @@
           fIc.addEventListener('click', ev => {
             ev.stopPropagation();
             if (fIc._lpFired) { fIc._lpFired = false; return; }
-            openAttFile._nid = n.id; _attNoteId = n.id; openAttFile();
+            _attNoteId = n.id; openAttFile();
           });
           /* ضغطة طويلة: نافذة الإدارة */
           let _lpt;
@@ -4324,8 +4190,11 @@
       ['f-text', 'f-num'].forEach(id => { const e = document.getElementById(id); if (e) e.value = ''; });
       S.fDate = { g: '', h: '' };
       const ph = document.getElementById('f-date-ph'); if (ph) ph.style.display = '';
+      const _fdc = document.getElementById('f-date-cell'); if (_fdc) _fdc.classList.remove('active');
       const fdh = document.getElementById('f-dh'); if (fdh) { fdh.textContent = ''; fdh.style.display = 'none'; }
       const fdg = document.getElementById('f-dg'); if (fdg) { fdg.textContent = ''; fdg.style.display = 'none'; }
+      _curSort = 'default';   /* أعد الترتيب الافتراضي عند مسح الفلاتر */
+      if (typeof _updateTitleSort === 'function') _updateTitleSort();
       renderNotes();
     }
 
@@ -4468,17 +4337,35 @@
        تصدير / استيراد
     ══════════════════════════════════════ */
     /* exportData moved below */
+    /* تطبيع العناصر المستوردة: يرفض غير الكائنات (null/نص/مصفوفة كانت تتلف
+       الملاحظات وتعطّل العرض) ويضمن معرّفاً فريداً وطابعاً زمنياً نصياً */
+    function _sanitizeImported(arr) {
+      const out = [];
+      (Array.isArray(arr) ? arr : []).forEach(n => {
+        if (!n || typeof n !== 'object' || Array.isArray(n)) return;
+        const c = Object.assign({}, n);
+        if (c.id === undefined || c.id === null || String(c.id).trim() === '') c.id = newNoteId() + '_i' + out.length;
+        if (typeof c.ts !== 'string') c.ts = (c.ts == null) ? '' : String(c.ts);
+        out.push(c);
+      });
+      return out;
+    }
     function importData(e) {
       const f = e.target.files[0]; if (!f) return;
       const r = new FileReader();
       r.onload = ev => {
         e.target.value = '';   /* السماح باختيار نفس الملف مجدداً */
-        let incoming;
+        let parsed, incoming, incomingTrash, rawCount;
         try {
-          const parsed = _deserializeNotes(String(ev.target.result));  /* يقبل المصفوفة المجردة و v2 */
-          incoming = parsed.notes;
-          if (!Array.isArray(incoming)) throw new Error('bad');
+          parsed = _deserializeNotes(String(ev.target.result));  /* يقبل v1/v2/v3 */
+          rawCount = parsed.notes.length;
+          incoming = _sanitizeImported(parsed.notes);
+          incomingTrash = _sanitizeImported(parsed.trash);
         } catch (err) { showFb('❌ ملف غير صالح — يجب أن يكون JSON بتنسيق الملاحظات', 1); return; }
+        const skipped = rawCount - incoming.length;
+        if (!incoming.length && !incomingTrash.length) {
+          showFb(rawCount ? '❌ الملف لا يحوي أي ملاحظة صالحة' : '❌ الملف فارغ', 1); return;
+        }
 
         /* خيارا الدمج أو الاستبدال */
         const doMerge = confirm(
@@ -4486,7 +4373,7 @@
           '«موافق» = دمج مع الملاحظات الحالية (حسب المعرّف، الأحدث يفوز)\n' +
           '«إلغاء» = خيار الاستبدال الكامل'
         );
-        let result;
+        let result, resultTrash;
         if (doMerge) {
           const map = new Map();
           DB.get().forEach(n => map.set(String(n.id), n));
@@ -4496,18 +4383,27 @@
             if (!ex || String(n.ts || '') > String(ex.ts || '')) map.set(k, n);
           });
           result = [...map.values()];
+          /* دمج السلة: نضيف ما ليس موجوداً حيّاً ولا في السلة الحالية */
+          const tmap = new Map();
+          _trashCache.forEach(t => tmap.set(String(t.id), t));
+          incomingTrash.forEach(t => { const k = String(t.id); if (!map.has(k) && !tmap.has(k)) tmap.set(k, t); });
+          resultTrash = [...tmap.values()];
+          if (parsed.cats) { CATS = Object.assign({}, parsed.cats, CATS); saveCats(); }
         } else {
           if (!confirm('⚠️ سيتم استبدال جميع الملاحظات الحالية (' + DB.get().length + ') بمحتوى الملف نهائياً. متابعة؟')) {
             showFb('أُلغي الاستيراد'); return;
           }
           result = incoming;
+          resultTrash = incomingTrash;
+          if (parsed.cats) { CATS = parsed.cats; saveCats(); }
         }
         /* الاستيراد يُعد تحميلاً ناجحاً */
         _notesLoaded = true;
         hideSaveError();
+        _trashCache = resultTrash;
         DB.set(result);
         renderNotes();
-        showFb('✅ استُوردت ' + incoming.length + ' ملاحظة');
+        showFb('✅ استُوردت ' + incoming.length + ' ملاحظة' + (skipped > 0 ? ' — تُخُطّي ' + skipped + ' عنصراً غير صالح' : ''));
       };
       r.readAsText(f);
     }
@@ -4660,10 +4556,15 @@
           if (localStorage.getItem('notes_setup_done')) {
             /* صلاحية المجلد فُقدت رغم أن التخزين كان android_fs → استخدم الاحتياطي الداخلي
                (يمكن استعادة المجلد من الإعدادات ← تغيير المجلد) */
-            if (localStorage.getItem('notes_storage') === 'android_fs') {
+            const _lostFolder = localStorage.getItem('notes_storage') === 'android_fs';
+            if (_lostFolder) {
               localStorage.removeItem('notes_storage');
             }
             await _loadNotes();   /* يحمّل من القناة المناسبة (أو الاحتياطي الداخلي) */
+            /* نبّه المستخدم بوضوح بدل الفتح الصامت على تخزين فارغ فيظن أن ملاحظاته ضاعت */
+            if (_lostFolder) {
+              setTimeout(() => showFb('⚠️ تعذّر الوصول لمجلد الملاحظات — أعد تحديده من الإعدادات ← تغيير المجلد لاستعادة ملاحظاتك', 1), 600);
+            }
             return;
           }
           /* أول تشغيل فعلي على أندرويد/ويندوز */
@@ -4686,18 +4587,24 @@
         await _loadNotes();   /* تحميل الملاحظات من المجلد */
       })();
 
-      /* chips تفتح عند touchstart */
+      /* خلايا الفلتر: فتح المنتقي المناسب. اللمس يفتح فوراً عبر touchstart، والفأرة عبر click.
+         علم _fpTouchHandled يمنع النقرة الاصطناعية بعد اللمس من فتح المنتقي مرتين. */
+      let _fpTouchHandled = false;
       [['fp-cat-cell', 'cat'],
-      ['fp-status-cell', 'status'], ['fp-view-cell', 'view'], ['fp-date-chip', 'date']
+      ['fp-status-cell', 'status'], ['fp-view-cell', 'view'], ['f-date-cell', 'date']
       ].forEach(([id, t]) => {
         const el = document.getElementById(id); if (!el) return;
+        const open = () => { t === 'date' ? openCal('filter') : openFPicker(t); };
         el.addEventListener('touchstart', e => {
           e.preventDefault();
-          t === 'date' ? openCal('filter') : openFPicker(t);
+          _fpTouchHandled = true;
+          setTimeout(() => { _fpTouchHandled = false; }, 500);
+          open();
         }, { passive: false });
         el.addEventListener('click', e => {
           e.preventDefault();
-          t === 'date' ? openCal('filter') : openFPicker(t);
+          if (_fpTouchHandled) return;   /* نقرة اصطناعية بعد اللمس — تُتجاهل */
+          open();
         });
       });
     });
@@ -4718,6 +4625,8 @@
       const btn = document.getElementById('setup-folder-btn');
       if (btn) { btn.disabled = false; btn.textContent = '📂 اختيار مجلد الملاحظات ›'; }
       if (!name) return;                 /* إلغاء الاختيار */
+      /* احفظ أي تعديل معلّق في المجلد الحالي قبل التبديل حتى لا يضيع آخر تغيير */
+      try { _flushNotes(); } catch (e) { }
       _dirFolderName = name;
       localStorage.setItem('notes_storage', 'android_fs');
       localStorage.setItem('notes_setup_done', '1');
@@ -4856,6 +4765,8 @@
         ]);
         const perm = await handle.requestPermission({ mode: 'readwrite' });
         if (perm !== 'granted') throw new Error('permission-denied');
+        /* احفظ أي تعديل معلّق في المجلد الحالي قبل التبديل حتى لا يضيع آخر تغيير */
+        try { _flushNotes(); } catch (e) { }
         await _saveHandleToIDB(handle);
         _dirHandle = handle;
         localStorage.setItem('notes_storage', 'folder');
@@ -4916,8 +4827,9 @@
 
     /* تصدير يدوي */
     function exportData() {
-      const notes = DB.get();
-      const json = JSON.stringify(notes, null, 2);
+      /* v3: يشمل السلة والفئات المخصّصة — استعادة كاملة من ملف واحد */
+      const payload = { v: 3, savedAt: Date.now(), notes: DB.get(), trash: _trashCache, cats: CATS };
+      const json = JSON.stringify(payload, null, 2);
       const blob = new Blob([json], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -4943,17 +4855,17 @@
       { v: 'st-cancel', ic: '❌', n: 'ملغي' },
     ];
     let _curSort = 'default';
+    /* حدّث عنوان التطبيق ليعكس الترتيب النشط — كان اختيار الترتيب من العنوان بلا أي مؤشر مرئي */
+    function _updateTitleSort() {
+      const el = document.getElementById('app-title');
+      if (!el) return;
+      const opt = _SORT_OPTS.find(o => o.v === _curSort);
+      if (!opt || _curSort === 'default') { el.textContent = '📋 المنظم'; }
+      else { el.textContent = opt.ic + ' ' + opt.n; }
+    }
     function setSort(s) {
       _curSort = s;
-      document.querySelectorAll('.sort-chip').forEach(c => {
-        c.classList.toggle('active', c.dataset.sort === s);
-      });
-      /* تحديث أيقونة زر الترتيب في الشريط العلوي */
-      const opt = _SORT_OPTS.find(o => o.v === s) || _SORT_OPTS[0];
-      const topIc = document.getElementById('btn-sort-ic');
-      if (topIc) topIc.textContent = opt.ic;
-      const fpIc = document.getElementById('fp-sort-ic');
-      if (fpIc) fpIc.textContent = opt.ic;
+      _updateTitleSort();   /* العنوان هو المؤشر المرئي للترتيب النشط */
       renderNotes();
     }
     function openSortPicker() {
@@ -5175,13 +5087,17 @@
 
     async function handleAttFromEdit(e) {
       const f = e.target.files[0]; if (!f || !_editId) return;
+      if (!_canSaveAttachments()) { showFb('⚠️ إرفاق الملفات يتطلب تحديد مجلد تخزين من الإعدادات', 1); e.target.value = ''; return; }
       const fName = f.name.replace(/[\\/:*?"<>|]/g, '');
       const saved = _uniqueAttName(fName);
+      const ok = await _saveAttachment(f, saved);   /* احفظ أولاً؛ لا نغيّر المرجع إن فشل */
+      if (!ok) { e.target.value = ''; return; }
       const fileObj = { name: fName, saved, type: f.type, lastMod: f.lastModified };
       const notes = DB.get();
       const idx = notes.findIndex(x => _sameId(x.id, _editId));
-      if (idx >= 0) { notes[idx].file = fileObj; DB.set(notes); }
-      await _saveAttachment(f, saved);
+      let oldFile = null;
+      if (idx >= 0) { oldFile = notes[idx].file; notes[idx].file = fileObj; DB.set(notes); }
+      _cleanupOldAttachment(oldFile);   /* احذف الملف القديم إن لم يعد مستخدماً */
       _refreshEditAtt(notes[idx]);
       renderNotes();
       showFb('📎 تم تغيير المرفق: ' + fName);
@@ -5193,7 +5109,9 @@
       if (!confirm('حذف المرفق من هذه الملاحظة؟')) return;
       const notes = DB.get();
       const idx = notes.findIndex(x => _sameId(x.id, _editId));
-      if (idx >= 0) { notes[idx].file = null; DB.set(notes); }
+      let oldFile = null;
+      if (idx >= 0) { oldFile = notes[idx].file; notes[idx].file = null; DB.set(notes); }
+      _cleanupOldAttachment(oldFile);   /* احذف الملف من القرص إن لم يعد مستخدماً */
       _refreshEditAtt(notes[idx]);
       renderNotes();
       showFb('🗑️ تم حذف المرفق');
@@ -5282,13 +5200,17 @@
     }
     async function handleAttChange(e) {
       const f = e.target.files[0]; if (!f || !_attNoteId) return;
+      if (!_canSaveAttachments()) { showFb('⚠️ إرفاق الملفات يتطلب تحديد مجلد تخزين من الإعدادات', 1); e.target.value = ''; return; }
       const fName = f.name.replace(/[\\/:*?"<>|]/g, '');
       const saved = _uniqueAttName(fName);
+      const ok = await _saveAttachment(f, saved);   /* احفظ أولاً؛ لا نغيّر المرجع إن فشل */
+      if (!ok) { e.target.value = ''; return; }
       const fileObj = { name: fName, saved, type: f.type, lastMod: f.lastModified };
       const notes = DB.get();
       const idx = notes.findIndex(x => _sameId(x.id, _attNoteId));
-      if (idx >= 0) { notes[idx].file = fileObj; DB.set(notes); }
-      await _saveAttachment(f, saved);
+      let oldFile = null;
+      if (idx >= 0) { oldFile = notes[idx].file; notes[idx].file = fileObj; DB.set(notes); }
+      _cleanupOldAttachment(oldFile);   /* احذف الملف القديم إن لم يعد مستخدماً */
       closeAttOv();
       renderNotes();
       showFb('📎 تم تغيير المرفق: ' + fName);
@@ -5299,7 +5221,9 @@
       if (!confirm('حذف المرفق من هذه الملاحظة؟')) return;
       const notes = DB.get();
       const idx = notes.findIndex(x => _sameId(x.id, _attNoteId));
-      if (idx >= 0) { notes[idx].file = null; DB.set(notes); }
+      let oldFile = null;
+      if (idx >= 0) { oldFile = notes[idx].file; notes[idx].file = null; DB.set(notes); }
+      _cleanupOldAttachment(oldFile);   /* احذف الملف من القرص إن لم يعد مستخدماً */
       closeAttOv();
       renderNotes();
       showFb('🗑️ تم حذف المرفق');
@@ -5361,16 +5285,35 @@
     function setRemindHour(v) {
       let h = parseInt(v, 10); if (isNaN(h) || h < 0 || h > 23) h = 9;
       localStorage.setItem('notes_remind_hour', String(h));
+      const _rh = document.getElementById('remind-hour'); if (_rh) _rh.value = h;   /* صحّح الحقل بصرياً بعد التطبيع */
       _syncNativeReminders();
       showFb('🔔 وقت التنبيه: ' + h + ':00');
     }
-    function requestNotifPerm() {
-      try { if (window.AndroidFS && window.AndroidFS.requestNotificationPermission) window.AndroidFS.requestNotificationPermission(); } catch (e) { }
-      try { if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission(); } catch (e) { }
+    function _applyNotifStatus(granted) {
       _syncNativeReminders();
       const el = document.getElementById('remind-status');
-      if (el) el.textContent = '✅ تم — ستصلك تنبيهات المهام في موعدها.';
-      showFb('🔔 تم تفعيل الإشعارات');
+      if (granted) {
+        if (el) el.textContent = '✅ تم — ستصلك تنبيهات المهام في موعدها.';
+        showFb('🔔 تم تفعيل الإشعارات');
+      } else {
+        if (el) el.textContent = '⚠️ الإشعارات مرفوضة — فعّلها من إعدادات النظام لتصلك التنبيهات.';
+        showFb('⚠️ لم يُمنح إذن الإشعارات', 1);
+      }
+    }
+    function requestNotifPerm() {
+      try { if (window.AndroidFS && window.AndroidFS.requestNotificationPermission) window.AndroidFS.requestNotificationPermission(); } catch (e) { }
+      /* لا نُعلن النجاح إلا بعد التحقق من نتيجة الإذن فعلياً */
+      if ('Notification' in window) {
+        if (Notification.permission === 'granted') { _applyNotifStatus(true); return; }
+        if (Notification.permission === 'denied') { _applyNotifStatus(false); return; }
+        try {
+          const p = Notification.requestPermission(function (res) { _applyNotifStatus(res === 'granted'); });
+          if (p && typeof p.then === 'function') p.then(res => _applyNotifStatus(res === 'granted')).catch(() => _applyNotifStatus(false));
+        } catch (e) { _applyNotifStatus(false); }
+        return;
+      }
+      /* بيئة بلا Notification API (صدَفة أصلية تتولّى الإشعارات) — نعتبرها مفعّلة */
+      _applyNotifStatus(true);
     }
 
     function _scheduleReminders() {
@@ -5465,12 +5408,6 @@
 
   </script>
 
-  <!-- عناصر مخفية للمنطق -->
-  <div style="display:none">
-    <span id="btn-sort-ic">⚡</span>
-    <span id="s-count">0</span>
-  </div>
-
   <!-- نافذة تعديل الملاحظة — كل المعلومات بدون تمرير -->
   <div id="edit-ov" class="edit-ov">
     <div class="edit-sheet">
@@ -5552,7 +5489,7 @@
             style="padding:8px 12px;border-radius:10px;background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.3);color:#fca5a5;font-size:12px;cursor:pointer;font-family:inherit;">🗑️</button>
         </div>
         <button onclick="deleteFromEdit()"
-          style="width:100%;padding:10px;border-radius:12px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.25);color:#fca5a5;font-size:13px;cursor:pointer;font-family:inherit;box-sizing:border-box;">🗑️ حذف الملاحظة نهائياً</button>
+          style="width:100%;padding:10px;border-radius:12px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.25);color:#fca5a5;font-size:13px;cursor:pointer;font-family:inherit;box-sizing:border-box;">🗑️ نقل إلى سلة المحذوفات</button>
       </div>
 
     </div>

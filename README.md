@@ -2,6 +2,10 @@
 
 مستودع **عام** يحوي ملفات التحديث التلقائي — بلا توكن.
 
+> ⚠️ **لا تُعدّل `index.html` هنا يدوياً.** هذا الملف مرآة تُنسخ آلياً من مستودع
+> المصدر `sulasm/MyNotes` (سير العمل `mirror-content.yml`). كل تطوير يتم في المصدر
+> على `www/index.html`؛ أي تعديل مباشر هنا سيُكتب فوقه عند أول مزامنة قادمة.
+
 ## للأندرويد
 - `latest.json` يحوي: versionCode / versionName / apkUrl.
 - ارفع الـ APK الموقّع كأصل في «Release» باسم `app-release.apk`، وحدّث `latest.json`.
