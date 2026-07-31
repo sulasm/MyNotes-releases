@@ -5,7 +5,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
   <meta name="theme-color" content="#667eea">
-  <meta name="app-version" content="1.7.0">
+  <meta name="app-version" content="1.8.0">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <title>المنظم</title>
@@ -2034,10 +2034,13 @@
 
   <div id="app">
     <!-- شريط التطبيق العلوي — مضغوط -->
-    <div id="top-bar" style="display:flex;align-items:center;justify-content:center;padding:env(safe-area-inset-top,0px) 0 0;background:var(--grad);flex-shrink:0;box-shadow:0 2px 10px rgba(102,126,234,0.4);">
+    <div id="top-bar" style="position:relative;display:flex;align-items:center;justify-content:center;padding:env(safe-area-inset-top,0px) 0 0;background:var(--grad);flex-shrink:0;box-shadow:0 2px 10px rgba(102,126,234,0.4);">
       <div id="app-title"
         style="color:var(--tw);font-size:14px;font-weight:700;padding:5px 22px;border-radius:8px;cursor:pointer;user-select:none;-webkit-tap-highlight-color:transparent;transition:background .15s;line-height:1.2;"
         oncontextmenu="event.preventDefault();return false;">📋 المنظم</div>
+      <div id="rain-app-btn" onclick="openRainApp()" title="أمطار السروات — توقعات الهطول"
+        style="position:absolute;inset-inline-end:6px;bottom:1px;font-size:16px;padding:4px 10px;border-radius:8px;cursor:pointer;user-select:none;-webkit-tap-highlight-color:transparent;transition:background .15s;line-height:1.2;"
+        onpointerdown="this.style.background='rgba(var(--ov),0.13)'" onpointerup="this.style.background=''" onpointerleave="this.style.background=''">🌧️</div>
     </div>
 
     <div class="pages" style="display:flex;flex-direction:column;flex:1;overflow:hidden">
@@ -3385,10 +3388,43 @@
       goto('notes');
     }
 
+    /* ══════════════════════════════════════
+       تطبيق أمطار السروات المدمج
+       يُحقن كود التطبيق (قالب text/html أسفل الصفحة) داخل iframe معزول
+       عند أول فتح فقط، ثم يبقى محمَّلاً كي لا تُعاد جلبات البيانات عند كل فتح.
+    ══════════════════════════════════════ */
+    var _rainLoaded = false;
+
+    function openRainApp() {
+      var ov = document.getElementById('rain-ov');
+      if (!ov) return;
+      if (!_rainLoaded) {
+        var tpl = document.getElementById('rain-app-tpl');
+        if (!tpl) return;
+        /* وسم الإغلاق مخزَّن مهرَّباً في القالب كي لا يقطع الصفحة الأم،
+           ويُعاد هنا لأصله (النص مُجزَّأ كي لا يقطع هذا السكربت نفسه) */
+        document.getElementById('rain-frame').srcdoc =
+          tpl.textContent.replace(/<\\\/script>/g, '<' + '/script>');
+        _rainLoaded = true;
+      }
+      ov.style.display = 'flex';
+      hPush();
+    }
+
+    function closeRainApp() {
+      var ov = document.getElementById('rain-ov');
+      if (ov) ov.style.display = 'none';
+    }
+
 
 
     /* دالة مركزية تُعالج الرجوع من أي مصدر */
     function _handleBack() {
+      /* نافذة تطبيق الأمطار تغطي الشاشة كلها فتُغلق قبل أي شيء آخر */
+      if (document.getElementById('rain-ov')?.style.display === 'flex') {
+        closeRainApp();
+        return true;
+      }
       if (_inSettings) {
         _inSettings = false;
         goto('notes');
@@ -5508,6 +5544,531 @@
       <input type="file" id="att-change-input" style="display:none" onchange="handleAttChange(event)">
     </div>
   </div>
+
+
+  <!-- ══ تطبيق أمطار السروات المدمج ══
+       نافذة ملء الشاشة تحوي iframe يُحقن فيه القالب أدناه عند أول فتح (openRainApp) -->
+  <div id="rain-ov" style="display:none;position:fixed;inset:0;z-index:9700;background:var(--bg-p);flex-direction:column;">
+    <div style="position:relative;display:flex;align-items:center;justify-content:center;padding:env(safe-area-inset-top,0px) 0 0;background:var(--grad);flex-shrink:0;box-shadow:0 2px 10px rgba(102,126,234,0.4);">
+      <div style="color:var(--tw);font-size:14px;font-weight:700;padding:5px 22px;line-height:1.2;user-select:none;">🌧️ أمطار السروات</div>
+      <div onclick="closeRainApp()" title="رجوع"
+        style="position:absolute;inset-inline-start:6px;bottom:1px;color:var(--tw);font-size:15px;font-weight:700;padding:4px 12px;border-radius:8px;cursor:pointer;user-select:none;-webkit-tap-highlight-color:transparent;line-height:1.2;">‹ رجوع</div>
+    </div>
+    <iframe id="rain-frame" title="أمطار السروات" style="flex:1;width:100%;border:0;background:transparent;"></iframe>
+  </div>
+
+  <!-- قالب تطبيق الأمطار — لا يُنفَّذ (type=text/html)؛ وسوم الإغلاق الداخلية مهرَّبة <\/script> -->
+  <script type="text/html" id="rain-app-tpl">
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>أمطار السروات — الباحة · المندق · ميسان · الشفا</title>
+<style>
+  :root{
+    --bg:#0f172a; --card:#1e293b; --line:#334155; --txt:#e2e8f0;
+    --muted:#94a3b8; --accent:#38bdf8; --hi:#f59e0b; --hiBg:#422006;
+    --ok:#22c55e; --okBg:#052e16; --warn:#fbbf24; --bad:#f87171;
+    --chip:#0b2536; --sub:rgba(56,189,248,.05);
+    --h0:transparent; --h1:rgba(56,189,248,.18); --h2:rgba(56,189,248,.42); --h3:rgba(245,158,11,.55);
+  }
+  @media (prefers-color-scheme: light){
+    :root{ --bg:#f1f5f9; --card:#ffffff; --line:#e2e8f0; --txt:#0f172a;
+      --muted:#64748b; --accent:#0284c7; --hi:#b45309; --hiBg:#fef3c7;
+      --ok:#16a34a; --okBg:#dcfce7; --warn:#b45309; --bad:#dc2626;
+      --chip:#e0f2fe; --sub:rgba(2,132,199,.06);
+      --h1:rgba(2,132,199,.15); --h2:rgba(2,132,199,.38); --h3:rgba(180,83,9,.5);}
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--txt);
+    font-family:-apple-system,"Segoe UI",Tahoma,Arial,sans-serif;
+    line-height:1.6;padding:14px;}
+  h1{font-size:1.2rem;margin:0 0 2px}
+  h2{font-size:.95rem;margin:0 0 8px}
+  .sub{color:var(--muted);font-size:.8rem;margin-bottom:14px}
+  .bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
+  button{background:var(--accent);color:#001018;border:0;border-radius:10px;
+    padding:9px 16px;font-size:.9rem;font-weight:700;cursor:pointer}
+  button:active{opacity:.8}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;
+    padding:12px;margin-bottom:14px}
+  table{width:100%;border-collapse:collapse;font-size:.78rem}
+  th,td{padding:6px 4px;text-align:center;border-bottom:1px solid var(--line)}
+  th{color:var(--muted);font-weight:700;font-size:.7rem;position:sticky;top:0;background:var(--card)}
+  th.loc{color:var(--accent);font-size:.75rem}
+  th.loc small{display:block;color:var(--muted);font-weight:400;font-size:.62rem}
+  td.day{text-align:right;font-weight:700;white-space:nowrap;cursor:pointer;font-size:.74rem}
+  td.day::after{content:" ▾";color:var(--muted);font-size:.6rem}
+  tr.open td.day::after{content:" ▴"}
+  td.cell{min-width:64px}
+  .ep{font-weight:800;font-size:.92rem;display:block;line-height:1.2}
+  .e0{color:var(--muted)} .e1{color:var(--txt)} .e2{color:var(--accent)} .e3{color:var(--hi)}
+  .cons{font-size:.66rem;color:var(--muted);display:block}
+  .mmc{font-size:.66rem;color:var(--txt);display:block}
+  .mmc .cl{color:var(--muted)}
+  .cons.hi{color:var(--ok);font-weight:700}
+  .tr-up{color:var(--hi);font-size:.7rem;font-weight:700}
+  .tr-dn{color:var(--accent);font-size:.7rem;font-weight:700}
+  td.strong{background:var(--hiBg)}
+  .wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .note{font-size:.8rem;color:var(--muted)}
+  .note b{color:var(--txt)}
+  .status{font-size:.85rem;padding:10px;border-radius:10px;background:var(--card);border:1px solid var(--line)}
+  .err{color:var(--bad)}
+  .src{display:flex;gap:6px;flex-wrap:wrap;margin-top:4px}
+  .chip{background:var(--chip);border:1px solid var(--line);border-radius:999px;
+    padding:2px 10px;font-size:.72rem;color:var(--txt);white-space:nowrap}
+  .chip .st-ok{color:var(--ok);font-weight:700}
+  .chip .st-bad{color:var(--bad);font-weight:700}
+  tr.detail>td{background:var(--sub);padding:0}
+  .dwrap{padding:8px 10px}
+  table.mini{font-size:.72rem}
+  table.mini th{position:static;background:transparent}
+  table.mini td.mname{text-align:right;font-weight:700;white-space:nowrap}
+  table.mini td{direction:ltr}
+  /* أشرطة التوقيت الساعي */
+  .hgrid{display:grid;grid-template-columns:70px 1fr;gap:4px 8px;align-items:center}
+  .hname{font-size:.72rem;font-weight:700;text-align:left;white-space:nowrap}
+  .strip{display:flex;gap:1px;direction:ltr}
+  .hc{width:9px;height:22px;border-radius:2px;background:var(--h0);
+    border:1px solid var(--line);position:relative;flex:none}
+  .hc.h1{background:var(--h1)} .hc.h2{background:var(--h2)} .hc.h3{background:var(--h3)}
+  .hc.zap::after{content:"⚡";position:absolute;top:-12px;left:-2px;font-size:.55rem}
+  .cc{width:9px;height:10px;border-radius:2px;border:1px solid var(--line);flex:none;background:var(--h0)}
+  .cc.c1{background:rgba(148,163,184,.25)} .cc.c2{background:rgba(148,163,184,.5)}
+  .cc.c3{background:rgba(148,163,184,.75)} .cc.c4{background:rgba(148,163,184,1)}
+  .hname.cloud{color:var(--muted);font-weight:400;font-size:.65rem}
+  .hlabels{display:flex;direction:ltr;font-size:.6rem;color:var(--muted)}
+  .hlabels span{width:60px;flex:none}
+  .legend{display:flex;gap:10px;flex-wrap:wrap;font-size:.7rem;color:var(--muted);margin-top:8px}
+  .lg{display:inline-flex;align-items:center;gap:4px}
+  .lg i{width:12px;height:12px;border-radius:3px;border:1px solid var(--line);display:inline-block}
+  ul{margin:6px 0;padding-inline-start:20px}
+  li{margin:4px 0;font-size:.82rem;color:var(--muted)}
+  a{color:var(--accent)}
+  .sum b{color:var(--hi)}
+  .ver{color:var(--muted);font-size:.7rem;margin-top:8px}
+  .models td{font-size:.74rem;padding:5px}
+  .models th{font-size:.68rem}
+</style>
+</head>
+<body>
+  <h1>🌧️ أمطار السروات — 4 مواقع في لوحة واحدة</h1>
+  <div class="sub">الباحة · المندق · ميسان · الشفا (الطائف) — احتمالية جماعية من 133 عضو تنبؤ + إجماع 7 نماذج · توقيت الرياض · اضغط أي تاريخ لتفاصيل النماذج</div>
+
+  <div class="bar">
+    <button onclick="load()">🔄 تحديث الآن</button>
+    <span id="updated" class="note"></span>
+  </div>
+
+  <div id="status" class="status">…جارٍ جلب البيانات من المصادر</div>
+
+  <div id="srcCard" class="card" style="display:none">
+    <b style="font-size:.85rem">حالة المصادر:</b>
+    <div id="srcChips" class="src"></div>
+  </div>
+
+  <div id="summary" class="card sum" style="display:none"></div>
+
+  <div id="tableCard" class="card" style="display:none">
+    <h2>📅 التوقعات اليومية (حتى 16 يوماً)</h2>
+    <div class="wrap">
+      <table id="tbl">
+        <thead><tr id="thRow"><th>التاريخ</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <div class="note" style="margin-top:8px">
+      <b>الرقم الكبير:</b> الاحتمال الجماعي = نسبة أعضاء ECMWF ENS (51) + GEFS (31) + AIFS ENS (51) الذين يتوقعون ≥0.5 ملم —
+      الطريقة العلمية المعتمدة لحساب احتمال المطر ·
+      <b>≈ملم:</b> الكمية المتوقعة (متوسط أعضاء الجماعية) · <b>☁️:</b> الغطاء السحابي النهاري (6ص–6م لأول 3 أيام، ثم متوسط اليوم) ·
+      <b>الإجماع:</b> النماذج الحتمية السبعة ·
+      <b>↑↓</b> تغيّر الاحتمال ≥10% منذ آخر تحديث محفوظ · الخلفية الذهبية = فرصة قوية.
+    </div>
+  </div>
+
+  <div id="hourlyCard" class="card" style="display:none">
+    <h2>⏱️ توقيت الزخات — الساعات الـ72 القادمة</h2>
+    <div id="hgrid" class="hgrid"></div>
+    <div class="legend">
+      <span class="lg"><i style="background:var(--h1)"></i>احتمال 20–39%</span>
+      <span class="lg"><i style="background:var(--h2)"></i>40–59%</span>
+      <span class="lg"><i style="background:var(--h3)"></i>≥60%</span>
+      <span class="lg">⚡ طاقة رعدية عالية (CAPE ≥ 1000)</span>
+      <span class="lg"><i style="background:rgba(148,163,184,.75)"></i>الشريط الرمادي: الغطاء السحابي</span>
+      <span class="lg">المس/مرّر على أي خلية للتفاصيل</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <b class="note" style="color:var(--txt)">📡 المصادر والمنهجية:</b>
+    <div class="wrap">
+      <table class="models">
+        <thead><tr><th>المصدر</th><th>الجهة</th><th>الدور</th><th>المدى</th></tr></thead>
+        <tbody>
+          <tr><td>ECMWF ENS (51 عضواً)</td><td>المركز الأوروبي</td><td rowspan="3">الاحتمالية الجماعية (الرقم الكبير)</td><td>15 يوماً</td></tr>
+          <tr><td>GEFS (31 عضواً)</td><td>NOAA الأمريكية</td><td>10 أيام</td></tr>
+          <tr><td>AIFS ENS (51 عضواً)</td><td>المركز الأوروبي — ذكاء اصطناعي</td><td>15 يوماً</td></tr>
+          <tr><td>ECMWF · GFS · ICON · GEM · UKMO · AIFS</td><td>أوروبي · أمريكي · ألماني · كندي · بريطاني · ذكاء اصطناعي</td><td rowspan="2">إجماع الكميات (السطر الصغير) وتفاصيل النقر</td><td>6–16 يوماً</td></tr>
+          <tr><td>MET Norway (Yr)</td><td>النرويجية — مزوّد مستقل</td><td>~9 أيام</td></tr>
+          <tr><td>الساعي: احتمال + كمية + CAPE + غطاء سحابي</td><td>Open-Meteo (أفضل نموذج)</td><td>توقيت الزخات والقابلية الرعدية</td><td>72 ساعة</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="note" style="margin-top:6px">المواقع (الإحداثيات موثقة من OpenStreetMap والترميز الجغرافي): الباحة 20.013، 41.468 (2180م) · المندق 20.111، 41.283 (2146م) · ميسان 20.737، 40.839 (2228م) · الشفا 21.073، 40.318 (2228م).</div>
+  </div>
+
+  <div class="card note">
+    <b>تنبيهات الموثوقية:</b>
+    <ul>
+      <li>الاحتمال الجماعي أدق من احتمال أي نموذج منفرد لأنه يقيس عدم اليقين فعلياً عبر عشرات السيناريوهات.</li>
+      <li>سهم ↑↓ متكرر بين التحديثات يعني توقعاً متذبذباً قليل الثقة؛ ثبات الرقم عبر التحديثات مؤشر ثقة.</li>
+      <li>ما بعد اليوم العاشر يعتمد على ECMWF ENS وAIFS ENS وGFS فقط، وموثوقيته منخفضة.</li>
+      <li>زخات الصيف في السروات عصرية محلية جداً؛ شريط التوقيت يبين ساعة الذروة المرجحة لكل موقع.</li>
+      <li>للإنذارات الرسمية المعتمدة: <a href="https://ncm.gov.sa" target="_blank" rel="noopener">المركز الوطني للأرصاد (ncm.gov.sa)</a>.</li>
+    </ul>
+    <div class="ver">Open-Meteo (Forecast + Ensemble APIs) · MET Norway API · الإصدار 3.2.0</div>
+  </div>
+
+<script>
+"use strict";
+const TZ = "Asia/Riyadh", TZ_OFFSET_H = 3;
+const RAIN_MM = 0.5;       // عتبة "يتوقع هطولاً" للأعضاء والنماذج
+const MET_FULL_H = 18;     // اكتمال تغطية يوم MET
+const CAPE_ZAP = 1000;     // عتبة القابلية الرعدية
+const TREND_KEY = "sarawat_rain_trend_v3";
+const TREND_MIN_AGE_MIN = 30, TREND_DELTA = 10;
+
+const LOCS = [
+  {name:"الباحة",  short:"الباحة",  lat:20.0129, lon:41.4677, elev:"2180م"},
+  {name:"المندق",  short:"المندق",  lat:20.1105, lon:41.2828, elev:"2146م"},
+  {name:"ميسان",   short:"ميسان",   lat:20.7372, lon:40.8387, elev:"2228م"},
+  {name:"الشفا",   short:"الشفا",   lat:21.0727, lon:40.3184, elev:"2228م"},
+];
+const LATS = LOCS.map(l=>l.lat).join(","), LONS = LOCS.map(l=>l.lon).join(",");
+
+const OM_MODELS = [
+  {key:"ecmwf_ifs025", name:"ECMWF (أوروبي)"},
+  {key:"gfs_seamless",  name:"GFS (أمريكي)"},
+  {key:"icon_seamless", name:"ICON (ألماني)"},
+  {key:"gem_seamless",  name:"GEM (كندي)"},
+  {key:"ukmo_seamless", name:"UKMO (بريطاني)"},
+  {key:"ecmwf_aifs025_single", name:"AIFS (ذكاء اصطناعي)"},
+];
+
+const URL_OM = "https://api.open-meteo.com/v1/forecast?latitude="+LATS+"&longitude="+LONS
+  +"&daily=precipitation_sum,cloud_cover_mean,temperature_2m_max,temperature_2m_min,weathercode"
+  +"&forecast_days=16&timezone="+encodeURIComponent(TZ)
+  +"&models=best_match,"+OM_MODELS.map(m=>m.key).join(",");
+
+const URL_ENS = "https://ensemble-api.open-meteo.com/v1/ensemble?latitude="+LATS+"&longitude="+LONS
+  +"&models=ecmwf_ifs025,gfs025,ecmwf_aifs025_ensemble&daily=precipitation_sum&forecast_days=15"
+  +"&timezone="+encodeURIComponent(TZ);
+
+const URL_HR = "https://api.open-meteo.com/v1/forecast?latitude="+LATS+"&longitude="+LONS
+  +"&hourly=precipitation_probability,precipitation,cape,cloud_cover&forecast_days=3"
+  +"&timezone="+encodeURIComponent(TZ);
+
+const urlMet = l => "https://api.met.no/weatherapi/locationforecast/2.0/compact?lat="+l.lat+"&lon="+l.lon;
+
+const WMO = {
+  0:"صافٍ",1:"صافٍ غالباً",2:"غائم جزئياً",3:"غائم",45:"ضباب",48:"ضباب صقيعي",
+  51:"رذاذ خفيف",53:"رذاذ متوسط",55:"رذاذ كثيف",61:"مطر خفيف",63:"مطر متوسط",65:"مطر غزير",
+  80:"زخات خفيفة",81:"زخات متوسطة",82:"زخات عنيفة",
+  95:"عاصفة رعدية",96:"رعدية مع بَرَد خفيف",99:"رعدية مع بَرَد شديد"
+};
+const DAYS_AR = ["الأحد","الإثنين","الثلاثاء","الأربعاء","الخميس","الجمعة","السبت"];
+const MON_AR = ["يناير","فبراير","مارس","أبريل","مايو","يونيو","يوليو","أغسطس","سبتمبر","أكتوبر","نوفمبر","ديسمبر"];
+const fmtDate = iso => { const d=new Date(iso+"T00:00:00");
+  return DAYS_AR[d.getDay()]+" "+d.getDate()+" "+MON_AR[d.getMonth()]; };
+const num = x => (x===null||x===undefined||Number.isNaN(x)) ? null : x;
+const eClass = p => p===null ? "e0" : (p>=60?"e3":p>=30?"e2":p>=10?"e1":"e0");
+
+// ===== تجميع MET Norway ليومي بتوقيت الرياض (منتصف الفترة يحدد اليوم) =====
+function aggregateMet(json){
+  const days = {};
+  const dayOf = (t, off) => new Date(t.getTime()+(TZ_OFFSET_H+off)*3600e3).toISOString().slice(0,10);
+  const recOf = iso => days[iso] ?? (days[iso]={mm:0,coveredH:0});
+  for(const pt of (json.properties?.timeseries ?? [])){
+    const t = new Date(pt.time);
+    const n1 = pt.data?.next_1_hours, n6 = pt.data?.next_6_hours;
+    if(n1?.details && typeof n1.details.precipitation_amount==="number"){
+      const r=recOf(dayOf(t,0)); r.mm+=n1.details.precipitation_amount; r.coveredH+=1;
+    } else if(n6?.details && typeof n6.details.precipitation_amount==="number"){
+      const r=recOf(dayOf(t,3)); r.mm+=n6.details.precipitation_amount; r.coveredH+=6;
+    }
+  }
+  return days;
+}
+
+// ===== الاحتمال الجماعي: نسبة الأعضاء المتوقعين ≥ عتبة، مع الوسيط والأقصى =====
+function ensembleDay(ensLoc, i){
+  if(!ensLoc) return {p:null, med:null, max:null, n:0};
+  const d = ensLoc.daily, vals = [];
+  for(const k in d){
+    if(k==="time" || !k.startsWith("precipitation_sum")) continue;
+    const v = num(d[k][i]); if(v!==null) vals.push(v);
+  }
+  if(!vals.length) return {p:null, med:null, max:null, n:0};
+  vals.sort((a,b)=>a-b);
+  const wet = vals.filter(v=>v>=RAIN_MM).length;
+  return {
+    p: Math.round(100*wet/vals.length),
+    mean: vals.reduce((a,b)=>a+b,0)/vals.length,
+    med: vals[Math.floor(vals.length/2)],
+    max: vals[vals.length-1],
+    n: vals.length
+  };
+}
+
+// ===== إجماع النماذج الحتمية لموقع/يوم =====
+function detDay(omLoc, metDays, iso, i){
+  const g = (v,m) => num(omLoc ? (omLoc.daily[v+"_"+m]||[])[i] : null);
+  const models = OM_MODELS.map(m => ({name:m.name, mm:g("precipitation_sum",m.key)}));
+  const mr = metDays ? metDays[iso] : null;
+  models.push({name:"MET Norway (نرويجي)",
+    mm:(mr && mr.coveredH>0)?mr.mm:null,
+    partial:!!(mr && mr.coveredH>0 && mr.coveredH<MET_FULL_H)});
+  const avail = models.filter(m=>m.mm!==null);
+  return {models,
+    wet: avail.filter(m=>m.mm>=RAIN_MM).length, avail: avail.length,
+    tmax:g("temperature_2m_max","best_match"), tmin:g("temperature_2m_min","best_match"),
+    code:g("weathercode","best_match"), cloud:g("cloud_cover_mean","best_match")};
+}
+
+// ===== تتبّع التغيّر (تخزين محلي — يتجاهل بصمت إن لم يتوفر) =====
+function loadTrend(){
+  try{ const s=localStorage.getItem(TREND_KEY); return s?JSON.parse(s):null; }catch(e){ return null; }
+}
+function saveTrend(cur){
+  try{
+    const old = loadTrend();
+    // لا نستبدل المرجع إلا إذا تقادم — كي تبقى المقارنة ذات معنى بين جلسات متقاربة
+    if(!old || (Date.now()-old.t) >= TREND_MIN_AGE_MIN*60e3)
+      localStorage.setItem(TREND_KEY, JSON.stringify(cur));
+  }catch(e){}
+}
+function trendArrow(old, li, iso, p){
+  if(old===null || p===null) return "";
+  const prev = old.p?.[li]?.[iso];
+  if(prev===undefined || prev===null) return "";
+  const d = p - prev;
+  if(d >= TREND_DELTA) return ` <span class="tr-up" title="ارتفع من ${prev}%">↑</span>`;
+  if(d <= -TREND_DELTA) return ` <span class="tr-dn" title="انخفض من ${prev}%">↓</span>`;
+  return "";
+}
+
+// الغطاء السحابي النهاري (6ص–6م) من البيانات الساعية إن غطت اليوم، وإلا null
+function cloudDaytime(hrLoc, iso){
+  if(!hrLoc) return null;
+  const h = hrLoc.hourly, vals = [];
+  h.time.forEach((t,i)=>{
+    if(t.slice(0,10)!==iso) return;
+    const hh = +t.slice(11,13);
+    if(hh>=6 && hh<=18){ const v=num(h.cloud_cover[i]); if(v!==null) vals.push(v); }
+  });
+  return vals.length>=10 ? Math.round(vals.reduce((a,b)=>a+b,0)/vals.length) : null;
+}
+
+async function fetchJSON(url, opt){
+  const res = await fetch(url, Object.assign({cache:"no-store"}, opt||{}));
+  if(!res.ok) throw new Error("HTTP "+res.status);
+  return res.json();
+}
+const chip = (name, ok, extra) =>
+  `<span class="chip">${name}: <span class="${ok?'st-ok':'st-bad'}">${ok?"✓":"✗"}</span>${extra?` ${extra}`:""}</span>`;
+
+function detailTable(iso, i, om, met, ens, hr){
+  // صفوف = النماذج، أعمدة = المواقع (ملم)
+  let head = "<tr><th>النموذج (ملم)</th>" + LOCS.map(l=>`<th>${l.short}</th>`).join("") + "</tr>";
+  const rowNames = [...OM_MODELS.map(m=>m.name), "MET Norway (نرويجي)"];
+  const cells = LOCS.map((l,li)=> detDay(om?om[li]:null, met[li], iso, i).models);
+  let rows = rowNames.map((nm,mi)=>{
+    const tds = cells.map(ms=>{
+      const m = ms[mi];
+      return `<td>${m.mm!==null ? m.mm.toFixed(1)+(m.partial?"*":"") : "—"}</td>`;
+    }).join("");
+    return `<tr><td class="mname">${nm}</td>${tds}</tr>`;
+  }).join("");
+  // صف الجماعية: وسيط | أقصى
+  const ensTds = LOCS.map((l,li)=>{
+    const e = ensembleDay(ens?ens[li]:null, i);
+    return `<td>${e.med!==null ? e.med.toFixed(1)+" | "+e.max.toFixed(1) : "—"}</td>`;
+  }).join("");
+  rows += `<tr><td class="mname">الجماعية: وسيط | أقصى عضو</td>${ensTds}</tr>`;
+  const clTds = LOCS.map((l,li)=>{
+    const dd = detDay(om?om[li]:null, met[li], iso, i);
+    const cd = cloudDaytime(hr ? hr[li] : null, iso);
+    const c = cd!==null ? cd : dd.cloud;
+    return `<td>${c!==null ? Math.round(c)+"%" : "—"}</td>`;
+  }).join("");
+  rows += `<tr><td class="mname">☁️ الغطاء السحابي</td>${clTds}</tr>`;
+  const partial = cells.some(ms=>ms.some(m=>m.partial))
+    ? '<div class="note">* تغطية جزئية لليوم من MET Norway.</div>' : "";
+  return `<div class="dwrap"><table class="mini"><thead>${head}</thead><tbody>${rows}</tbody></table>${partial}</div>`;
+}
+
+function buildHourly(hr){
+  const grid = document.getElementById("hgrid");
+  grid.innerHTML = "";
+  if(!hr){ document.getElementById("hourlyCard").style.display="none"; return; }
+  // صف عناوين الساعات (كل 6 ساعات) من الموقع الأول
+  const times = hr[0].hourly.time;
+  const lbl = document.createElement("div"); lbl.className="hname"; lbl.textContent="";
+  const lbls = document.createElement("div"); lbls.className="hlabels";
+  for(let i=0;i<times.length;i+=6){
+    const t = times[i].slice(5,16).replace("T"," ");
+    lbls.innerHTML += `<span>${t.slice(6)}٬${t.slice(3,5)}/${t.slice(0,2)}</span>`;
+  }
+  grid.appendChild(lbl); grid.appendChild(lbls);
+  LOCS.forEach((l,li)=>{
+    const h = hr[li].hourly;
+    const nameEl = document.createElement("div");
+    nameEl.className="hname"; nameEl.textContent = l.short;
+    const strip = document.createElement("div"); strip.className="strip";
+    h.time.forEach((t,i)=>{
+      const p = num(h.precipitation_probability[i]) ?? 0;
+      const mm = num(h.precipitation[i]) ?? 0;
+      const cape = num(h.cape[i]) ?? 0;
+      const c = document.createElement("span");
+      c.className = "hc" + (p>=60?" h3":p>=40?" h2":p>=20?" h1":"") + (cape>=CAPE_ZAP && p>=20 ? " zap":"");
+      c.title = `${l.short} — ${t.replace("T"," ")}\nاحتمال: ${p}% · كمية: ${mm.toFixed(1)} ملم · CAPE: ${Math.round(cape)}`;
+      strip.appendChild(c);
+    });
+    grid.appendChild(nameEl); grid.appendChild(strip);
+    // شريط الغطاء السحابي
+    const cName = document.createElement("div");
+    cName.className="hname cloud"; cName.textContent="☁️";
+    const cStrip = document.createElement("div"); cStrip.className="strip";
+    h.time.forEach((t,i)=>{
+      const cv = num(h.cloud_cover[i]) ?? 0;
+      const c = document.createElement("span");
+      c.className = "cc" + (cv>=80?" c4":cv>=60?" c3":cv>=40?" c2":cv>=20?" c1":"");
+      c.title = `${l.short} — ${t.replace("T"," ")}\nغطاء سحابي: ${cv}%`;
+      cStrip.appendChild(c);
+    });
+    grid.appendChild(cName); grid.appendChild(cStrip);
+  });
+  document.getElementById("hourlyCard").style.display="block";
+}
+
+async function load(){
+  const st = document.getElementById("status");
+  st.className="status"; st.style.display="block";
+  st.textContent = "…جارٍ جلب البيانات من المصادر";
+  for(const id of ["summary","tableCard","srcCard","hourlyCard"])
+    document.getElementById(id).style.display="none";
+
+  const metOpts = LOCS.map(l => fetchJSON(urlMet(l)).then(aggregateMet));
+  const [omR, ensR, hrR, ...metR] = await Promise.allSettled([
+    fetchJSON(URL_OM), fetchJSON(URL_ENS), fetchJSON(URL_HR), ...metOpts
+  ]);
+  const om  = omR.status==="fulfilled" ? omR.value : null;
+  const ens = ensR.status==="fulfilled" ? ensR.value : null;
+  const hr  = hrR.status==="fulfilled" ? hrR.value : null;
+  const met = metR.map(r => r.status==="fulfilled" ? r.value : null);
+  const metOkN = met.filter(Boolean).length;
+
+  document.getElementById("srcChips").innerHTML =
+    chip("الجماعية (133 عضواً)", !!ens, ens?"":"· "+(ensR.reason&&ensR.reason.message)) +
+    chip("النماذج الحتمية (6)", !!om, om?"":"· "+(omR.reason&&omR.reason.message)) +
+    chip("MET Norway", metOkN>0, "· "+metOkN+"/4 مواقع") +
+    chip("الساعي + CAPE", !!hr, "");
+  document.getElementById("srcCard").style.display="block";
+
+  if(!om && !ens){
+    st.className="status err";
+    st.textContent = "تعذّر جلب البيانات من المصادر الرئيسية — تأكد من الاتصال ثم اضغط تحديث.";
+    return;
+  }
+
+  // رأس الجدول: عمود لكل موقع
+  document.getElementById("thRow").innerHTML =
+    "<th>التاريخ</th>" + LOCS.map(l=>`<th class="loc">${l.name}<small>${l.elev}</small></th>`).join("");
+
+  const dates = om ? om[0].daily.time : ens[0].daily.time;
+  const oldTrend = loadTrend();
+  const curTrend = {t: Date.now(), p: LOCS.map(()=>({}))};
+  const tb = document.querySelector("#tbl tbody");
+  tb.innerHTML = "";
+  const hiList = [];
+
+  dates.forEach((iso,i)=>{
+    const tr = document.createElement("tr");
+    let cellsHtml = `<td class="day">${fmtDate(iso)}</td>`;
+    LOCS.forEach((l,li)=>{
+      const e = ensembleDay(ens?ens[li]:null, i);
+      const dd = detDay(om?om[li]:null, met[li], iso, i);
+      curTrend.p[li][iso] = e.p;
+      const strong = (e.p!==null && e.p>=60) ||
+                     (dd.avail>=3 && dd.wet/dd.avail>=0.6 && dd.wet>=3);
+      if(strong) hiList.push({iso, loc:l.name, p:e.p, wet:dd.wet, avail:dd.avail});
+      const pTxt = e.p!==null ? e.p+"%" : (dd.avail? "—" : "—");
+      const consCls = (dd.avail && dd.wet/dd.avail>=0.6 && dd.wet>=2) ? "cons hi" : "cons";
+      // الكمية المتوقعة (متوسط الجماعية) والغطاء السحابي (نهاري إن توفر وإلا يومي)
+      const mmTxt = (e.mean!==null && e.mean!==undefined && e.mean>=0.1) ? "≈"+e.mean.toFixed(1)+"ملم" : "";
+      const cd = cloudDaytime(hr?hr[li]:null, iso);
+      const cloud = cd!==null ? cd : dd.cloud;
+      const clTxt = cloud!==null ? "☁️"+Math.round(cloud)+"%" : "";
+      const mid = [mmTxt, clTxt].filter(Boolean).join(" · ");
+      cellsHtml += `<td class="cell${strong?' strong':''}">`
+        + `<span class="ep ${eClass(e.p)}">${pTxt}${trendArrow(oldTrend, li, iso, e.p)}</span>`
+        + (mid ? `<span class="mmc">${mmTxt}${mmTxt&&clTxt?" · ":""}<span class="cl">${clTxt}</span></span>` : "")
+        + `<span class="${consCls}">${dd.avail ? "إجماع "+dd.wet+"/"+dd.avail : "&nbsp;"}</span>`
+        + `</td>`;
+    });
+    tr.innerHTML = cellsHtml;
+    tb.appendChild(tr);
+
+    const trD = document.createElement("tr");
+    trD.className="detail"; trD.style.display="none";
+    trD.innerHTML = `<td colspan="${1+LOCS.length}">${detailTable(iso,i,om,met,ens,hr)}</td>`;
+    tb.appendChild(trD);
+    tr.querySelector("td.day").addEventListener("click", ()=>{
+      const open = trD.style.display!=="none";
+      trD.style.display = open ? "none" : "";
+      tr.classList.toggle("open", !open);
+    });
+  });
+  saveTrend(curTrend);
+
+  // الخلاصة: أعلى (موقع، يوم) خلال الأسبوع
+  const sum = document.getElementById("summary");
+  const wk = [];
+  dates.slice(0,7).forEach((iso,i)=>{
+    LOCS.forEach((l,li)=>{
+      const e = ensembleDay(ens?ens[li]:null, i);
+      if(e.p!==null) wk.push({iso, loc:l.name, p:e.p});
+    });
+  });
+  wk.sort((a,b)=>b.p-a.p);
+  let html = "<b>الخلاصة:</b> ";
+  const top = wk.filter(x=>x.p>=20).slice(0,4)
+    .map(x=>`${x.loc} ${fmtDate(x.iso)} (${x.p}%)`).join("، ");
+  html += top ? `أعلى الفرص خلال الأسبوع: ${top}.`
+              : "لا فرص هطول تُذكر خلال الأسبوع القادم في المواقع الأربعة.";
+  html += hiList.length
+    ? ` خلايا الفرصة القوية (مظللة): ${hiList.length}.`
+    : " لا توجد خلايا فرصة قوية حالياً.";
+  if(oldTrend===null && !loadTrend())
+    html += ' <span class="note">(أسهم التغيّر ↑↓ ستظهر بدءاً من التحديث القادم بعد حفظ مرجع أول)</span>';
+  sum.innerHTML = html;
+  sum.style.display="block";
+
+  buildHourly(hr);
+
+  document.getElementById("tableCard").style.display="block";
+  st.style.display="none";
+  document.getElementById("updated").textContent =
+    "آخر تحديث: " + new Date().toLocaleString("ar-SA");
+}
+load();
+<\/script>
+</body>
+</html>
+
+  </script>
 
 </body>
 
