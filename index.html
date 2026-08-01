@@ -5,7 +5,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
   <meta name="theme-color" content="#667eea">
-  <meta name="app-version" content="1.8.0">
+  <meta name="app-version" content="1.9.0">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <title>المنظم</title>
@@ -5564,7 +5564,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>أمطار السروات — الباحة · المندق · ميسان · الشفا</title>
+<title>أمطار السروات — لوحة مواقع الجنوب</title>
 <style>
   :root{
     --bg:#0f172a; --card:#1e293b; --line:#334155; --txt:#e2e8f0;
@@ -5651,15 +5651,46 @@
   .ver{color:var(--muted);font-size:.7rem;margin-top:8px}
   .models td{font-size:.74rem;padding:5px}
   .models th{font-size:.68rem}
+  /* الإعدادات */
+  button.ghost{background:var(--chip);color:var(--txt);border:1px solid var(--line)}
+  button.sm{padding:4px 10px;font-size:.72rem;border-radius:8px}
+  button.danger{background:var(--bad);color:#fff}
+  hr.sep{border:0;border-top:1px solid var(--line);margin:12px 0}
+  .checks{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0 2px}
+  label.chk{display:inline-flex;align-items:center;gap:6px;background:var(--chip);
+    border:1px solid var(--line);border-radius:999px;padding:4px 12px;
+    font-size:.78rem;cursor:pointer;user-select:none;-webkit-tap-highlight-color:transparent}
+  label.chk input{accent-color:var(--accent);margin:0}
+  label.chk.on{border-color:var(--accent)}
+  details.sv{border:1px solid var(--line);border-radius:10px;padding:6px 10px;margin:6px 0;background:var(--sub)}
+  details.sv summary{cursor:pointer;font-size:.8rem;font-weight:700;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  details.sv summary .note{font-weight:400}
 </style>
 </head>
 <body>
-  <h1>🌧️ أمطار السروات — 4 مواقع في لوحة واحدة</h1>
-  <div class="sub">الباحة · المندق · ميسان · الشفا (الطائف) — احتمالية جماعية من 133 عضو تنبؤ + إجماع 7 نماذج · توقيت الرياض · اضغط أي تاريخ لتفاصيل النماذج</div>
+  <h1 id="mainTitle">🌧️ أمطار السروات</h1>
+  <div class="sub" id="subLine"></div>
 
   <div class="bar">
     <button onclick="load()">🔄 تحديث الآن</button>
+    <button class="ghost" onclick="toggleWSettings()">⚙️ الإعدادات</button>
     <span id="updated" class="note"></span>
+  </div>
+
+  <!-- إعدادات تطبيق الأمطار: المدن المعروضة + أيام الحفظ المحلي + مراجعة المحفوظ -->
+  <div id="setCard" class="card" style="display:none">
+    <h2>⚙️ الإعدادات</h2>
+    <b class="note" style="color:var(--txt)">🏙️ المدن المعروضة</b>
+    <div class="note">فعّل أو عطّل أي مدينة — يُحفظ اختيارك محلياً ويُعاد تحميل البيانات مباشرةً.</div>
+    <div id="cityChecks" class="checks"></div>
+    <div class="note" id="cityWarn" style="display:none;color:var(--bad);font-weight:700">يجب إبقاء مدينة واحدة على الأقل مفعّلة.</div>
+    <hr class="sep">
+    <b class="note" style="color:var(--txt)">💾 حفظ بيانات أيام محددة محلياً</b>
+    <div class="note">اختر الأيام التي تريد أرشفة توقعاتها: تُحفظ لقطة من بيانات كل مدينة مفعّلة تلقائياً مع كل تحديث (بحد أدنى ٣٠ دقيقة بين اللقطات) لمراجعتها لاحقاً.</div>
+    <div id="dayChecks" class="checks"></div>
+    <hr class="sep">
+    <b class="note" style="color:var(--txt)">📂 البيانات المحفوظة</b>
+    <div id="savedList"></div>
   </div>
 
   <div id="status" class="status">…جارٍ جلب البيانات من المصادر</div>
@@ -5716,7 +5747,7 @@
         </tbody>
       </table>
     </div>
-    <div class="note" style="margin-top:6px">المواقع (الإحداثيات موثقة من OpenStreetMap والترميز الجغرافي): الباحة 20.013، 41.468 (2180م) · المندق 20.111، 41.283 (2146م) · ميسان 20.737، 40.839 (2228م) · الشفا 21.073، 40.318 (2228م).</div>
+    <div class="note" style="margin-top:6px" id="coordNote"></div>
   </div>
 
   <div class="card note">
@@ -5728,7 +5759,7 @@
       <li>زخات الصيف في السروات عصرية محلية جداً؛ شريط التوقيت يبين ساعة الذروة المرجحة لكل موقع.</li>
       <li>للإنذارات الرسمية المعتمدة: <a href="https://ncm.gov.sa" target="_blank" rel="noopener">المركز الوطني للأرصاد (ncm.gov.sa)</a>.</li>
     </ul>
-    <div class="ver">Open-Meteo (Forecast + Ensemble APIs) · MET Norway API · الإصدار 3.2.0</div>
+    <div class="ver">Open-Meteo (Forecast + Ensemble APIs) · MET Norway API · الإصدار 3.3.0</div>
   </div>
 
 <script>
@@ -5737,16 +5768,35 @@ const TZ = "Asia/Riyadh", TZ_OFFSET_H = 3;
 const RAIN_MM = 0.5;       // عتبة "يتوقع هطولاً" للأعضاء والنماذج
 const MET_FULL_H = 18;     // اكتمال تغطية يوم MET
 const CAPE_ZAP = 1000;     // عتبة القابلية الرعدية
-const TREND_KEY = "sarawat_rain_trend_v3";
+const TREND_KEY = "sarawat_rain_trend_v4";   /* v4: مفاتيح بأسماء المدن لا بترتيبها */
 const TREND_MIN_AGE_MIN = 30, TREND_DELTA = 10;
+const CITY_KEY = "sarawat_cities_v1";        /* تفعيل/تعطيل المدن */
+const SAVED_DAYS_KEY = "sarawat_saved_days_v1"; /* الأيام المختارة للحفظ المحلي */
+const SAVED_DATA_KEY = "sarawat_saved_data_v1"; /* لقطات البيانات المحفوظة */
+const SNAP_MIN_GAP_MIN = 30, SNAP_MAX = 40;  /* حد أدنى بين اللقطات وسقف لكل يوم */
 
-const LOCS = [
-  {name:"الباحة",  short:"الباحة",  lat:20.0129, lon:41.4677, elev:"2180م"},
-  {name:"المندق",  short:"المندق",  lat:20.1105, lon:41.2828, elev:"2146م"},
-  {name:"ميسان",   short:"ميسان",   lat:20.7372, lon:40.8387, elev:"2228م"},
-  {name:"الشفا",   short:"الشفا",   lat:21.0727, lon:40.3184, elev:"2228م"},
+/* كل المواقع المتاحة — def يحدد الحالة الافتراضية قبل أي اختيار من الإعدادات */
+const ALL_LOCS = [
+  {name:"الباحة",    short:"الباحة",    lat:20.0129, lon:41.4677, elev:"2180م", def:true},
+  {name:"المندق",    short:"المندق",    lat:20.1105, lon:41.2828, elev:"2146م", def:true},
+  {name:"ميسان",     short:"ميسان",     lat:20.7372, lon:40.8387, elev:"2228م", def:true},
+  {name:"الشفا",     short:"الشفا",     lat:21.0727, lon:40.3184, elev:"2228م", def:true},
+  {name:"أبها",      short:"أبها",      lat:18.2465, lon:42.5117, elev:"2270م", def:false},
+  {name:"السودة",    short:"السودة",    lat:18.2745, lon:42.3646, elev:"2990م", def:false},
+  {name:"رجال ألمع", short:"رجال ألمع", lat:18.1996, lon:42.2685, elev:"1180م", def:false},
+  {name:"الداير",    short:"الداير",    lat:17.3520, lon:43.1102, elev:"1890م", def:false},
+  {name:"الريث",     short:"الريث",     lat:17.5406, lon:42.8524, elev:"920م",  def:false},
+  {name:"جازان",     short:"جازان",     lat:16.8894, lon:42.5511, elev:"5م",   def:false},
 ];
-const LATS = LOCS.map(l=>l.lat).join(","), LONS = LOCS.map(l=>l.lon).join(",");
+
+function loadJSON(k, fb){ try{ const s=localStorage.getItem(k); return s?JSON.parse(s):fb; }catch(e){ return fb; } }
+function storeJSON(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} }
+
+function cityPrefs(){ const p = loadJSON(CITY_KEY, {}); return (p && typeof p==="object" && !Array.isArray(p)) ? p : {}; }
+function cityEnabled(l){ const p = cityPrefs(); return (l.name in p) ? !!p[l.name] : l.def; }
+/* احتياط: لو عُطّل الكل بطريقة ما نعود للافتراضي كي لا تبقى اللوحة فارغة */
+function activeLocs(){ const a = ALL_LOCS.filter(cityEnabled); return a.length ? a : ALL_LOCS.filter(l=>l.def); }
+let LOCS = activeLocs();
 
 const OM_MODELS = [
   {key:"ecmwf_ifs025", name:"ECMWF (أوروبي)"},
@@ -5757,18 +5807,24 @@ const OM_MODELS = [
   {key:"ecmwf_aifs025_single", name:"AIFS (ذكاء اصطناعي)"},
 ];
 
-const URL_OM = "https://api.open-meteo.com/v1/forecast?latitude="+LATS+"&longitude="+LONS
+/* العناوين تُبنى عند كل جلب لأن قائمة المدن المفعّلة قد تتغير من الإعدادات */
+const latStr = () => LOCS.map(l=>l.lat).join(","), lonStr = () => LOCS.map(l=>l.lon).join(",");
+
+const urlOM = () => "https://api.open-meteo.com/v1/forecast?latitude="+latStr()+"&longitude="+lonStr()
   +"&daily=precipitation_sum,cloud_cover_mean,temperature_2m_max,temperature_2m_min,weathercode"
   +"&forecast_days=16&timezone="+encodeURIComponent(TZ)
   +"&models=best_match,"+OM_MODELS.map(m=>m.key).join(",");
 
-const URL_ENS = "https://ensemble-api.open-meteo.com/v1/ensemble?latitude="+LATS+"&longitude="+LONS
+const urlEns = () => "https://ensemble-api.open-meteo.com/v1/ensemble?latitude="+latStr()+"&longitude="+lonStr()
   +"&models=ecmwf_ifs025,gfs025,ecmwf_aifs025_ensemble&daily=precipitation_sum&forecast_days=15"
   +"&timezone="+encodeURIComponent(TZ);
 
-const URL_HR = "https://api.open-meteo.com/v1/forecast?latitude="+LATS+"&longitude="+LONS
+const urlHr = () => "https://api.open-meteo.com/v1/forecast?latitude="+latStr()+"&longitude="+lonStr()
   +"&hourly=precipitation_probability,precipitation,cape,cloud_cover&forecast_days=3"
   +"&timezone="+encodeURIComponent(TZ);
+
+/* Open-Meteo يعيد كائناً مفرداً (لا مصفوفة) عند طلب موقع واحد فقط */
+const asArr = x => x==null ? null : (Array.isArray(x) ? x : [x]);
 
 const urlMet = l => "https://api.met.no/weatherapi/locationforecast/2.0/compact?lat="+l.lat+"&lon="+l.lon;
 
@@ -5849,9 +5905,9 @@ function saveTrend(cur){
       localStorage.setItem(TREND_KEY, JSON.stringify(cur));
   }catch(e){}
 }
-function trendArrow(old, li, iso, p){
+function trendArrow(old, name, iso, p){
   if(old===null || p===null) return "";
-  const prev = old.p?.[li]?.[iso];
+  const prev = old.p?.[name]?.[iso];
   if(prev===undefined || prev===null) return "";
   const d = p - prev;
   if(d >= TREND_DELTA) return ` <span class="tr-up" title="ارتفع من ${prev}%">↑</span>`;
@@ -5953,7 +6009,10 @@ function buildHourly(hr){
   document.getElementById("hourlyCard").style.display="block";
 }
 
+let _loadSeq = 0;   /* يلغي نتيجة جلب قديم إذا أعاد المستخدم التحميل (مثلاً بعد تغيير المدن) */
 async function load(){
+  const seq = ++_loadSeq;
+  renderHeader();
   const st = document.getElementById("status");
   st.className="status"; st.style.display="block";
   st.textContent = "…جارٍ جلب البيانات من المصادر";
@@ -5962,18 +6021,19 @@ async function load(){
 
   const metOpts = LOCS.map(l => fetchJSON(urlMet(l)).then(aggregateMet));
   const [omR, ensR, hrR, ...metR] = await Promise.allSettled([
-    fetchJSON(URL_OM), fetchJSON(URL_ENS), fetchJSON(URL_HR), ...metOpts
+    fetchJSON(urlOM()), fetchJSON(urlEns()), fetchJSON(urlHr()), ...metOpts
   ]);
-  const om  = omR.status==="fulfilled" ? omR.value : null;
-  const ens = ensR.status==="fulfilled" ? ensR.value : null;
-  const hr  = hrR.status==="fulfilled" ? hrR.value : null;
+  if(seq !== _loadSeq) return;
+  const om  = omR.status==="fulfilled" ? asArr(omR.value) : null;
+  const ens = ensR.status==="fulfilled" ? asArr(ensR.value) : null;
+  const hr  = hrR.status==="fulfilled" ? asArr(hrR.value) : null;
   const met = metR.map(r => r.status==="fulfilled" ? r.value : null);
   const metOkN = met.filter(Boolean).length;
 
   document.getElementById("srcChips").innerHTML =
     chip("الجماعية (133 عضواً)", !!ens, ens?"":"· "+(ensR.reason&&ensR.reason.message)) +
     chip("النماذج الحتمية (6)", !!om, om?"":"· "+(omR.reason&&omR.reason.message)) +
-    chip("MET Norway", metOkN>0, "· "+metOkN+"/4 مواقع") +
+    chip("MET Norway", metOkN>0, "· "+metOkN+"/"+LOCS.length+" مواقع") +
     chip("الساعي + CAPE", !!hr, "");
   document.getElementById("srcCard").style.display="block";
 
@@ -5989,7 +6049,8 @@ async function load(){
 
   const dates = om ? om[0].daily.time : ens[0].daily.time;
   const oldTrend = loadTrend();
-  const curTrend = {t: Date.now(), p: LOCS.map(()=>({}))};
+  const curTrend = {t: Date.now(), p: {}};
+  LOCS.forEach(l => curTrend.p[l.name] = {});
   const tb = document.querySelector("#tbl tbody");
   tb.innerHTML = "";
   const hiList = [];
@@ -6000,7 +6061,7 @@ async function load(){
     LOCS.forEach((l,li)=>{
       const e = ensembleDay(ens?ens[li]:null, i);
       const dd = detDay(om?om[li]:null, met[li], iso, i);
-      curTrend.p[li][iso] = e.p;
+      curTrend.p[l.name][iso] = e.p;
       const strong = (e.p!==null && e.p>=60) ||
                      (dd.avail>=3 && dd.wet/dd.avail>=0.6 && dd.wet>=3);
       if(strong) hiList.push({iso, loc:l.name, p:e.p, wet:dd.wet, avail:dd.avail});
@@ -6013,7 +6074,7 @@ async function load(){
       const clTxt = cloud!==null ? "☁️"+Math.round(cloud)+"%" : "";
       const mid = [mmTxt, clTxt].filter(Boolean).join(" · ");
       cellsHtml += `<td class="cell${strong?' strong':''}">`
-        + `<span class="ep ${eClass(e.p)}">${pTxt}${trendArrow(oldTrend, li, iso, e.p)}</span>`
+        + `<span class="ep ${eClass(e.p)}">${pTxt}${trendArrow(oldTrend, l.name, iso, e.p)}</span>`
         + (mid ? `<span class="mmc">${mmTxt}${mmTxt&&clTxt?" · ":""}<span class="cl">${clTxt}</span></span>` : "")
         + `<span class="${consCls}">${dd.avail ? "إجماع "+dd.wet+"/"+dd.avail : "&nbsp;"}</span>`
         + `</td>`;
@@ -6047,7 +6108,7 @@ async function load(){
   const top = wk.filter(x=>x.p>=20).slice(0,4)
     .map(x=>`${x.loc} ${fmtDate(x.iso)} (${x.p}%)`).join("، ");
   html += top ? `أعلى الفرص خلال الأسبوع: ${top}.`
-              : "لا فرص هطول تُذكر خلال الأسبوع القادم في المواقع الأربعة.";
+              : "لا فرص هطول تُذكر خلال الأسبوع القادم في المواقع المختارة.";
   html += hiList.length
     ? ` خلايا الفرصة القوية (مظللة): ${hiList.length}.`
     : " لا توجد خلايا فرصة قوية حالياً.";
@@ -6058,11 +6119,186 @@ async function load(){
 
   buildHourly(hr);
 
+  captureSaved(dates, om, ens, hr, met);
+
   document.getElementById("tableCard").style.display="block";
   st.style.display="none";
   document.getElementById("updated").textContent =
     "آخر تحديث: " + new Date().toLocaleString("ar-SA");
 }
+
+/* ══════════ الترويسة الديناميكية حسب المدن المفعّلة ══════════ */
+function renderHeader(){
+  document.getElementById("mainTitle").textContent =
+    "🌧️ أمطار السروات — " + LOCS.length + (LOCS.length===1 ? " موقع" : " مواقع") + " في لوحة واحدة";
+  document.getElementById("subLine").textContent =
+    LOCS.map(l=>l.name).join(" · ")
+    + " — احتمالية جماعية من 133 عضو تنبؤ + إجماع 7 نماذج · توقيت الرياض · اضغط أي تاريخ لتفاصيل النماذج";
+  document.getElementById("coordNote").textContent =
+    "المواقع (الإحداثيات موثقة من OpenStreetMap والترميز الجغرافي): "
+    + LOCS.map(l=>`${l.name} ${l.lat}، ${l.lon} (${l.elev})`).join(" · ") + ".";
+}
+
+/* ══════════ الإعدادات: المدن المعروضة ══════════ */
+function toggleWSettings(){
+  const c = document.getElementById("setCard");
+  const show = c.style.display==="none";
+  if(show) renderSettings();
+  c.style.display = show ? "block" : "none";
+}
+function renderSettings(){ renderCityChecks(); renderDayChecks(); renderSavedList(); }
+
+function renderCityChecks(){
+  const box = document.getElementById("cityChecks");
+  box.innerHTML = "";
+  ALL_LOCS.forEach(l=>{
+    const on = cityEnabled(l);
+    const lab = document.createElement("label");
+    lab.className = "chk" + (on ? " on" : "");
+    const cb = document.createElement("input");
+    cb.type = "checkbox"; cb.checked = on;
+    cb.addEventListener("change", ()=>{
+      if(!cb.checked && activeLocs().length <= 1){
+        cb.checked = true;
+        const w = document.getElementById("cityWarn");
+        w.style.display = "block";
+        setTimeout(()=>{ w.style.display="none"; }, 2500);
+        return;
+      }
+      const p = cityPrefs(); p[l.name] = cb.checked; storeJSON(CITY_KEY, p);
+      LOCS = activeLocs();
+      renderCityChecks();
+      load();
+    });
+    lab.appendChild(cb);
+    lab.appendChild(document.createTextNode(l.name + " (" + l.elev + ")"));
+    box.appendChild(lab);
+  });
+}
+
+/* ══════════ الإعدادات: أيام الحفظ المحلي ══════════ */
+const riyadhISO = (offDays) => new Date(Date.now() + (TZ_OFFSET_H*3600e3) + (offDays||0)*86400e3)
+  .toISOString().slice(0,10);
+function savedDays(){ const a = loadJSON(SAVED_DAYS_KEY, []); return Array.isArray(a) ? a.filter(x=>typeof x==="string") : []; }
+
+function renderDayChecks(){
+  const box = document.getElementById("dayChecks");
+  box.innerHTML = "";
+  const today = riyadhISO(0);
+  /* ننظّف الاختيارات المنقضية (بيانات الأيام الماضية تبقى محفوظة حتى يحذفها المستخدم) */
+  const sel = new Set(savedDays().filter(x => x >= today));
+  storeJSON(SAVED_DAYS_KEY, [...sel]);
+  for(let i=0;i<16;i++){
+    const iso = riyadhISO(i);
+    const on = sel.has(iso);
+    const lab = document.createElement("label");
+    lab.className = "chk" + (on ? " on" : "");
+    const cb = document.createElement("input");
+    cb.type = "checkbox"; cb.checked = on;
+    cb.addEventListener("change", ()=>{
+      const cur = new Set(savedDays());
+      if(cb.checked) cur.add(iso); else cur.delete(iso);
+      storeJSON(SAVED_DAYS_KEY, [...cur].sort());
+      lab.className = "chk" + (cb.checked ? " on" : "");
+    });
+    lab.appendChild(cb);
+    lab.appendChild(document.createTextNode(fmtDate(iso)));
+    box.appendChild(lab);
+  }
+}
+
+/* لقطة بيانات للأيام المختارة — تُستدعى بعد كل جلب ناجح */
+function captureSaved(dates, om, ens, hr, met){
+  const sel = savedDays();
+  if(!sel.length) return;
+  const data = loadJSON(SAVED_DATA_KEY, {});
+  const store = (data && typeof data==="object" && !Array.isArray(data)) ? data : {};
+  const now = Date.now();
+  let changed = false;
+  sel.forEach(iso=>{
+    const i = dates.indexOf(iso);
+    if(i < 0) return;
+    const snaps = store[iso] = Array.isArray(store[iso]) ? store[iso] : [];
+    const last = snaps[snaps.length-1];
+    if(last && (now - last.t) < SNAP_MIN_GAP_MIN*60e3) return;
+    const cities = {};
+    LOCS.forEach((l,li)=>{
+      const e = ensembleDay(ens?ens[li]:null, i);
+      const dd = detDay(om?om[li]:null, met[li], iso, i);
+      const cd = cloudDaytime(hr?hr[li]:null, iso);
+      cities[l.name] = {
+        p: e.p,
+        mm: (e.mean!==null && e.mean!==undefined) ? +e.mean.toFixed(2) : null,
+        wet: dd.wet, avail: dd.avail,
+        tmax: dd.tmax, tmin: dd.tmin,
+        cloud: cd!==null ? cd : (dd.cloud!==null && dd.cloud!==undefined ? Math.round(dd.cloud) : null)
+      };
+    });
+    snaps.push({t: now, cities});
+    if(snaps.length > SNAP_MAX) snaps.splice(0, snaps.length - SNAP_MAX);
+    changed = true;
+  });
+  if(changed){
+    storeJSON(SAVED_DATA_KEY, store);
+    if(document.getElementById("setCard").style.display !== "none") renderSavedList();
+  }
+}
+
+/* ══════════ مراجعة البيانات المحفوظة ══════════ */
+function renderSavedList(){
+  const box = document.getElementById("savedList");
+  const data = loadJSON(SAVED_DATA_KEY, {});
+  const store = (data && typeof data==="object" && !Array.isArray(data)) ? data : {};
+  const isos = Object.keys(store).filter(k=>Array.isArray(store[k]) && store[k].length).sort();
+  if(!isos.length){
+    box.innerHTML = '<div class="note">لا بيانات محفوظة بعد — اختر أياماً أعلاه وستُحفظ لقطاتها تلقائياً مع كل تحديث.</div>';
+    return;
+  }
+  box.innerHTML = "";
+  isos.forEach(iso=>{
+    const snaps = store[iso];
+    const det = document.createElement("details");
+    det.className = "sv";
+    const cityNames = [...new Set(snaps.flatMap(s=>Object.keys(s.cities||{})))];
+    const head = "<tr><th>وقت اللقطة</th>" + cityNames.map(n=>`<th>${n}</th>`).join("") + "</tr>";
+    const rows = snaps.map(s=>{
+      const tds = cityNames.map(n=>{
+        const c = (s.cities||{})[n];
+        if(!c) return "<td>—</td>";
+        const p = c.p!==null && c.p!==undefined ? c.p+"%" : "—";
+        const mm = c.mm!==null && c.mm!==undefined && c.mm>=0.1 ? "≈"+c.mm.toFixed(1)+"ملم" : "";
+        const t = (c.tmax!==null && c.tmax!==undefined && c.tmin!==null && c.tmin!==undefined)
+          ? "🌡"+Math.round(c.tmax)+"/"+Math.round(c.tmin) : "";
+        const cl = c.cloud!==null && c.cloud!==undefined ? "☁️"+c.cloud+"%" : "";
+        const cons = c.avail ? "إجماع "+c.wet+"/"+c.avail : "";
+        return `<td><span class="ep ${eClass(c.p)}" style="font-size:.8rem">${p}</span>`
+          + `<span class="mmc">${[mm,cl].filter(Boolean).join(" · ")||"&nbsp;"}</span>`
+          + `<span class="cons">${[t,cons].filter(Boolean).join(" · ")||"&nbsp;"}</span></td>`;
+      }).join("");
+      return `<tr><td class="mname">${new Date(s.t).toLocaleString("ar-SA",{dateStyle:"short",timeStyle:"short"})}</td>${tds}</tr>`;
+    }).join("");
+    det.innerHTML =
+      `<summary>📅 ${fmtDate(iso)} <span class="note">(${snaps.length} لقطة)</span></summary>`
+      + `<div class="wrap" style="margin-top:6px"><table class="mini"><thead>${head}</thead><tbody>${rows}</tbody></table></div>`
+      + `<div style="margin-top:6px"><button class="sm danger" data-del="${iso}">🗑️ حذف بيانات هذا اليوم</button></div>`;
+    det.querySelector("[data-del]").addEventListener("click", ()=>{
+      delete store[iso];
+      storeJSON(SAVED_DATA_KEY, store);
+      renderSavedList();
+    });
+    box.appendChild(det);
+  });
+  const clr = document.createElement("button");
+  clr.className = "sm danger";
+  clr.style.marginTop = "6px";
+  clr.textContent = "🗑️ حذف كل البيانات المحفوظة";
+  clr.addEventListener("click", ()=>{
+    storeJSON(SAVED_DATA_KEY, {});
+    renderSavedList();
+  });
+  box.appendChild(clr);
+}
+
 load();
 <\/script>
 </body>
