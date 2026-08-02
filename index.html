@@ -5,7 +5,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
   <meta name="theme-color" content="#667eea">
-  <meta name="app-version" content="1.10.0">
+  <meta name="app-version" content="1.10.2">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <title>المنظم</title>
@@ -2687,7 +2687,8 @@
         }
         /* result = 'same' (لا يوجد تحديث) أو 'updated' (تم التحديث) */
         if (result === 'same') {
-          _setUpdateStatus('✅ التطبيق محدَّث — لا يوجد إصدار جديد', '#86efac');
+          _setUpdateStatus('✅ المحتوى محدَّث — جارٍ فحص تحديث التطبيق...', '#86efac');
+          _manualApkCheck();
         } else {
           if (!_updateAllowed(newVer)) {
             _setUpdateStatus('⚠️ الإصدار المُنزَّل ليس أحدث — تم تجاهله', '#fbbf24');
@@ -2717,6 +2718,24 @@
       } catch (e) {
         onResult(null, String((e && e.message) || e));
       }
+    }
+
+    /* فحص تحديث APK يدوياً (يُستدعى بعد فحص المحتوى من زر «تحقق وحدّث»)
+       العنوان مثبَّت في الطبقة الأصلية؛ الممرَّر هنا يُتجاهل هناك */
+    function _manualApkCheck() {
+      const fsb = window.AndroidFS;
+      if (!fsb || typeof fsb.checkAndInstallApk !== 'function') {
+        _setUpdateStatus('✅ التطبيق محدَّث — لا يوجد إصدار جديد', '#86efac');
+        return;
+      }
+      window._apkManualCb = function (result, err) {
+        if (result === 'downloading') _setUpdateStatus('⬇️ يوجد تحديث للتطبيق — جارٍ تنزيله...', '#a78bfa');
+        else if (result === 'prompt') _setUpdateStatus('📦 اضغط «تثبيت» لإكمال تحديث التطبيق', '#86efac');
+        else if (result === 'same') _setUpdateStatus('✅ التطبيق والمحتوى محدَّثان — لا يوجد جديد', '#86efac');
+        else if (err) _setUpdateStatus('⚠️ تعذّر فحص تحديث التطبيق: ' + err, '#fbbf24');
+      };
+      try { fsb.checkAndInstallApk('https://raw.githubusercontent.com/sulasm/MyNotes-releases/main/latest.json', 'window._apkManualCb'); }
+      catch (e) { _setUpdateStatus('⚠️ تعذّر فحص تحديث التطبيق', '#fbbf24'); }
     }
 
     function clearUpdate() {
@@ -5472,7 +5491,20 @@
     }
     setTimeout(_autoUpdateHtmlOnLaunch, 3500);
     setTimeout(_autoUpdateApkOnLaunch, 6500);
-    document.addEventListener('visibilitychange', () => { if (!document.hidden) setTimeout(_scheduleReminders, 500); });
+    /* إعادة الفحص عند العودة للتطبيق من الخلفية: الفحص عند الإقلاع يعمل مرة واحدة،
+       فإذا بقي التطبيق في الذاكرة أياماً لا يصله أي تحديث — نعيد الفحص كل 6 ساعات كحد أقصى */
+    const _UPD_RECHECK_MS = 6 * 3600e3;
+    window._lastUpdCheckT = Date.now();
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) return;
+      setTimeout(_scheduleReminders, 500);
+      if (Date.now() - window._lastUpdCheckT >= _UPD_RECHECK_MS) {
+        window._lastUpdCheckT = Date.now();
+        window._htmlAutoChecked = false; window._apkAutoChecked = false;
+        setTimeout(_autoUpdateHtmlOnLaunch, 1500);
+        setTimeout(_autoUpdateApkOnLaunch, 4500);
+      }
+    });
 
   </script>
 
@@ -5745,7 +5777,7 @@
     <div class="note" style="margin-top:8px">
       <b>الرقم الكبير:</b> الاحتمال الجماعي = نسبة أعضاء ECMWF ENS (51) + GEFS (31) + AIFS ENS (51) الذين يتوقعون ≥0.5 ملم —
       الطريقة العلمية المعتمدة لحساب احتمال المطر ·
-      <b>≈ملم:</b> الكمية المتوقعة (متوسط أعضاء الجماعية) · <b>☁️:</b> الغطاء السحابي النهاري (6ص–6م لأول 3 أيام، ثم متوسط اليوم) ·
+      <b>≈ملم:</b> الكمية المتوقعة (متوسط أعضاء الجماعية) · <b>☁️:</b> الغطاء السحابي النهاري (6ص–6م لأول 3 أيام)، وبعدها متوسط اليوم كاملاً بليله عبر النماذج الحتمية المتوفرة — لذا يبدو منخفضاً في أيام السحب العصرية، وقد يخالف الاحتمال الجماعي في المدى البعيد لاختلاف المصدر ·
       <b>الإجماع:</b> النماذج الحتمية السبعة ·
       <b>↑↓</b> تغيّر الاحتمال ≥10% منذ آخر تحديث محفوظ · الخلفية الذهبية = فرصة قوية.
     </div>
@@ -5919,10 +5951,18 @@ function detDay(omLoc, metDays, iso, i){
     mm:(mr && mr.coveredH>0)?mr.mm:null,
     partial:!!(mr && mr.coveredH>0 && mr.coveredH<MET_FULL_H)});
   const avail = models.filter(m=>m.mm!==null);
+  /* الغطاء السحابي: متوسط كل النماذج المتوفرة بدل نموذج واحد —
+     قراءة نموذج مفرد في المدى البعيد تتذبذب وتناقض الاحتمال الجماعي */
+  const clVals = [];
+  ["best_match", ...OM_MODELS.map(m=>m.key)].forEach(k=>{
+    const v = g("cloud_cover_mean", k); if(v!==null) clVals.push(v);
+  });
   return {models,
     wet: avail.filter(m=>m.mm>=RAIN_MM).length, avail: avail.length,
     tmax:g("temperature_2m_max","best_match"), tmin:g("temperature_2m_min","best_match"),
-    code:g("weathercode","best_match"), cloud:g("cloud_cover_mean","best_match")};
+    code:g("weathercode","best_match"),
+    cloud: clVals.length ? clVals.reduce((a,b)=>a+b,0)/clVals.length : null,
+    cloudN: clVals.length};
 }
 
 // ===== تتبّع التغيّر (تخزين محلي — يتجاهل بصمت إن لم يتوفر) =====
