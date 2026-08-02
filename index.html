@@ -5,7 +5,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
   <meta name="theme-color" content="#667eea">
-  <meta name="app-version" content="1.10.2">
+  <meta name="app-version" content="1.11.0">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <title>المنظم</title>
@@ -5808,6 +5808,7 @@
           <tr><td>ECMWF · GFS · ICON · GEM · UKMO · AIFS</td><td>أوروبي · أمريكي · ألماني · كندي · بريطاني · ذكاء اصطناعي</td><td rowspan="2">إجماع الكميات (السطر الصغير) وتفاصيل النقر</td><td>6–16 يوماً</td></tr>
           <tr><td>MET Norway (Yr)</td><td>النرويجية — مزوّد مستقل</td><td>~9 أيام</td></tr>
           <tr><td>الساعي: احتمال + كمية + CAPE + غطاء سحابي</td><td>Open-Meteo (أفضل نموذج)</td><td>توقيت الزخات والقابلية الرعدية</td><td>72 ساعة</td></tr>
+          <tr><td>الحرارة المحسوسة + نقطة الندى (التكثف)</td><td>Open-Meteo (أفضل نموذج)</td><td>الراحة الحرارية — في تفاصيل النقر على التاريخ</td><td>16 يوماً</td></tr>
         </tbody>
       </table>
     </div>
@@ -5851,6 +5852,7 @@ const ALL_LOCS = [
   {name:"الداير",    short:"الداير",    lat:17.3520, lon:43.1102, elev:"1890م", def:false},
   {name:"الريث",     short:"الريث",     lat:17.5406, lon:42.8524, elev:"920م",  def:false},
   {name:"جازان",     short:"جازان",     lat:16.8894, lon:42.5511, elev:"5م",   def:false},
+  {name:"أملج",      short:"أملج",      lat:25.0213, lon:37.2685, elev:"10م",  def:false},
 ];
 
 function loadJSON(k, fb){ try{ const s=localStorage.getItem(k); return s?JSON.parse(s):fb; }catch(e){ return fb; } }
@@ -5886,6 +5888,19 @@ const urlEns = () => "https://ensemble-api.open-meteo.com/v1/ensemble?latitude="
 const urlHr = () => "https://api.open-meteo.com/v1/forecast?latitude="+latStr()+"&longitude="+lonStr()
   +"&hourly=precipitation_probability,precipitation,cape,cloud_cover&forecast_days=3"
   +"&timezone="+encodeURIComponent(TZ);
+
+/* الراحة الحرارية: الحرارة المحسوسة ونقطة الندى (التكثف) — طلب منفصل كي لا يُسقط
+   فشلُه الجدولَ الرئيسي؛ وإن رفض الخادم متغير نقطة الندى نعيد الطلب بالمحسوسة فقط */
+const urlCmf = withDew => "https://api.open-meteo.com/v1/forecast?latitude="+latStr()+"&longitude="+lonStr()
+  +"&daily=apparent_temperature_max,apparent_temperature_min"+(withDew?",dew_point_2m_mean":"")
+  +"&forecast_days=16&timezone="+encodeURIComponent(TZ);
+async function fetchComfort(){
+  try { return asArr(await fetchJSON(urlCmf(true))); }
+  catch(e){
+    try { return asArr(await fetchJSON(urlCmf(false))); }
+    catch(e2){ return null; }
+  }
+}
 
 /* Open-Meteo يعيد كائناً مفرداً (لا مصفوفة) عند طلب موقع واحد فقط */
 const asArr = x => x==null ? null : (Array.isArray(x) ? x : [x]);
@@ -6007,7 +6022,7 @@ async function fetchJSON(url, opt){
 const chip = (name, ok, extra) =>
   `<span class="chip">${name}: <span class="${ok?'st-ok':'st-bad'}">${ok?"✓":"✗"}</span>${extra?` ${extra}`:""}</span>`;
 
-function detailTable(iso, i, om, met, ens, hr){
+function detailTable(iso, i, om, met, ens, hr, cmf){
   // صفوف = النماذج، أعمدة = المواقع (ملم)
   let head = "<tr><th>النموذج (ملم)</th>" + LOCS.map(l=>`<th>${l.short}</th>`).join("") + "</tr>";
   const rowNames = [...OM_MODELS.map(m=>m.name), "MET Norway (نرويجي)"];
@@ -6032,6 +6047,18 @@ function detailTable(iso, i, om, met, ens, hr){
     return `<td>${c!==null ? Math.round(c)+"%" : "—"}</td>`;
   }).join("");
   rows += `<tr><td class="mname">☁️ الغطاء السحابي</td>${clTds}</tr>`;
+  /* الراحة الحرارية: المحسوسة عظمى/صغرى + نقطة الندى (التكثف) */
+  const gCmf = (li,v) => { const c = cmf?cmf[li]:null; return num(c && c.daily && c.daily[v] ? c.daily[v][i] : null); };
+  const apTds = LOCS.map((l,li)=>{
+    const ax = gCmf(li,"apparent_temperature_max"), an = gCmf(li,"apparent_temperature_min");
+    return `<td>${(ax!==null&&an!==null) ? Math.round(ax)+" / "+Math.round(an) : "—"}</td>`;
+  }).join("");
+  rows += `<tr><td class="mname">🌡 المحسوسة عظمى/صغرى (°م)</td>${apTds}</tr>`;
+  const dwTds = LOCS.map((l,li)=>{
+    const v = gCmf(li,"dew_point_2m_mean");
+    return `<td>${v!==null ? Math.round(v)+"°" : "—"}</td>`;
+  }).join("");
+  rows += `<tr><td class="mname">💧 نقطة الندى — التكثف (°م)</td>${dwTds}</tr>`;
   const partial = cells.some(ms=>ms.some(m=>m.partial))
     ? '<div class="note">* تغطية جزئية لليوم من MET Norway.</div>' : "";
   return `<div class="dwrap"><table class="mini"><thead>${head}</thead><tbody>${rows}</tbody></table>${partial}</div>`;
@@ -6092,13 +6119,14 @@ async function load(){
     document.getElementById(id).style.display="none";
 
   const metOpts = LOCS.map(l => fetchJSON(urlMet(l)).then(aggregateMet));
-  const [omR, ensR, hrR, ...metR] = await Promise.allSettled([
-    fetchJSON(urlOM()), fetchJSON(urlEns()), fetchJSON(urlHr()), ...metOpts
+  const [omR, ensR, hrR, cmfR, ...metR] = await Promise.allSettled([
+    fetchJSON(urlOM()), fetchJSON(urlEns()), fetchJSON(urlHr()), fetchComfort(), ...metOpts
   ]);
   if(seq !== _loadSeq) return;
   const om  = omR.status==="fulfilled" ? asArr(omR.value) : null;
   const ens = ensR.status==="fulfilled" ? asArr(ensR.value) : null;
   const hr  = hrR.status==="fulfilled" ? asArr(hrR.value) : null;
+  const cmf = cmfR.status==="fulfilled" ? cmfR.value : null;   /* fetchComfort لا يرمي — null عند الفشل */
   const met = metR.map(r => r.status==="fulfilled" ? r.value : null);
   const metOkN = met.filter(Boolean).length;
 
@@ -6106,7 +6134,8 @@ async function load(){
     chip("الجماعية (133 عضواً)", !!ens, ens?"":"· "+(ensR.reason&&ensR.reason.message)) +
     chip("النماذج الحتمية (6)", !!om, om?"":"· "+(omR.reason&&omR.reason.message)) +
     chip("MET Norway", metOkN>0, "· "+metOkN+"/"+LOCS.length+" مواقع") +
-    chip("الساعي + CAPE", !!hr, "");
+    chip("الساعي + CAPE", !!hr, "") +
+    chip("المحسوسة ونقطة الندى", !!cmf, "");
   document.getElementById("srcCard").style.display="block";
 
   if(!om && !ens){
@@ -6156,7 +6185,7 @@ async function load(){
 
     const trD = document.createElement("tr");
     trD.className="detail"; trD.style.display="none";
-    trD.innerHTML = `<td colspan="${1+LOCS.length}">${detailTable(iso,i,om,met,ens,hr)}</td>`;
+    trD.innerHTML = `<td colspan="${1+LOCS.length}">${detailTable(iso,i,om,met,ens,hr,cmf)}</td>`;
     tb.appendChild(trD);
     tr.querySelector("td.day").addEventListener("click", ()=>{
       const open = trD.style.display!=="none";
@@ -6191,7 +6220,7 @@ async function load(){
 
   buildHourly(hr);
 
-  captureSaved(dates, om, ens, hr, met);
+  captureSaved(dates, om, ens, hr, met, cmf);
 
   document.getElementById("tableCard").style.display="block";
   st.style.display="none";
@@ -6280,7 +6309,7 @@ function renderDayChecks(){
 }
 
 /* لقطة بيانات للأيام المختارة — تُستدعى بعد كل جلب ناجح */
-function captureSaved(dates, om, ens, hr, met){
+function captureSaved(dates, om, ens, hr, met, cmf){
   const sel = savedDays();
   if(!sel.length) return;
   const data = loadJSON(SAVED_DATA_KEY, {});
@@ -6298,12 +6327,15 @@ function captureSaved(dates, om, ens, hr, met){
       const e = ensembleDay(ens?ens[li]:null, i);
       const dd = detDay(om?om[li]:null, met[li], iso, i);
       const cd = cloudDaytime(hr?hr[li]:null, iso);
+      const gc = v => { const c = cmf?cmf[li]:null; return num(c && c.daily && c.daily[v] ? c.daily[v][i] : null); };
       cities[l.name] = {
         p: e.p,
         mm: (e.mean!==null && e.mean!==undefined) ? +e.mean.toFixed(2) : null,
         wet: dd.wet, avail: dd.avail,
         tmax: dd.tmax, tmin: dd.tmin,
-        cloud: cd!==null ? cd : (dd.cloud!==null && dd.cloud!==undefined ? Math.round(dd.cloud) : null)
+        cloud: cd!==null ? cd : (dd.cloud!==null && dd.cloud!==undefined ? Math.round(dd.cloud) : null),
+        fmax: gc("apparent_temperature_max"), fmin: gc("apparent_temperature_min"),
+        dew: gc("dew_point_2m_mean")
       };
     });
     snaps.push({t: now, cities});
@@ -6343,9 +6375,14 @@ function renderSavedList(){
           ? "🌡"+Math.round(c.tmax)+"/"+Math.round(c.tmin) : "";
         const cl = c.cloud!==null && c.cloud!==undefined ? "☁️"+c.cloud+"%" : "";
         const cons = c.avail ? "إجماع "+c.wet+"/"+c.avail : "";
+        const feels = (c.fmax!==null && c.fmax!==undefined && c.fmin!==null && c.fmin!==undefined)
+          ? "محسوسة "+Math.round(c.fmax)+"/"+Math.round(c.fmin) : "";
+        const dew = (c.dew!==null && c.dew!==undefined) ? "💧ندى "+Math.round(c.dew)+"°" : "";
         return `<td><span class="ep ${eClass(c.p)}" style="font-size:.8rem">${p}</span>`
           + `<span class="mmc">${[mm,cl].filter(Boolean).join(" · ")||"&nbsp;"}</span>`
-          + `<span class="cons">${[t,cons].filter(Boolean).join(" · ")||"&nbsp;"}</span></td>`;
+          + `<span class="cons">${[t,cons].filter(Boolean).join(" · ")||"&nbsp;"}</span>`
+          + ((feels||dew) ? `<span class="cons">${[feels,dew].filter(Boolean).join(" · ")}</span>` : "")
+          + `</td>`;
       }).join("");
       return `<tr><td class="mname">${new Date(s.t).toLocaleString("ar-SA",{dateStyle:"short",timeStyle:"short"})}</td>${tds}</tr>`;
     }).join("");
