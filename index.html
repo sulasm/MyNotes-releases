@@ -5,7 +5,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
   <meta name="theme-color" content="#667eea">
-  <meta name="app-version" content="1.13.1">
+  <meta name="app-version" content="1.13.2">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <title>المنظم</title>
@@ -2044,7 +2044,7 @@
       <div id="fin-app-btn" onclick="openFinApp()" title="حاسبة التمويل الذكية"
         style="position:absolute;inset-inline-end:48px;bottom:1px;font-size:16px;padding:4px 10px;border-radius:8px;cursor:pointer;user-select:none;-webkit-tap-highlight-color:transparent;transition:background .15s;line-height:1.2;"
         onpointerdown="this.style.background='rgba(var(--ov),0.13)'" onpointerup="this.style.background=''" onpointerleave="this.style.background=''">🧮</div>
-      <div id="umluj-wx" onclick="openUmlujApp()" title="أملج الآن: الحرارة المحسوسة 🌡 ونقطة الندى 💧 — انقر للتفاصيل"
+      <div id="umluj-wx" onclick="openUmlujApp()" title="أملج الآن: الحرارة المحسوسة 🌡️ ونقطة الندى 💧 — انقر للتفاصيل"
         style="display:none;position:absolute;inset-inline-start:6px;bottom:1px;color:var(--tw);font-size:11px;font-weight:700;padding:6px 8px;border-radius:8px;cursor:pointer;user-select:none;-webkit-tap-highlight-color:transparent;line-height:1.2;white-space:nowrap;opacity:.95;"></div>
     </div>
 
@@ -3489,7 +3489,7 @@
     var _UMLUJ_FULL_URL = 'https://api.open-meteo.com/v1/forecast?latitude=25.0213&longitude=37.2685'
       + '&current=temperature_2m,apparent_temperature,dew_point_2m,relative_humidity_2m,wind_speed_10m'
       + '&daily=temperature_2m_max,temperature_2m_min,apparent_temperature_max,apparent_temperature_min,'
-      + 'dew_point_2m_mean,relative_humidity_2m_mean,wind_speed_10m_max,precipitation_sum,cloud_cover_mean,weathercode'
+      + 'dew_point_2m_max,dew_point_2m_min,dew_point_2m_mean,relative_humidity_2m_mean,wind_speed_10m_max,precipitation_sum,cloud_cover_mean,weathercode'
       + '&past_days=7&forecast_days=16&timezone=Asia%2FRiyadh';
     var _umlujFull = null, _umlujFullAt = 0;
 
@@ -3537,7 +3537,7 @@
           if (c && typeof c.apparent_temperature === 'number' && typeof c.dew_point_2m === 'number') {
             var el = document.getElementById('umluj-wx');
             if (el) {
-              el.textContent = 'أملج 🌡' + Math.round(c.apparent_temperature) + '° 💧' + Math.round(c.dew_point_2m) + '°';
+              el.textContent = 'أملج 🌡️' + Math.round(c.apparent_temperature) + '° 💧' + Math.round(c.dew_point_2m) + '°';
               el.style.display = 'block';
             }
             _umlujWxLast = Date.now();
@@ -3566,7 +3566,7 @@
       var html = '<div style="background:rgba(var(--ov),0.07);border:1px solid rgba(var(--ov),0.12);border-radius:14px;padding:12px 14px;margin-bottom:12px;">'
         + '<div style="font-size:13px;font-weight:700;color:var(--text-m);margin-bottom:8px;">الآن في أملج</div>'
         + '<div style="display:flex;flex-wrap:wrap;gap:14px;font-size:14px;font-weight:700;color:var(--tw);">'
-        + '<span>🌡 المحسوسة ' + rnd(cur.apparent_temperature) + '°</span>'
+        + '<span>🌡️ المحسوسة ' + rnd(cur.apparent_temperature) + '°</span>'
         + '<span>💧 الندى ' + rnd(cur.dew_point_2m) + '°</span>'
         + '<span>🌍 الفعلية ' + rnd(cur.temperature_2m) + '°</span>'
         + '<span>💦 الرطوبة ' + rnd(cur.relative_humidity_2m) + '%</span>'
@@ -3578,8 +3578,8 @@
         + '<table style="width:100%;border-collapse:collapse;font-size:12px;text-align:center;min-width:560px;">'
         + '<thead><tr style="color:var(--text-m);font-size:11px;">'
         + '<th style="padding:6px 4px;text-align:right;">التاريخ</th>'
-        + '<th style="padding:6px 4px;">🌡 المحسوسة<br>ع/ص</th>'
-        + '<th style="padding:6px 4px;">💧 الندى</th>'
+        + '<th style="padding:6px 4px;">🌡️ المحسوسة<br>ع/ص</th>'
+        + '<th style="padding:6px 4px;">💧 الندى<br>ع/ص</th>'
         + '<th style="padding:6px 4px;">الحرارة<br>ع/ص</th>'
         + '<th style="padding:6px 4px;">💦 الرطوبة</th>'
         + '<th style="padding:6px 4px;">🍃 الرياح</th>'
@@ -3598,7 +3598,9 @@
           + '<td style="padding:5px 4px;text-align:right;white-space:nowrap;">' + _umlujWmoIcon(g('weathercode', i)) + ' '
           + (isToday ? 'اليوم' : _umlujFmtDate(iso)) + (isPast && !isToday ? '' : '') + '</td>'
           + '<td style="padding:5px 4px;">' + rnd(g('apparent_temperature_max', i)) + ' / ' + rnd(g('apparent_temperature_min', i)) + '</td>'
-          + '<td style="padding:5px 4px;">' + rnd(g('dew_point_2m_mean', i)) + '°</td>'
+          + '<td style="padding:5px 4px;">' + ((g('dew_point_2m_max', i) !== null || g('dew_point_2m_min', i) !== null)
+            ? rnd(g('dew_point_2m_max', i)) + ' / ' + rnd(g('dew_point_2m_min', i))
+            : rnd(g('dew_point_2m_mean', i)) + '°') + '</td>'
           + '<td style="padding:5px 4px;">' + rnd(g('temperature_2m_max', i)) + ' / ' + rnd(g('temperature_2m_min', i)) + '</td>'
           + '<td style="padding:5px 4px;">' + rnd(g('relative_humidity_2m_mean', i)) + '%</td>'
           + '<td style="padding:5px 4px;">' + rnd(g('wind_speed_10m_max', i)) + '</td>'
@@ -3608,7 +3610,7 @@
       }
       html += '</tbody></table></div>'
         + '<div style="font-size:11px;color:var(--text-m);padding:10px 2px;">الأيام الباهتة = ماضية (قياسات/إعادة تحليل) · الرياح كم/س (أقصى اليوم) · '
-        + '<b>الندى والرطوبة والغطاء في الجدول متوسط اليوم كاملاً بليله</b> — لذا قد تختلف قيمة سطر «اليوم» عن قيمة «الآن» اللحظية أعلاه · المصدر: Open-Meteo · آخر جلب: '
+        + '<b>الندى في الجدول أعلى/أدنى اليوم، والرطوبة والغطاء متوسط اليوم كاملاً بليله</b> — لذا قد تختلف قيم سطر «اليوم» عن قيمة «الآن» اللحظية أعلاه · المصدر: Open-Meteo · آخر جلب: '
         + new Date(_umlujFullAt).toLocaleTimeString('ar-SA') + '</div>';
       body.innerHTML = html;
     }
@@ -6207,7 +6209,7 @@ function detailTable(iso, i, om, met, ens, hr, cmf){
     const ax = gCmf(li,"apparent_temperature_max"), an = gCmf(li,"apparent_temperature_min");
     return `<td>${(ax!==null&&an!==null) ? Math.round(ax)+" / "+Math.round(an) : "—"}</td>`;
   }).join("");
-  rows += `<tr><td class="mname">🌡 المحسوسة عظمى/صغرى (°م)</td>${apTds}</tr>`;
+  rows += `<tr><td class="mname">🌡️ المحسوسة عظمى/صغرى (°م)</td>${apTds}</tr>`;
   const dwTds = LOCS.map((l,li)=>{
     const v = gCmf(li,"dew_point_2m_mean");
     return `<td>${v!==null ? Math.round(v)+"°" : "—"}</td>`;
@@ -6526,7 +6528,7 @@ function renderSavedList(){
         const p = c.p!==null && c.p!==undefined ? c.p+"%" : "—";
         const mm = c.mm!==null && c.mm!==undefined && c.mm>=0.1 ? "≈"+c.mm.toFixed(1)+"ملم" : "";
         const t = (c.tmax!==null && c.tmax!==undefined && c.tmin!==null && c.tmin!==undefined)
-          ? "🌡"+Math.round(c.tmax)+"/"+Math.round(c.tmin) : "";
+          ? "🌡️"+Math.round(c.tmax)+"/"+Math.round(c.tmin) : "";
         const cl = c.cloud!==null && c.cloud!==undefined ? "☁️"+c.cloud+"%" : "";
         const cons = c.avail ? "إجماع "+c.wet+"/"+c.avail : "";
         const feels = (c.fmax!==null && c.fmax!==undefined && c.fmin!==null && c.fmin!==undefined)
