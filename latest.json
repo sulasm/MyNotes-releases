@@ -1,6 +1,6 @@
 {
-  "versionCode": 15,
-  "versionName": "1.13.0",
-  "apkUrl": "https://github.com/sulasm/MyNotes-releases/releases/download/android-v1.13.0-15/app-release.apk",
-  "sha256": "573615271a6377da0315284c0c15e876422b8566556c6fb49111cf5e78a15eb8"
+  "versionCode": 16,
+  "versionName": "1.13.1",
+  "apkUrl": "https://github.com/sulasm/MyNotes-releases/releases/download/android-v1.13.1-16/app-release.apk",
+  "sha256": "c1b3625dd786072ba22eab00c6d74a67893cbe86edabbfce76a70732f231141f"
 }
