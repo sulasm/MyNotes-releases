@@ -5,7 +5,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
   <meta name="theme-color" content="#667eea">
-  <meta name="app-version" content="1.13.0">
+  <meta name="app-version" content="1.13.1">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <title>المنظم</title>
@@ -3470,24 +3470,11 @@
        يُجلب من Open-Meteo (current) ويتحدث كل 30 دقيقة وعند العودة للتطبيق؛
        يبقى مخفياً حتى أول جلب ناجح ويفشل بصمت دون إنترنت.
     ══════════════════════════════════════ */
-    var _UMLUJ_WX_URL = 'https://api.open-meteo.com/v1/forecast?latitude=25.0213&longitude=37.2685'
-      + '&current=apparent_temperature,dew_point_2m&timezone=Asia%2FRiyadh';
     var _umlujWxLast = 0;
 
-    function _updateUmlujWx() {
-      var el = document.getElementById('umluj-wx');
-      if (!el) return;
-      fetch(_UMLUJ_WX_URL, { cache: 'no-store' })
-        .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
-        .then(function (j) {
-          var c = j && j.current;
-          if (!c || typeof c.apparent_temperature !== 'number' || typeof c.dew_point_2m !== 'number') return;
-          el.textContent = 'أملج 🌡' + Math.round(c.apparent_temperature) + '° 💧' + Math.round(c.dew_point_2m) + '°';
-          el.style.display = 'block';
-          _umlujWxLast = Date.now();
-        })
-        .catch(function () { /* بصمت: تبقى آخر قيمة معروضة، أو يبقى مخفياً قبل أول نجاح */ });
-    }
+    /* المؤشر والنافذة يتغذيان من الجلبة الموحدة نفسها (_fetchUmlujFull) كي لا
+       تختلف القيم بين الاثنين — كانا سابقاً طلبين منفصلين بوقتين مختلفين */
+    function _updateUmlujWx() { _fetchUmlujFull(); }
     setTimeout(_updateUmlujWx, 2500);
     setInterval(_updateUmlujWx, 30 * 60e3);
     document.addEventListener('visibilitychange', function () {
@@ -3524,26 +3511,44 @@
       if (!ov) return;
       ov.style.display = 'flex';
       hPush();
-      if (_umlujFull && (Date.now() - _umlujFullAt) < 30 * 60e3) { _renderUmluj(); return; }
-      _fetchUmlujFull();
+      /* اعرض المتوفر فوراً، وحدّث في الخلفية إن تقادم (>30 دقيقة) */
+      if (_umlujFull) _renderUmluj();
+      if (!_umlujFull || (Date.now() - _umlujFullAt) >= 30 * 60e3) _fetchUmlujFull();
     }
     function closeUmlujApp() {
       var ov = document.getElementById('umluj-ov');
       if (ov) ov.style.display = 'none';
     }
 
+    function _umlujOvOpen() {
+      var ov = document.getElementById('umluj-ov');
+      return !!ov && ov.style.display === 'flex';
+    }
+
     function _fetchUmlujFull() {
       var body = document.getElementById('umluj-body');
-      if (body) body.innerHTML = '<div style="text-align:center;padding:30px;color:var(--text-m);">…جارٍ جلب بيانات أملج</div>';
+      if (body && _umlujOvOpen() && !_umlujFull)
+        body.innerHTML = '<div style="text-align:center;padding:30px;color:var(--text-m);">…جارٍ جلب بيانات أملج</div>';
       fetch(_UMLUJ_FULL_URL, { cache: 'no-store' })
         .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
         .then(function (j) {
-          if (!j || !j.daily || !j.daily.time) throw new Error('بيانات ناقصة');
+          var c = j && j.current;
+          /* المؤشر العلوي يتحدث من نفس الرد — مصدر واحد فلا تتضارب القيم */
+          if (c && typeof c.apparent_temperature === 'number' && typeof c.dew_point_2m === 'number') {
+            var el = document.getElementById('umluj-wx');
+            if (el) {
+              el.textContent = 'أملج 🌡' + Math.round(c.apparent_temperature) + '° 💧' + Math.round(c.dew_point_2m) + '°';
+              el.style.display = 'block';
+            }
+            _umlujWxLast = Date.now();
+          }
+          if (!j || !j.daily || !j.daily.time) { if (!c) throw new Error('بيانات ناقصة'); return; }
           _umlujFull = j; _umlujFullAt = Date.now();
-          _renderUmluj();
+          if (_umlujOvOpen()) _renderUmluj();
         })
         .catch(function (e) {
-          if (body) body.innerHTML =
+          /* المؤشر يفشل بصمت؛ رسالة الخطأ تظهر فقط داخل النافذة المفتوحة وبلا بيانات سابقة */
+          if (body && _umlujOvOpen() && !_umlujFull) body.innerHTML =
             '<div style="text-align:center;padding:30px;color:var(--text-m);">تعذّر جلب البيانات — تأكد من الاتصال<br><br>'
             + '<button onclick="_fetchUmlujFull()" style="background:var(--grad);color:#fff;border:none;border-radius:10px;padding:9px 20px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;">🔄 إعادة المحاولة</button></div>';
         });
@@ -3602,7 +3607,8 @@
           + '</tr>';
       }
       html += '</tbody></table></div>'
-        + '<div style="font-size:11px;color:var(--text-m);padding:10px 2px;">الأيام الباهتة = ماضية (قياسات/إعادة تحليل) · الرياح كم/س (أقصى اليوم) · الندى والرطوبة والغطاء متوسط اليوم · المصدر: Open-Meteo · آخر جلب: '
+        + '<div style="font-size:11px;color:var(--text-m);padding:10px 2px;">الأيام الباهتة = ماضية (قياسات/إعادة تحليل) · الرياح كم/س (أقصى اليوم) · '
+        + '<b>الندى والرطوبة والغطاء في الجدول متوسط اليوم كاملاً بليله</b> — لذا قد تختلف قيمة سطر «اليوم» عن قيمة «الآن» اللحظية أعلاه · المصدر: Open-Meteo · آخر جلب: '
         + new Date(_umlujFullAt).toLocaleTimeString('ar-SA') + '</div>';
       body.innerHTML = html;
     }
