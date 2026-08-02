@@ -5,7 +5,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
   <meta name="theme-color" content="#667eea">
-  <meta name="app-version" content="1.9.0">
+  <meta name="app-version" content="1.10.0">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <title>المنظم</title>
@@ -2041,6 +2041,9 @@
       <div id="rain-app-btn" onclick="openRainApp()" title="أمطار السروات — توقعات الهطول"
         style="position:absolute;inset-inline-end:6px;bottom:1px;font-size:16px;padding:4px 10px;border-radius:8px;cursor:pointer;user-select:none;-webkit-tap-highlight-color:transparent;transition:background .15s;line-height:1.2;"
         onpointerdown="this.style.background='rgba(var(--ov),0.13)'" onpointerup="this.style.background=''" onpointerleave="this.style.background=''">🌧️</div>
+      <div id="fin-app-btn" onclick="openFinApp()" title="حاسبة التمويل الذكية"
+        style="position:absolute;inset-inline-end:48px;bottom:1px;font-size:16px;padding:4px 10px;border-radius:8px;cursor:pointer;user-select:none;-webkit-tap-highlight-color:transparent;transition:background .15s;line-height:1.2;"
+        onpointerdown="this.style.background='rgba(var(--ov),0.13)'" onpointerup="this.style.background=''" onpointerleave="this.style.background=''">🧮</div>
     </div>
 
     <div class="pages" style="display:flex;flex-direction:column;flex:1;overflow:hidden">
@@ -3416,13 +3419,42 @@
       if (ov) ov.style.display = 'none';
     }
 
+    /* ══════════════════════════════════════
+       حاسبة التمويل الذكية المدمجة
+       نفس نمط تطبيق الأمطار: قالب text/html يُحقن في iframe معزول عند أول فتح.
+    ══════════════════════════════════════ */
+    var _finLoaded = false;
+
+    function openFinApp() {
+      var ov = document.getElementById('fin-ov');
+      if (!ov) return;
+      if (!_finLoaded) {
+        var tpl = document.getElementById('fin-app-tpl');
+        if (!tpl) return;
+        document.getElementById('fin-frame').srcdoc =
+          tpl.textContent.replace(/<\\\/script>/g, '<' + '/script>');
+        _finLoaded = true;
+      }
+      ov.style.display = 'flex';
+      hPush();
+    }
+
+    function closeFinApp() {
+      var ov = document.getElementById('fin-ov');
+      if (ov) ov.style.display = 'none';
+    }
+
 
 
     /* دالة مركزية تُعالج الرجوع من أي مصدر */
     function _handleBack() {
-      /* نافذة تطبيق الأمطار تغطي الشاشة كلها فتُغلق قبل أي شيء آخر */
+      /* نوافذ التطبيقات المدمجة تغطي الشاشة كلها فتُغلق قبل أي شيء آخر */
       if (document.getElementById('rain-ov')?.style.display === 'flex') {
         closeRainApp();
+        return true;
+      }
+      if (document.getElementById('fin-ov')?.style.display === 'flex') {
+        closeFinApp();
         return true;
       }
       if (_inSettings) {
@@ -6300,6 +6332,943 @@ function renderSavedList(){
 }
 
 load();
+<\/script>
+</body>
+</html>
+
+  </script>
+
+  <!-- ══ حاسبة التمويل الذكية المدمجة ══
+       نافذة ملء الشاشة تحوي iframe يُحقن فيه القالب أدناه عند أول فتح (openFinApp) -->
+  <div id="fin-ov" style="display:none;position:fixed;inset:0;z-index:9700;background:var(--bg-p);flex-direction:column;">
+    <div style="position:relative;display:flex;align-items:center;justify-content:center;padding:env(safe-area-inset-top,0px) 0 0;background:var(--grad);flex-shrink:0;box-shadow:0 2px 10px rgba(102,126,234,0.4);">
+      <div style="color:var(--tw);font-size:14px;font-weight:700;padding:5px 22px;line-height:1.2;user-select:none;">🧮 حاسبة التمويل الذكية</div>
+      <div onclick="closeFinApp()" title="رجوع"
+        style="position:absolute;inset-inline-start:6px;bottom:1px;color:var(--tw);font-size:15px;font-weight:700;padding:4px 12px;border-radius:8px;cursor:pointer;user-select:none;-webkit-tap-highlight-color:transparent;line-height:1.2;">‹ رجوع</div>
+    </div>
+    <iframe id="fin-frame" title="حاسبة التمويل الذكية" style="flex:1;width:100%;border:0;background:transparent;"></iframe>
+  </div>
+
+  <!-- قالب حاسبة التمويل — لا يُنفَّذ (type=text/html)؛ وسوم الإغلاق الداخلية مهرَّبة </script> -->
+  <script type="text/html" id="fin-app-tpl">
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>حاسبة التمويل الذكية</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Readex+Pro:wght@400;500;600;700&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0c1116; --bg2:#10171f; --card:#141d27; --card2:#1a2530;
+  --line:#243240; --line2:#2e4052;
+  --ink:#eef3f8; --mut:#8ea0b2; --mut2:#62768a;
+  --gold:#e0b14e; --gold-d:#c2913a; --gold-soft:#3a2f17;
+  --green:#37c08a; --green-soft:#163a2c;
+  --red:#f0697a; --red-soft:#3a1c22;
+  --blue:#5aa9e6; --blue-soft:#16303f;
+  --r:16px; --r2:12px;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{background:var(--bg);color:var(--ink);font-family:"IBM Plex Sans Arabic",sans-serif;font-size:15px;line-height:1.6}
+body{
+  background:
+    radial-gradient(1100px 500px at 100% -5%, rgba(224,177,78,.10), transparent 60%),
+    radial-gradient(900px 500px at -10% 10%, rgba(90,169,230,.07), transparent 55%),
+    var(--bg);
+  min-height:100vh;padding:0 0 60px;
+}
+.wrap{width:100%;max-width:1080px;margin:0 auto;padding:0 16px}
+h1,h2,h3,.disp{font-family:"Readex Pro",sans-serif}
+.num{font-variant-numeric:tabular-nums;letter-spacing:.2px}
+
+/* header */
+header{padding:26px 0 16px;text-align:center}
+.logo{font-size:38px;line-height:1;filter:drop-shadow(0 4px 12px rgba(224,177,78,.35))}
+header h1{font-size:23px;font-weight:700;margin-top:10px;background:linear-gradient(95deg,#fff,var(--gold));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.ver{display:inline-block;margin-top:6px;font-size:11px;color:var(--gold);border:1px solid var(--gold-soft);background:rgba(224,177,78,.07);padding:2px 10px;border-radius:20px;font-variant-numeric:tabular-nums}
+.sub{color:var(--mut);font-size:12.5px;margin-top:8px}
+
+/* tabs */
+.tabs{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;padding:16px 0 4px}
+.tabs::-webkit-scrollbar{display:none}
+.tab{flex:0 0 auto;background:var(--card);border:1px solid var(--line);color:var(--mut);
+  padding:9px 14px;border-radius:11px;font-size:13px;font-weight:500;cursor:pointer;white-space:nowrap;transition:.18s;font-family:inherit}
+.tab.on{background:linear-gradient(180deg,var(--gold),var(--gold-d));color:#1a1206;border-color:var(--gold);font-weight:600;box-shadow:0 4px 14px rgba(224,177,78,.25)}
+
+/* card */
+.card{background:linear-gradient(180deg,var(--card),var(--bg2));border:1px solid var(--line);border-radius:var(--r);padding:18px;margin-top:14px;box-shadow:0 8px 30px rgba(0,0,0,.25)}
+.card h2{font-size:16px;font-weight:600;margin-bottom:4px;display:flex;align-items:center;gap:8px}
+.card .hint{color:var(--mut);font-size:12px;margin-bottom:14px;line-height:1.5}
+.pane{display:none;animation:fade .25s ease}
+.pane.on{display:block}
+@keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+/* fields */
+.field{margin-bottom:13px}
+.field label{display:block;font-size:12.5px;color:var(--mut);margin-bottom:6px;font-weight:500}
+.field .u{color:var(--gold);font-size:11px}
+input,select,textarea{width:100%;background:var(--bg);border:1px solid var(--line2);color:var(--ink);
+  padding:11px 13px;border-radius:var(--r2);font-size:15px;font-family:inherit;transition:.15s;font-variant-numeric:tabular-nums}
+textarea{min-height:64px;resize:vertical;line-height:1.5}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--gold);box-shadow:0 0 0 3px rgba(224,177,78,.12)}
+input::placeholder{color:#46586a}
+.row{display:flex;gap:10px}
+.row>.field{flex:1}
+.seg{display:flex;gap:6px;flex-wrap:wrap}
+.seg button{flex:1;min-width:60px;background:var(--bg);border:1px solid var(--line2);color:var(--mut);padding:9px;border-radius:10px;font-size:13px;font-family:inherit;cursor:pointer;transition:.15s}
+.seg button.on{background:var(--blue-soft);border-color:var(--blue);color:#bfe0fb}
+
+/* buttons */
+.btn{width:100%;background:linear-gradient(180deg,var(--gold),var(--gold-d));color:#1a1206;border:none;
+  padding:13px;border-radius:var(--r2);font-size:15px;font-weight:600;font-family:inherit;cursor:pointer;margin-top:6px;transition:.15s}
+.btn:active{transform:scale(.985)}
+.btn.sec{background:var(--card2);color:var(--ink);border:1px solid var(--line2)}
+.btn.ghost{background:transparent;color:var(--mut);border:1px solid var(--line)}
+.btn-row{display:flex;gap:10px}
+.btn-row .btn{flex:1}
+
+/* results */
+.res{margin-top:16px;border-top:1px dashed var(--line2);padding-top:16px;display:none}
+.res.on{display:block}
+.kpi{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+.kpi .k{background:var(--bg);border:1px solid var(--line);border-radius:var(--r2);padding:12px 13px}
+.kpi .k .lbl{font-size:11px;color:var(--mut);margin-bottom:4px}
+.kpi .k .val{font-size:20px;font-weight:600;font-family:"Readex Pro";font-variant-numeric:tabular-nums}
+.kpi .k.big{grid-column:1/-1;background:linear-gradient(120deg,var(--gold-soft),var(--bg))}
+.kpi .k.big .val{color:var(--gold);font-size:24px}
+.kpi .k .val small{font-size:12px;color:var(--mut);font-weight:400}
+.line{display:flex;justify-content:space-between;align-items:baseline;padding:9px 2px;border-bottom:1px solid var(--line);font-size:13.5px}
+.line:last-child{border:none}
+.line .lk{color:var(--mut)}
+.line .lv{font-weight:600;font-variant-numeric:tabular-nums}
+.lv.g{color:var(--green)} .lv.r{color:var(--red)} .lv.gold{color:var(--gold)}
+.verdict{margin-top:14px;padding:13px 15px;border-radius:var(--r2);font-size:13.5px;line-height:1.6;font-weight:500}
+.verdict.good{background:var(--green-soft);border:1px solid #1f5a44;color:#9fe6c8}
+.verdict.bad{background:var(--red-soft);border:1px solid #5a2630;color:#f3a8b3}
+.verdict.warn{background:var(--gold-soft);border:1px solid #5a4a1f;color:#f0d79a}
+.verdict b{color:#fff}
+
+/* note box */
+.note{background:rgba(90,169,230,.06);border:1px solid var(--blue-soft);border-radius:var(--r2);padding:12px 14px;font-size:12.5px;color:var(--mut);line-height:1.7;margin-top:14px}
+.note b{color:var(--blue)}
+
+/* comparison table */
+.tablewrap{overflow-x:auto;margin-top:14px;border-radius:var(--r2);border:1px solid var(--line)}
+table{border-collapse:separate;border-spacing:0;width:100%;font-size:12.5px;min-width:560px}
+th,td{padding:10px 11px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
+th{background:var(--card2);color:var(--gold);font-weight:600;font-size:11.5px}
+td{font-variant-numeric:tabular-nums;color:var(--ink)}
+tr td:first-child,tr th:first-child{position:sticky;right:0;z-index:2;background:var(--bg2);font-weight:600;border-left:1px solid var(--line)}
+.tag{display:inline-block;padding:2px 8px;border-radius:8px;font-size:11px;font-weight:600}
+.tag.g{background:var(--green-soft);color:#9fe6c8} .tag.r{background:var(--red-soft);color:#f3a8b3} .tag.n{background:var(--card2);color:var(--mut)}
+.del{background:none;border:none;color:var(--red);cursor:pointer;font-size:16px;padding:2px 6px}
+.empty{text-align:center;color:var(--mut);padding:30px 10px;font-size:13px}
+.saved-bar{display:flex;gap:8px;align-items:center;margin-top:12px;flex-wrap:wrap}
+.pill{background:var(--card2);border:1px solid var(--line);color:var(--mut);font-size:11px;padding:4px 10px;border-radius:20px}
+footer{text-align:center;color:#3e4e5e;font-size:11px;margin-top:26px;line-height:1.7}
+.foot-note{color:var(--mut);font-size:11.5px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;margin-top:16px;line-height:1.7}
+
+/* ===== لمسات بصرية خفيفة (1.2.3) — إضافات فقط، دون تغيير البنية ===== */
+@media(hover:hover){
+  .tab:not(.on):hover{border-color:var(--line2);color:var(--ink)}
+  .btn:hover{filter:brightness(1.06)}
+  .btn.sec:hover,.btn.ghost:hover{filter:none;border-color:var(--gold);color:var(--ink)}
+  .seg button:not(.on):hover{border-color:var(--blue)}
+  .del:hover{filter:brightness(1.25)}
+}
+/* وضوح تركيز لوحة المفاتيح (وصولية) دون تغيير مظهر النقر بالفأرة */
+.tab:focus-visible,.btn:focus-visible,.seg button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+/* صقل بطاقة النتيجة الرئيسية وتوهّج خفيف للرقم */
+.kpi .k.big{box-shadow:inset 0 0 0 1px rgba(224,177,78,.12)}
+.kpi .k.big .val{text-shadow:0 2px 16px rgba(224,177,78,.22)}
+.tab.on{box-shadow:0 4px 16px rgba(224,177,78,.28)}
+/* شريط تمرير أنحف وأهدأ */
+*{scrollbar-width:thin;scrollbar-color:var(--line2) transparent}
+::-webkit-scrollbar{width:9px;height:9px}
+::-webkit-scrollbar-thumb{background:var(--line2);border-radius:8px}
+::-webkit-scrollbar-thumb:hover{background:#3a5066}
+::-webkit-scrollbar-track{background:transparent}
+/* احترام تفضيل تقليل الحركة */
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+/* ===== شرح المعادلة وخطوات الحساب (1.4.0) ===== */
+details.explain{margin-top:14px;background:var(--bg);border:1px solid var(--line);border-radius:var(--r2);overflow:hidden}
+details.explain summary{cursor:pointer;padding:12px 14px;font-size:13px;font-weight:600;color:var(--gold);list-style:none;user-select:none;transition:.15s}
+details.explain summary::-webkit-details-marker{display:none}
+details.explain summary::before{content:'◂';display:inline-block;margin-left:8px;transition:.2s;color:var(--mut)}
+details.explain[open] summary::before{transform:rotate(-90deg)}
+details.explain .body{padding:0 14px 14px;font-size:12.5px;color:var(--mut);line-height:1.8}
+details.explain .body b{color:var(--ink)}
+.formula{background:var(--card2);border:1px solid var(--line2);border-radius:10px;padding:10px 14px;margin:8px 0;text-align:center;font-size:14px;color:var(--gold);font-variant-numeric:tabular-nums;direction:ltr;overflow-x:auto}
+.formula small{color:var(--mut);font-size:11px}
+.steps{border-collapse:separate;border-spacing:0;width:100%;font-size:12px;margin-top:8px}
+.steps th,.steps td{padding:8px 9px;text-align:right;border-bottom:1px solid var(--line);white-space:normal}
+.steps th{background:var(--card2);color:var(--gold);font-size:11px;font-weight:600}
+.steps td{font-variant-numeric:tabular-nums;color:var(--ink)}
+.steps td.calc{direction:ltr;text-align:left;color:var(--mut);font-size:11.5px}
+.steps tr:last-child td{border-bottom:none;background:rgba(224,177,78,.06);font-weight:600}
+
+/* ===== ملء الشاشة + تبويبات ملتفّة (1.2.4) ===== */
+/* على الشاشات العريضة: توزيع مؤشرات النتيجة تلقائياً لتملأ الصف مهما كان عددها */
+@media(min-width:720px){
+  .kpi{grid-template-columns:repeat(auto-fit,minmax(170px,1fr))}
+  .kpi .k.big{grid-column:1/-1}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <div class="logo">🧮</div>
+  <h1>حاسبة التمويل الذكية</h1>
+  <div class="ver num">الإصدار 1.4.0 · 2026-07-14</div>
+  <!-- سجل التغييرات:
+       1.4.0 (2026-07-14): إضافة شرح معادلة القسط (ثابت) + خطوات الحساب بالأرقام الفعلية (ديناميكي) في تبويب حاسبة القسط
+       1.3.5: الإصدار السابق -->
+
+  <div class="sub">تكشف النسبة الفعلية الحقيقية خلف أي عرض تمويل سيارة أو قرض</div>
+</header>
+
+<div class="tabs" id="tabs"></div>
+
+<!-- ============ 1) محلل العرض ============ -->
+<div class="pane on" data-pane="0">
+<div class="card">
+  <h2>🔍 تحليل عرض التمويل</h2>
+  <div class="hint">أدخل الأرقام كما تظهر في تطبيق التمويل. الحاسبة تستخرج النسبة الفعلية (APR) من التدفقات مباشرةً — أدق طريقة.</div>
+
+  <div class="field"><label>اسم العرض (للحفظ والمقارنة)</label><input id="a_name" placeholder="مثال: تمويل توكيل — صفر دفعة"></div>
+  <div class="row">
+    <div class="field"><label>سعر السيارة كاش <span class="u">ريال</span></label><input id="a_cash" inputmode="decimal" placeholder="285000"></div>
+    <div class="field"><label>الدفعة المقدمة <span class="u">ريال</span></label><input id="a_down" inputmode="decimal" placeholder="0"></div>
+  </div>
+  <div class="row">
+    <div class="field"><label>القسط الشهري <span class="u">ريال</span></label><input id="a_m" inputmode="decimal" placeholder="5514"></div>
+    <div class="field"><label>الدفعة الأخيرة <span class="u">ريال</span></label><input id="a_balloon" inputmode="decimal" placeholder="105264"></div>
+  </div>
+  <div class="field"><label>مدة التمويل</label>
+    <div class="row">
+      <input id="a_years" inputmode="decimal" placeholder="عدد السنوات (5)" style="flex:1">
+      <input id="a_months" inputmode="decimal" placeholder="أو عدد الأشهر (60)" style="flex:1">
+    </div>
+  </div>
+
+  <div class="field"><label>💳 تمويل الدفعة المقدمة بقرض شخصي؟</label>
+    <div class="seg" id="a_dpfin">
+      <button data-v="0" class="on">لا</button>
+      <button data-v="1">نعم — أدخل تكلفته</button>
+    </div>
+  </div>
+  <div id="a_dpbox" style="display:none">
+    <div class="row">
+      <div class="field"><label>قسط القرض الشخصي <span class="u">ريال/شهر</span></label><input id="a_dpm" inputmode="decimal" placeholder="2800"></div>
+      <div class="field"><label>مدة القرض الشخصي <span class="u">شهر</span></label><input id="a_dpn" inputmode="decimal" placeholder="60"></div>
+    </div>
+  </div>
+
+  <div class="field"><label>ملاحظات</label><textarea id="a_note" placeholder="جهة التمويل، شروط، تأمين، تاريخ العرض…"></textarea></div>
+
+  <div class="btn-row">
+    <button class="btn" onclick="analyze()">احسب</button>
+    <button class="btn sec" onclick="saveAnalysis()" id="a_save" disabled>💾 حفظ للمقارنة</button>
+  </div>
+
+  <div class="res" id="a_res"></div>
+  <div class="note">
+    <b>نسبة الزيادة</b> = كل ما تدفعه ÷ السعر كاش (طريقتك). مفيدة للإحساس بالحجم لكنها تتجاهل الزمن.
+    <b>APR الفعلي</b> = تكلفة الاقتراض لكل ريال ولكل سنة (على الرصيد المتناقص). هو الرقم الصحيح عند مقارنة عرضين بمدتين مختلفتين.
+  </div>
+</div>
+</div>
+
+<!-- ============ 2) محول النسبة ============ -->
+<div class="pane" data-pane="1">
+<div class="card">
+  <h2>🔄 محوّل: نسبة ثابتة ↔ فعلية</h2>
+  <div class="hint">معظم العروض تعرض «نسبة ثابتة» (flat) منخفضة المظهر. هنا تحوّلها إلى النسبة الفعلية (APR) للمقارنة العادلة. (يفترض قرضاً عادياً متناقصاً دون دفعة أخيرة.)</div>
+  <div class="field"><label>الاتجاه</label>
+    <div class="seg" id="c_dir"><button data-v="f2a" class="on">ثابتة ← فعلية</button><button data-v="a2f">فعلية ← ثابتة</button></div>
+  </div>
+  <div class="row">
+    <div class="field"><label id="c_lbl">النسبة الثابتة <span class="u">% سنوي</span></label><input id="c_rate" inputmode="decimal" placeholder="6.88"></div>
+    <div class="field"><label>المدة <span class="u">سنوات</span></label><input id="c_years" inputmode="decimal" placeholder="5"></div>
+  </div>
+  <button class="btn" onclick="convert()">حوّل</button>
+  <div class="res" id="c_res"></div>
+</div>
+</div>
+
+<!-- ============ 3) حاسبة القسط ============ -->
+<div class="pane" data-pane="2">
+<div class="card">
+  <h2>💰 حاسبة القسط</h2>
+  <div class="hint">احسب القسط الشهري من المبلغ والنسبة — مع دعم الدفعة المقدمة والدفعة الأخيرة.</div>
+  <div class="field"><label>اسم الحالة (للحفظ والمقارنة)</label><input id="p_name" placeholder="مثال: 5 سنوات صفر دفعة"></div>
+  <div class="row">
+    <div class="field"><label>سعر السيارة / مبلغ التمويل <span class="u">ريال</span></label><input id="p_F" inputmode="decimal" placeholder="285000"></div>
+    <div class="field"><label>الدفعة المقدمة <span class="u">ريال</span></label><input id="p_down" inputmode="decimal" placeholder="0"></div>
+  </div>
+  <div class="field"><label>الدفعة الأخيرة <span class="u">ريال</span></label><input id="p_balloon" inputmode="decimal" placeholder="0"></div>
+  <div class="field"><label>نوع النسبة المدخلة</label>
+    <div class="seg" id="p_type"><button data-v="apr" class="on">فعلية (APR)</button><button data-v="flat">ثابتة (flat)</button></div>
+  </div>
+  <div class="row">
+    <div class="field"><label>النسبة <span class="u">% سنوي</span></label><input id="p_rate" inputmode="decimal" placeholder="6"></div>
+    <div class="field"><label>المدة <span class="u">سنوات</span></label><input id="p_years" inputmode="decimal" placeholder="5"></div>
+  </div>
+  <div class="btn-row">
+    <button class="btn" onclick="calcPayment()">احسب القسط</button>
+    <button class="btn sec" onclick="savePayment()" id="p_save" disabled>💾 حفظ للمقارنة</button>
+  </div>
+  <div class="res" id="p_res"></div>
+
+  <details class="explain">
+    <summary>📖 كيف يُحسب القسط؟ (شرح المعادلة)</summary>
+    <div class="body">
+      <b>معادلة الرصيد المتناقص (للنسبة الفعلية APR):</b>
+      <div class="formula">القسط = المبلغ × r ÷ (1 − (1+r)<sup>−n</sup>)</div>
+      حيث <b>r</b> = المعدل الشهري و <b>n</b> = عدد الأشهر.
+      <br><br>
+      <b>ماذا يعني الأس السالب (1+r)<sup>−n</sup>؟</b><br>
+      هو ببساطة: <b>واحد مقسوم على</b> (1+r)<sup>n</sup>. يُحسب على مرحلتين:<br>
+      ① (1+r)<sup>n</sup> = كم يصبح الريال الواحد لو نما بالمعدل الشهري طوال المدة.<br>
+      ② 1 ÷ الناتج = «عامل الخصم»: قيمة الريال الذي سيُدفع آخر المدة بأسعار اليوم.<br>
+      هذا العامل هو ما يجعل المعادلة تراعي أن أقساطك المستقبلية قيمتها اليوم أقل من قيمتها الاسمية.
+      <br><br>
+      <b>ملاحظة عن المعدل الشهري r:</b> هذه الحاسبة تتعامل مع النسبة المدخلة كمعدل <b>فعلي سنوي</b>، فتشتق الشهري بدقة: r = (1+APR)<sup>1/12</sup> − 1، وهي أدق قليلاً من القسمة البسيطة APR ÷ 12.
+      <br><br>
+      <b>وإن أدخلت نسبة ثابتة (flat)؟</b> الحساب أبسط لكنه أغلى مما يبدو:
+      <div class="formula">القسط = (المبلغ × (1 + النسبة × السنوات) − الدفعة الأخيرة) ÷ الأشهر</div>
+      ثم تستخرج الحاسبة الـ APR الفعلي المكافئ لتعرف الكلفة الحقيقية.
+      <br><br>
+      <b>مع دفعة أخيرة (بالون):</b> تُخصم قيمتها الحالية من المبلغ قبل التقسيط:
+      <div class="formula">القسط = (المبلغ − بالون × (1+r)<sup>−n</sup>) × r ÷ (1 − (1+r)<sup>−n</sup>)</div>
+      بعد الحساب ستجد أسفل النتيجة جدول <b>«خطوات الحساب بأرقامك»</b> يطبّق كل ما سبق على حالتك تحديداً.
+    </div>
+  </details>
+</div>
+</div>
+
+<!-- ============ 4) قرض الدفعة المقدمة ============ -->
+<div class="pane" data-pane="3">
+<div class="card">
+  <h2>⚖️ هل تموّل الدفعة المقدمة بقرض شخصي؟</h2>
+  <div class="hint">القاعدة: استبدال دين بدين — اقترض من الأرخص. هذه الأداة تقارن النسبة الفعلية للقرض الشخصي بنسبة تمويل السيارة وتعطيك الحكم.</div>
+  <div class="field"><label>مبلغ الدفعة المقدمة <span class="u">ريال</span></label><input id="d_amt" inputmode="decimal" placeholder="150000"></div>
+  <div class="row">
+    <div class="field"><label>قسط القرض الشخصي <span class="u">ريال/شهر</span></label><input id="d_pm" inputmode="decimal" placeholder="2800"></div>
+    <div class="field"><label>مدته <span class="u">شهر</span></label><input id="d_pn" inputmode="decimal" placeholder="60"></div>
+  </div>
+  <div class="field"><label>النسبة الفعلية لتمويل السيارة <span class="u">% APR</span></label><input id="d_car" inputmode="decimal" placeholder="15.6"></div>
+  <button class="btn" onclick="compareDP()">قارن</button>
+  <div class="res" id="d_res"></div>
+
+  <div style="border-top:1px dashed var(--line2);margin-top:18px;padding-top:16px">
+    <h2 style="font-size:14px">🧾 فحص نسبة الاستقطاع (DBR)</h2>
+    <div class="hint">تأكد أن مجموع أقساطك ضمن حد البنك المركزي قبل التقديم.</div>
+    <div class="row">
+      <div class="field"><label>صافي الراتب الشهري <span class="u">ريال</span></label><input id="b_sal" inputmode="decimal" placeholder="15000"></div>
+      <div class="field"><label>مجموع الأقساط الشهرية <span class="u">ريال</span></label><input id="b_obl" inputmode="decimal" placeholder="5000"></div>
+    </div>
+    <button class="btn sec" onclick="calcDBR()">احسب الاستقطاع</button>
+    <div class="res" id="b_res"></div>
+  </div>
+</div>
+</div>
+
+<!-- ============ 5) السداد المبكر ============ -->
+<div class="pane" data-pane="4">
+<div class="card">
+  <h2>⏩ تقدير السداد المبكر</h2>
+  <div class="hint">عند السداد المبكر يُسقط عنك ربح المدة المتبقية. اختر طريقة الإدخال حسب المعلومات المتاحة لديك.</div>
+  <div class="field"><label>طريقة الحساب</label>
+    <div class="seg" id="e_mode">
+      <button data-v="known" class="on">أعرف مبلغ السداد</button>
+      <button data-v="derive">استنتاج من النسبة</button>
+    </div>
+  </div>
+
+  <div id="e_known">
+    <div class="row">
+      <div class="field"><label>الرصيد المتبقي (أقساط باقية + دفعة أخيرة) <span class="u">ريال</span></label><input id="e_remain" inputmode="decimal" placeholder="250000"></div>
+      <div class="field"><label>مبلغ السداد المبكر المعروض <span class="u">ريال</span></label><input id="e_settle" inputmode="decimal" placeholder="201537"></div>
+    </div>
+  </div>
+
+  <div id="e_derive" style="display:none">
+    <div class="field"><label>الرصيد المتبقي (مجموع ما تبقّى عليك) <span class="u">ريال</span></label><input id="e_remain2" inputmode="decimal" placeholder="250000"></div>
+    <div class="field"><label>الأشهر المتبقية</label><input id="e_n" inputmode="decimal" placeholder="46"></div>
+    <div class="field"><label>نوع النسبة</label>
+      <div class="seg" id="e_rtype"><button data-v="apr" class="on">فعلية (APR)</button><button data-v="flat">ثابتة (flat)</button></div>
+    </div>
+    <div class="field"><label>النسبة السنوية <span class="u">%</span></label><input id="e_rate" inputmode="decimal" placeholder="9.7"></div>
+  </div>
+
+  <button class="btn" onclick="earlySettle()">احسب التوفير</button>
+  <div class="res" id="e_res"></div>
+  <div class="note"><b>تنبيه مهم:</b> الوضع «استنتاج من النسبة» يعطي <b>الحد الأقصى النظري</b> للتوفير (كامل ربح المدة المتبقية). المبلغ الفعلي من المموّل غالباً <b>أقل توفيراً</b> لأن البنك المركزي يجيز رسوماً محدودة (عادةً ما يعادل أرباح فترة قصيرة على المتبقي). استخدمه للتقدير، وأكّده بالمبلغ الفعلي من تطبيقك.</div>
+</div>
+</div>
+
+<!-- ============ 6) أثر الدفعة المقدمة ============ -->
+<div class="pane" data-pane="5">
+<div class="card">
+  <h2>🎯 أثر الدفعة المقدمة على القسط</h2>
+  <div class="hint">القاعدة: <b>نسبة APR ثابتة لا تتغيّر بالدفعة المقدمة</b> — يتغيّر القسط فقط. أدخل بيانات حالة «صفر دفعة» وجرّب أي دفعة مقدمة لترى القسط المتوقع (بنفس العقد والدفعة الأخيرة).</div>
+  <div class="row">
+    <div class="field"><label>سعر السيارة كاش <span class="u">ريال</span></label><input id="i_cash" inputmode="decimal" placeholder="285000"></div>
+    <div class="field"><label>الدفعة الأخيرة <span class="u">ريال</span></label><input id="i_balloon" inputmode="decimal" placeholder="105264"></div>
+  </div>
+  <div class="field"><label>المدة</label>
+    <div class="row">
+      <input id="i_years" inputmode="decimal" placeholder="سنوات (5)" style="flex:1">
+      <input id="i_months" inputmode="decimal" placeholder="أو أشهر (60)" style="flex:1">
+    </div>
+  </div>
+  <div class="field"><label>مصدر النسبة</label>
+    <div class="seg" id="i_src">
+      <button data-v="apr" class="on">أعرف APR</button>
+      <button data-v="m0">أعرف قسط صفر دفعة</button>
+    </div>
+  </div>
+  <div class="row">
+    <div class="field" id="i_aprbox"><label>APR الفعلي <span class="u">% سنوي</span></label><input id="i_apr" inputmode="decimal" placeholder="15.6"></div>
+    <div class="field" id="i_m0box" style="display:none"><label>قسط صفر دفعة <span class="u">ريال</span></label><input id="i_m0" inputmode="decimal" placeholder="5514"></div>
+    <div class="field"><label>الدفعة المقدمة المراد تجربتها <span class="u">ريال</span></label><input id="i_down" inputmode="decimal" placeholder="100000"></div>
+  </div>
+  <button class="btn" onclick="impactDown()">احسب القسط الجديد</button>
+  <div class="res" id="i_res"></div>
+</div>
+</div>
+
+<!-- ============ 7) المقارنة المحفوظة ============ -->
+<div class="pane" data-pane="6">
+<div class="card">
+  <h2>📊 مقارنة العروض المحفوظة</h2>
+  <div class="hint">كل عرض حفظته يظهر هنا جنباً إلى جنب. مرّر الجدول أفقياً لرؤية كل الأرقام.</div>
+  <div class="saved-bar">
+    <span class="pill num" id="cnt">0 عرض محفوظ</span>
+    <button class="btn ghost" style="width:auto;padding:6px 14px;font-size:12px;margin:0" onclick="exportData()">⬇️ تصدير CSV</button>
+    <button class="btn ghost" style="width:auto;padding:6px 14px;font-size:12px;margin:0;color:var(--blue)" onclick="backupAll()">💾 نسخة احتياطية (الكل)</button>
+    <button class="btn ghost" style="width:auto;padding:6px 14px;font-size:12px;margin:0;color:var(--green)" onclick="document.getElementById('restoreAllFile').click()">↩️ استعادة (الكل)</button>
+    <button class="btn ghost" style="width:auto;padding:6px 14px;font-size:12px;margin:0;color:var(--red)" onclick="clearAll()">🗑️ مسح الكل</button>
+  </div>
+  <div class="note" style="margin-top:10px"><b>هام لمستخدمي ياندكس وبعض المتصفحات:</b> قد تُمسح البيانات عند إغلاق المتصفح. زر <b>نسخة احتياطية (الكل)</b> ينزّل ملفاً واحداً يشمل <b>العروض والأقساط معاً</b>، و<b>استعادة (الكل)</b> يستعيدهما من نفس الملف.</div>
+  <div id="cmp"></div>
+</div>
+</div>
+
+<!-- ============ 8) مقارنة الأقساط (قائمة منفصلة) ============ -->
+<div class="pane" data-pane="7">
+<div class="card">
+  <h2>📋 مقارنة الأقساط المحفوظة</h2>
+  <div class="hint">قائمة <b>منفصلة تماماً</b> عن مقارنة العروض، خاصة بحاسبة القسط. كل قسط تحفظه يظهر هنا بكل قيمه جنباً إلى جنب. مرّر الجدول أفقياً لرؤية كل الأرقام.</div>
+  <div class="saved-bar">
+    <span class="pill num" id="pcnt">0 قسط محفوظ</span>
+    <button class="btn ghost" style="width:auto;padding:6px 14px;font-size:12px;margin:0" onclick="exportPData()">⬇️ تصدير CSV</button>
+    <button class="btn ghost" style="width:auto;padding:6px 14px;font-size:12px;margin:0;color:var(--blue)" onclick="backupAll()">💾 نسخة احتياطية (الكل)</button>
+    <button class="btn ghost" style="width:auto;padding:6px 14px;font-size:12px;margin:0;color:var(--green)" onclick="document.getElementById('restoreAllFile').click()">↩️ استعادة (الكل)</button>
+    <button class="btn ghost" style="width:auto;padding:6px 14px;font-size:12px;margin:0;color:var(--red)" onclick="clearPAll()">🗑️ مسح الكل</button>
+  </div>
+  <div class="note" style="margin-top:10px"><b>مستقلة عن «مقارنة العروض»</b> في العرض، لكن النسخ الاحتياطي موحّد: زر <b>نسخة احتياطية (الكل)</b> يحفظ القائمتين في ملف واحد.</div>
+  <div id="pcmp"></div>
+</div>
+</div>
+
+<input type="file" id="restoreAllFile" accept=".json" style="display:none" onchange="restoreAll(event)">
+
+<div class="foot-note">
+  💡 <b style="color:var(--gold)">قاعدة ذهبية:</b> قارن دائماً <b>APR بـ APR</b> لا «نسبة ثابتة» بـ APR. واقترض من المصدر الأرخص، وقصّر المدة قدر ما تحتمله سيولتك.
+  <br><br>⚠️ الأرقام تقديرية لمساعدتك على القرار، وليست استشارة مالية. تحقق من العقد النهائي وشروط الجهة المموّلة.
+</div>
+<footer>حاسبة التمويل الذكية · الإصدار 1.4.0 (2026-07-14) · تعمل دون إنترنت وتحفظ بياناتك على جهازك</footer>
+</div>
+
+<script>
+/* ============ تخزين يعمل داخل Claude وكملف مستقل ============ */
+const Store={
+  async get(k){
+    if(window.storage){try{const r=await window.storage.get(k);return r?r.value:null}catch(e){return null}}
+    try{return localStorage.getItem(k)}catch(e){return null}
+  },
+  async set(k,v){
+    if(window.storage){try{await window.storage.set(k,v);return}catch(e){}}
+    try{localStorage.setItem(k,v)}catch(e){}
+  }
+};
+const KEY='finance_calc_v1';
+const PKEY='finance_payment_v1';
+
+/* ============ أدوات حسابية ============ */
+const num=v=>{const x=parseFloat(String(v).replace(/[,٬\s]/g,''));return isFinite(x)?x:0};
+const fmt=(v,d=0)=>isFinite(v)?Number(v).toLocaleString('en-US',{minimumFractionDigits:d,maximumFractionDigits:d}):'—';
+const pct=(v,d=2)=>isFinite(v)?Number(v).toLocaleString('en-US',{minimumFractionDigits:d,maximumFractionDigits:d})+'%':'—';
+
+// المعدل الشهري من التدفقات: F = Σ m/(1+r)^k + balloon/(1+r)^n  (بحث ثنائي)
+function solveRate(F,m,n,balloon){
+  if(n<=0||F<=0)return NaN;
+  const npv=r=>{
+    if(Math.abs(r)<1e-12)return -F+m*n+balloon;
+    const disc=Math.pow(1+r,-n);
+    return -F+m*(1-disc)/r+balloon*disc;
+  };
+  let lo=-0.02,hi=0.04,flo=npv(lo),fhi=npv(hi),t=0;
+  while(flo*fhi>0&&t<80){hi*=1.4;fhi=npv(hi);t++}
+  if(flo*fhi>0)return NaN;
+  for(let i=0;i<200;i++){const mid=(lo+hi)/2,fm=npv(mid);if(flo*fm<=0){hi=mid}else{lo=mid;flo=fm}}
+  return (lo+hi)/2;
+}
+const eff=r=>Math.pow(1+r,12)-1; // فعلي سنوي من شهري
+// القسط من المعدل الشهري
+function payFromRate(F,r,n,balloon){
+  if(n<=0)return NaN;
+  if(Math.abs(r)<1e-12)return (F-balloon)/n;
+  const disc=Math.pow(1+r,-n);
+  return (F-balloon*disc)*r/(1-disc);
+}
+
+/* ============ تبويبات ============ */
+const TABS=['🔍 تحليل عرض','🔄 محوّل النسبة','💰 حاسبة القسط','⚖️ قرض الدفعة','⏩ سداد مبكر','🎯 أثر الدفعة','📊 مقارنة العروض','📋 مقارنة الأقساط'];
+const tabsEl=document.getElementById('tabs');
+TABS.forEach((t,i)=>{const b=document.createElement('button');b.className='tab'+(i===0?' on':'');b.textContent=t;b.onclick=()=>{
+  document.querySelectorAll('.tab').forEach(x=>x.classList.remove('on'));b.classList.add('on');
+  document.querySelectorAll('.pane').forEach(p=>p.classList.toggle('on',+p.dataset.pane===i));
+  if(i===6)renderCmp();if(i===7)renderPCmp();
+};tabsEl.appendChild(b)});
+
+// أزرار segment عامة
+function segInit(id,cb){const el=document.getElementById(id);el.querySelectorAll('button').forEach(b=>b.onclick=()=>{
+  el.querySelectorAll('button').forEach(x=>x.classList.remove('on'));b.classList.add('on');if(cb)cb(b.dataset.v)})}
+
+/* ============ 1) تحليل العرض ============ */
+let dpFin=0;
+segInit('a_dpfin',v=>{dpFin=+v;document.getElementById('a_dpbox').style.display=v==='1'?'block':'none'});
+let lastAnalysis=null;
+function getN(){let n=Math.round(num(document.getElementById('a_months').value));if(!n)n=Math.round(num(document.getElementById('a_years').value)*12);return n}
+function analyze(){
+  const cash=num(a_cash.value),down=num(a_down.value),m=num(a_m.value),balloon=num(a_balloon.value),n=getN();
+  if(!cash||!m||!n){a_res.classList.remove('on');alert('أدخل سعر السيارة والقسط والمدة على الأقل');return}
+  const financed=cash-down;
+  const totalInstall=m*n+balloon;
+  const yrs=n/12;
+  // النسبة الثابتة الضمنية على المبلغ الممول
+  const profit=totalInstall-financed;
+  const flat=financed>0?profit/financed/yrs*100:NaN;
+  // APR الفعلي على المبلغ الممول
+  const r=solveRate(financed,m,n,balloon);
+  const aprNom=isFinite(r)?r*12*100:NaN, aprEff=isFinite(r)?eff(r)*100:NaN;
+  // طريقتك: نسبة الزيادة على السعر كاش
+  const totalAll=down+m*n+balloon;
+  const incr=(totalAll-cash)/cash*100;
+  // قرض شخصي للدفعة المقدمة
+  let dpm=0,dpn=0,dpTotal=0,dpInterest=0,grandTotal=totalAll;
+  if(dpFin&&down>0){dpm=num(a_dpm.value);dpn=Math.round(num(a_dpn.value));dpTotal=dpm*dpn;dpInterest=dpTotal-down;
+    grandTotal=(m*n)+balloon+dpTotal;}
+  const grandIncr=(grandTotal-cash)/cash*100;
+
+  lastAnalysis={name:a_name.value||'عرض بدون اسم',cash,down,m,n,balloon,financed,totalAll,grandTotal,
+    flat,aprEff,aprNom,incr:grandIncr,dpFin:dpFin&&down>0?1:0,dpm,dpn,dpInterest,note:a_note.value,ts:Date.now()};
+
+  let h=`<div class="kpi">
+    <div class="k big"><div class="lbl">النسبة الفعلية (APR) — الرقم الذي تقارن به</div><div class="val num">${pct(aprEff,1)} <small>فعلي · ${pct(aprNom,1)} اسمي</small></div></div>
+    <div class="k"><div class="lbl">نسبة الزيادة (طريقتك)</div><div class="val num">${pct(incr,1)}</div></div>
+    <div class="k"><div class="lbl">النسبة الثابتة الضمنية</div><div class="val num">${pct(flat,1)}</div></div>
+  </div>`;
+  h+=`<div class="line"><span class="lk">المبلغ الممول (السعر − المقدمة)</span><span class="lv num">${fmt(financed)}</span></div>`;
+  h+=`<div class="line"><span class="lk">ربح التمويل</span><span class="lv num gold">${fmt(profit)}</span></div>`;
+  h+=`<div class="line"><span class="lk">إجمالي الأقساط + الدفعة الأخيرة</span><span class="lv num">${fmt(totalInstall)}</span></div>`;
+  if(lastAnalysis.dpFin){
+    h+=`<div class="line"><span class="lk">القرض الشخصي للمقدمة (${dpn} شهر)</span><span class="lv num">${fmt(dpTotal)}</span></div>`;
+    h+=`<div class="line"><span class="lk">فائدة القرض الشخصي</span><span class="lv num gold">${fmt(dpInterest)}</span></div>`;
+  }
+  h+=`<div class="line"><span class="lk">إجمالي ما تخرجه نقداً</span><span class="lv num r">${fmt(grandTotal)}</span></div>`;
+
+  // حكم
+  let cls='warn',msg='';
+  if(aprEff<8) {cls='good';msg=`نسبة فعلية ممتازة (${pct(aprEff,1)}). عرض جيد بمعايير السوق السعودي.`}
+  else if(aprEff<12){cls='warn';msg=`نسبة فعلية متوسطة (${pct(aprEff,1)}). مقبولة لكن قارنها بعروض بنكية مباشرة.`}
+  else {cls='bad';msg=`نسبة فعلية مرتفعة (${pct(aprEff,1)}). عرض مكلف — يُفضّل البحث عن تمويل بنكي مباشر أرخص.`}
+  if(balloon>cash*0.25)msg+=` ⚠️ الدفعة الأخيرة كبيرة (${pct(balloon/cash*100,0)} من السعر) وترفع الكلفة الفعلية وتستلزم سيولة آخر المدة.`;
+  h+=`<div class="verdict ${cls}">${msg}</div>`;
+
+  a_res.innerHTML=h;a_res.classList.add('on');a_save.disabled=false;
+}
+async function saveAnalysis(){
+  if(!lastAnalysis)return;
+  const data=JSON.parse(await Store.get(KEY)||'[]');
+  data.push(lastAnalysis);await Store.set(KEY,JSON.stringify(data));
+  a_save.textContent='✓ تم الحفظ';setTimeout(()=>a_save.textContent='💾 حفظ للمقارنة',1500);
+  updateCount();
+}
+
+/* ============ 2) محول النسبة ============ */
+let cDir='f2a';
+segInit('c_dir',v=>{cDir=v;c_lbl.innerHTML=v==='f2a'?'النسبة الثابتة <span class="u">% سنوي</span>':'النسبة الفعلية (APR) <span class="u">% سنوي</span>'});
+function convert(){
+  const rate=num(c_rate.value),yrs=num(c_years.value);
+  if(!rate||!yrs){c_res.classList.remove('on');return}
+  const n=Math.round(yrs*12),F=100000;
+  let h='';
+  if(cDir==='f2a'){
+    const total=F*(1+rate/100*yrs),m=total/n;
+    const r=solveRate(F,m,n,0);
+    h=`<div class="kpi">
+      <div class="k big"><div class="lbl">النسبة الفعلية (APR)</div><div class="val num">${pct(eff(r)*100,2)} <small>فعلي · ${pct(r*12*100,2)} اسمي</small></div></div>
+      <div class="k"><div class="lbl">النسبة الثابتة</div><div class="val num">${pct(rate,2)}</div></div>
+      <div class="k"><div class="lbl">المضاعِف التقريبي</div><div class="val num">×${fmt(eff(r)*100/rate,2)}</div></div>
+    </div>
+    <div class="verdict warn">النسبة الثابتة ${pct(rate,2)} تعادل فعلياً <b>${pct(eff(r)*100,2)}</b> على مدة ${fmt(yrs,0)} سنوات. دائماً قارن بالرقم الفعلي.</div>`;
+  }else{
+    const r=Math.pow(1+rate/100,1/12)-1, m=payFromRate(F,r,n,0), total=m*n, flat=(total-F)/F/yrs*100;
+    h=`<div class="kpi">
+      <div class="k big"><div class="lbl">النسبة الثابتة المكافئة</div><div class="val num">${pct(flat,2)}</div></div>
+      <div class="k"><div class="lbl">النسبة الفعلية (APR)</div><div class="val num">${pct(rate,2)}</div></div>
+      <div class="k"><div class="lbl">المدة</div><div class="val num">${fmt(yrs,0)} سنوات</div></div>
+    </div>
+    <div class="verdict warn">APR ${pct(rate,2)} يُعرض عادةً كنسبة ثابتة <b>${pct(flat,2)}</b> فقط — وهنا الخدعة البصرية.</div>`;
+  }
+  c_res.innerHTML=h;c_res.classList.add('on');
+}
+
+/* ============ 3) حاسبة القسط ============ */
+let pType='apr';
+segInit('p_type',v=>pType=v);
+
+// (1.4.0) بناء جدول «خطوات الحساب بأرقامك» — يطابق حرفياً ما تنفّذه الحاسبة
+function paymentSteps(F,rate,yrs,n,r,m,balloon){
+  const f6=v=>Number(v).toLocaleString('en-US',{maximumFractionDigits:6});
+  const f2=v=>Number(v).toLocaleString('en-US',{maximumFractionDigits:2,minimumFractionDigits:2});
+  let rows='';
+  if(pType==='flat'){
+    const totalFlat=F*(1+rate/100*yrs);
+    rows+=`<tr><td>1</td><td>المبلغ مع الربح الثابت</td><td class="calc">${fmt(F)} × (1 + ${rate}% × ${f6(yrs)})</td><td class="num">${f2(totalFlat)}</td></tr>`;
+    if(balloon>0)rows+=`<tr><td>2</td><td>طرح الدفعة الأخيرة</td><td class="calc">${f2(totalFlat)} − ${fmt(balloon)}</td><td class="num">${f2(totalFlat-balloon)}</td></tr>`;
+    rows+=`<tr><td>${balloon>0?3:2}</td><td>القسمة على الأشهر</td><td class="calc">${f2(totalFlat-balloon)} ÷ ${n}</td><td class="num">${f2(m)}</td></tr>`;
+    rows+=`<tr><td>${balloon>0?4:3}</td><td><b>القسط الشهري</b> (ثم يُستخرج APR الفعلي ${pct(eff(r)*100,2)} بحل التدفقات عكسياً)</td><td class="calc"></td><td class="num"><b>${f2(m)}</b></td></tr>`;
+  }else{
+    const disc=Math.pow(1+r,-n), denom=1-disc;
+    let i=1;
+    rows+=`<tr><td>${i++}</td><td>المعدل الشهري r من الفعلي السنوي</td><td class="calc">(1 + ${rate}%)^(1/12) − 1</td><td class="num">${f6(r)}</td></tr>`;
+    rows+=`<tr><td>${i++}</td><td>عامل الخصم (1+r)<sup>−n</sup> <span style="color:var(--mut2)">= 1 ÷ (1+r)<sup>${n}</sup></span></td><td class="calc">(1 + ${f6(r)})^−${n}</td><td class="num">${f6(disc)}</td></tr>`;
+    rows+=`<tr><td>${i++}</td><td>المقام: 1 − عامل الخصم</td><td class="calc">1 − ${f6(disc)}</td><td class="num">${f6(denom)}</td></tr>`;
+    if(balloon>0){
+      rows+=`<tr><td>${i++}</td><td>القيمة الحالية للدفعة الأخيرة</td><td class="calc">${fmt(balloon)} × ${f6(disc)}</td><td class="num">${f2(balloon*disc)}</td></tr>`;
+      rows+=`<tr><td>${i++}</td><td>المبلغ الصافي للتقسيط</td><td class="calc">${fmt(F)} − ${f2(balloon*disc)}</td><td class="num">${f2(F-balloon*disc)}</td></tr>`;
+    }
+    rows+=`<tr><td>${i++}</td><td><b>القسط الشهري</b></td><td class="calc">${f2(F-balloon*disc)} × ${f6(r)} ÷ ${f6(denom)}</td><td class="num"><b>${f2(m)}</b></td></tr>`;
+  }
+  return `<details class="explain" style="margin-top:14px">
+    <summary>🧮 خطوات الحساب بأرقامك</summary>
+    <div class="body" style="padding-top:4px">
+      <div class="tablewrap" style="margin-top:6px"><table class="steps" style="min-width:480px"><tbody>
+        <tr><th>#</th><th>الخطوة</th><th>الحساب</th><th>النتيجة</th></tr>
+        ${rows}
+      </tbody></table></div>
+      <div style="margin-top:8px;color:var(--mut2);font-size:11.5px">الأرقام أعلاه هي نفسها التي نفّذتها الحاسبة حرفياً — يمكنك إعادتها على آلة حاسبة علمية للتحقق. راجع «كيف يُحسب القسط؟» أسفل الأزرار لشرح المعادلة ومعنى الأس السالب.</div>
+    </div>
+  </details>`;
+}
+function calcPayment(){
+  const price=num(p_F.value),down=num(p_down.value),balloon=num(p_balloon.value),rate=num(p_rate.value),yrs=num(p_years.value);
+  if(!price||!rate||!yrs){p_res.classList.remove('on');return}
+  const F=price-down;
+  if(F<=0){p_res.classList.remove('on');alert('الدفعة المقدمة أكبر من السعر');return}
+  const n=Math.round(yrs*12);let m,r;
+  if(pType==='flat'){m=(F*(1+rate/100*yrs)-balloon)/n;r=solveRate(F,m,n,balloon);}
+  else{r=Math.pow(1+rate/100,1/12)-1;m=payFromRate(F,r,n,balloon);}
+  const total=m*n+balloon, profit=total-F, grand=down+total, incr=price>0?(grand-price)/price*100:NaN;
+  p_res.innerHTML=`<div class="kpi">
+    <div class="k big"><div class="lbl">القسط الشهري</div><div class="val num">${fmt(m,0)} <small>ريال</small></div></div>
+    <div class="k"><div class="lbl">المبلغ الممول</div><div class="val num">${fmt(F,0)}</div></div>
+    <div class="k"><div class="lbl">إجمالي الربح</div><div class="val num gold">${fmt(profit,0)}</div></div>
+    <div class="k"><div class="lbl">APR فعلي</div><div class="val num">${pct(eff(r)*100,2)}</div></div>
+    <div class="k"><div class="lbl">المدة</div><div class="val num">${n} شهر</div></div>
+  </div>
+  <div class="line"><span class="lk">إجمالي ما تدفعه (مع المقدمة والدفعة الأخيرة)</span><span class="lv num">${fmt(grand,0)}</span></div>
+  ${down>0?`<div class="line"><span class="lk">نسبة الزيادة على السعر</span><span class="lv num gold">${pct(incr,1)}</span></div>`:''}
+  ${paymentSteps(F,rate,yrs,n,r,m,balloon)}`;
+  p_res.classList.add('on');
+  lastPayment={name:(document.getElementById('p_name').value||'حالة بدون اسم'),price,down,balloon,F,rateType:pType,rate,n,m,aprEff:eff(r)*100,profit,grand,incr,ts:Date.now()};
+  document.getElementById('p_save').disabled=false;
+}
+
+/* ============ 4) قرض الدفعة المقدمة ============ */
+function compareDP(){
+  const amt=num(d_amt.value),pm=num(d_pm.value),pn=Math.round(num(d_pn.value)),carApr=num(d_car.value);
+  if(!amt||!pm||!pn||!carApr){d_res.classList.remove('on');return}
+  const r=solveRate(amt,pm,pn,0);
+  const ploanApr=isFinite(r)?eff(r)*100:NaN;
+  const ploanInterest=pm*pn-amt;
+  const cheaper=ploanApr<carApr;
+  const diff=Math.abs(carApr-ploanApr);
+  d_res.innerHTML=`<div class="kpi">
+    <div class="k"><div class="lbl">APR القرض الشخصي</div><div class="val num">${pct(ploanApr,1)}</div></div>
+    <div class="k"><div class="lbl">APR تمويل السيارة</div><div class="val num">${pct(carApr,1)}</div></div>
+    <div class="k big"><div class="lbl">فائدة القرض الشخصي الإجمالية</div><div class="val num">${fmt(ploanInterest,0)} <small>ريال</small></div></div>
+  </div>
+  <div class="verdict ${cheaper?'good':'bad'}">
+  ${cheaper
+    ? `✅ <b>فكرة جيدة.</b> القرض الشخصي أرخص بـ <b>${pct(diff,1)}</b> من تمويل السيارة. كل ريال تنقله من تمويل السيارة إلى الدفعة المقدمة (الممولة بقرض شخصي) يوفّر عليك. اقترض أكبر دفعة مقدمة ممكنة عبره.`
+    : `❌ <b>غير مجدية.</b> القرض الشخصي أغلى بـ <b>${pct(diff,1)}</b> من تمويل السيارة. تموّل الدفعة المقدمة من القرض الأغلى يزيد تكلفتك. الأفضل دفعة مقدمة أقل أو تمويل أطول للسيارة.`}
+  </div>
+  <div class="note"><b>تذكير:</b> أنت تستبدل ديناً بدين — القاعدة الوحيدة أن تقترض من الأرخص (APR أقل). تأكد أيضاً أن القرضين لا يتجاوزان نسبة الاستقطاع المسموحة.</div>`;
+  d_res.classList.add('on');
+}
+function calcDBR(){
+  const sal=num(b_sal.value),obl=num(b_obl.value);
+  if(!sal){b_res.classList.remove('on');return}
+  const dbr=obl/sal*100;
+  let cls,msg;
+  if(dbr<=33.33){cls='good';msg=`نسبة استقطاع ${pct(dbr,1)} — ضمن الحد المعتاد للموظفين (٣٣٫٣٣٪).`}
+  else if(dbr<=45){cls='warn';msg=`نسبة استقطاع ${pct(dbr,1)} — مرتفعة، قد تُقبل في حالات معينة (مثل ارتفاع الدخل) لكنها قريبة من الحد.`}
+  else {cls='bad';msg=`نسبة استقطاع ${pct(dbr,1)} — تتجاوز الحدود المعتادة وقد يُرفض التمويل أو تُرفع نسبته.`}
+  b_res.innerHTML=`<div class="kpi"><div class="k big"><div class="lbl">نسبة الاستقطاع (DBR)</div><div class="val num">${pct(dbr,1)}</div></div></div>
+  <div class="verdict ${cls}">${msg}</div>
+  <div class="note">الحدود تختلف حسب الجهة ونوع الدخل (موظف/متقاعد) وتعليمات البنك المركزي السارية. تحقق من جهتك المموّلة.</div>`;
+  b_res.classList.add('on');
+}
+
+/* ============ 5) السداد المبكر ============ */
+let eMode='known', eRtype='apr';
+segInit('e_mode',v=>{eMode=v;document.getElementById('e_known').style.display=v==='known'?'block':'none';document.getElementById('e_derive').style.display=v==='derive'?'block':'none'});
+segInit('e_rtype',v=>eRtype=v);
+function earlySettle(){
+  let save,remain,settle,h,extra='';
+  if(eMode==='known'){
+    remain=num(e_remain.value);settle=num(e_settle.value);
+    if(!remain||!settle){e_res.classList.remove('on');return}
+    save=remain-settle;
+  }else{
+    remain=num(e_remain2.value);const n=Math.round(num(e_n.value)),rate=num(e_rate.value);
+    if(!remain||!n||!rate){e_res.classList.remove('on');return}
+    const t=n/12;
+    if(eRtype==='flat'){
+      // الربح المؤجّل تحت النسبة الثابتة: R = أصل×(1+g·t) ، التوفير = R - الأصل
+      save=remain*(rate/100*t)/(1+rate/100*t);
+    }else{
+      // APR: نخصم دفعات متساوية R/n بالمعدل الشهري الفعلي
+      const r=Math.pow(1+rate/100,1/12)-1, m=remain/n;
+      const pv=Math.abs(r)<1e-12?remain:m*(1-Math.pow(1+r,-n))/r;
+      save=remain-pv;
+    }
+    settle=remain-save;
+    extra=`<div class="line"><span class="lk">الأصل المقدّر (بعد إسقاط الربح)</span><span class="lv num">${fmt(settle,0)}</span></div>`;
+  }
+  const pctSave=remain>0?save/remain*100:0;
+  h=`<div class="kpi">
+    <div class="k big"><div class="lbl">${eMode==='derive'?'أقصى توفير نظري':'التوفير عند السداد المبكر'}</div><div class="val num">${fmt(save,0)} <small>ريال (${pct(pctSave,1)})</small></div></div>
+    <div class="k"><div class="lbl">الرصيد المتبقي</div><div class="val num">${fmt(remain,0)}</div></div>
+    <div class="k"><div class="lbl">${eMode==='derive'?'مبلغ السداد المقدّر':'مبلغ السداد'}</div><div class="val num">${fmt(settle,0)}</div></div>
+  </div>${extra}`;
+  if(eMode==='derive'){
+    h+=`<div class="verdict warn">هذا <b>الحد الأقصى النظري</b> للتوفير (كامل الربح غير المكتسب). المبلغ الفعلي من المموّل غالباً أقل توفيراً بقليل بسبب الرسوم المسموح بها. أكّده بالمبلغ الفعلي قبل القرار.</div>`;
+  }else{
+    h+=`<div class="verdict ${pctSave>10?'good':'warn'}">${pctSave>0
+      ?`بالسداد الآن تُسقط عنك ربحاً غير مكتسب قدره <b>${fmt(save,0)}</b> ريال. إن توفّرت سيولة بعائد أقل من نسبة تمويلك، السداد المبكر مجدٍ.`
+      :`مبلغ السداد لا يقل عن الرصيد المتبقي — راجع بنود الرسوم في عقدك.`}</div>`;
+  }
+  e_res.innerHTML=h;e_res.classList.add('on');
+}
+
+/* ============ 6) أثر الدفعة المقدمة ============ */
+let iSrc='apr';
+segInit('i_src',v=>{iSrc=v;document.getElementById('i_aprbox').style.display=v==='apr'?'block':'none';document.getElementById('i_m0box').style.display=v==='m0'?'block':'none'});
+function impactDown(){
+  const cash=num(i_cash.value),balloon=num(i_balloon.value),down=num(i_down.value);
+  let n=Math.round(num(i_months.value));if(!n)n=Math.round(num(i_years.value)*12);
+  if(!cash||!n){i_res.classList.remove('on');alert('أدخل سعر السيارة والمدة');return}
+  // المعدّل الشهري r من المصدر المختار
+  let r;
+  if(iSrc==='apr'){const apr=num(i_apr.value);if(!apr){i_res.classList.remove('on');alert('أدخل APR');return}r=Math.pow(1+apr/100,1/12)-1;}
+  else{const m0=num(i_m0.value);if(!m0){i_res.classList.remove('on');alert('أدخل قسط صفر دفعة');return}r=solveRate(cash,m0,n,balloon);}
+  if(!isFinite(r)){i_res.classList.remove('on');alert('تعذّر الحساب — تحقق من الأرقام');return}
+  const aprEff=eff(r)*100;
+  const newM=payFromRate(cash-down,r,n,balloon);
+  const m0=payFromRate(cash,r,n,balloon); // قسط صفر دفعة المتسق
+  const drop=m0>0?(m0-newM)/m0*100:0;
+
+  let h=`<div class="kpi">
+    <div class="k big"><div class="lbl">القسط مع دفعة ${fmt(down)}</div><div class="val num">${fmt(newM,0)} <small>ريال/شهر</small></div></div>
+    <div class="k"><div class="lbl">APR (ثابت)</div><div class="val num">${pct(aprEff,1)}</div></div>
+    <div class="k"><div class="lbl">قسط صفر دفعة</div><div class="val num">${fmt(m0,0)}</div></div>
+  </div>
+  <div class="line"><span class="lk">المبلغ الممول بعد الدفعة</span><span class="lv num">${fmt(cash-down)}</span></div>
+  <div class="line"><span class="lk">انخفاض القسط مقابل صفر دفعة</span><span class="lv num g">−${pct(drop,1)}</span></div>`;
+
+  // جدول سيناريوهات
+  h+=`<div class="tablewrap" style="margin-top:14px"><table style="min-width:auto;font-size:11.5px"><tbody>
+    <tr><th>الدفعة</th><th>القسط</th><th>الممول</th><th>APR</th><th>نسبة الزيادة</th></tr>`;
+  const steps=[0,0.1,0.2,0.3,0.4,0.5].map(f=>Math.round(cash*f));
+  if(!steps.includes(down))steps.push(down);
+  steps.sort((a,b)=>a-b);
+  steps.forEach(dp=>{
+    if(dp>=cash)return;
+    const mm=payFromRate(cash-dp,r,n,balloon);
+    const total=dp+mm*n+balloon;
+    const incrRow=(total-cash)/cash*100;
+    const hl=dp===down?' style="background:var(--gold-soft)"':'';
+    h+=`<tr${hl}><td class="num">${fmt(dp)}</td><td class="num">${fmt(mm,0)}</td><td class="num">${fmt(cash-dp)}</td><td class="num">${pct(aprEff,1)}</td><td class="num gold">${pct(incrRow,1)}</td></tr>`;
+  });
+  h+=`</tbody></table></div>
+  <div class="note"><b>لاحظ:</b> عمود <b>APR ثابت</b> في كل الصفوف (الدفعة المقدمة لا تغيّر نسبة العقد)، بينما <b>نسبة الزيادة</b> (على قيمة السيارة الكاملة) تنخفض مع الدفعة. هذا الفرق هو جوهر التمييز بين القياسين. وكل هذا لعقد السيارة وحده؛ إن موّلت الدفعة بقرض شخصي فاستخدم تبويب «قرض الدفعة».</div>`;
+  i_res.innerHTML=h;i_res.classList.add('on');
+}
+
+/* ============ 7) المقارنة المحفوظة ============ */
+async function renderCmp(){
+  const data=JSON.parse(await Store.get(KEY)||'[]');
+  const el=document.getElementById('cmp');
+  if(!data.length){el.innerHTML='<div class="empty">لا توجد عروض محفوظة بعد.<br>احسب عرضاً في تبويب «تحليل عرض» ثم اضغط حفظ.</div>';return}
+  // أفضل (أقل) APR
+  const minApr=Math.min(...data.map(d=>d.aprEff).filter(isFinite));
+  const minTot=Math.min(...data.map(d=>d.grandTotal).filter(isFinite));
+  const rows=[
+    ['الاسم',d=>`<b>${d.name}</b>`],
+    ['APR فعلي',d=>`<span class="tag ${d.aprEff===minApr?'g':'n'}">${pct(d.aprEff,1)}</span>`],
+    ['نسبة الزيادة',d=>pct(d.incr,1)],
+    ['نسبة ثابتة',d=>pct(d.flat,1)],
+    ['سعر كاش',d=>fmt(d.cash)],
+    ['دفعة مقدمة',d=>fmt(d.down)],
+    ['القسط الشهري',d=>fmt(d.m)],
+    ['الدفعة الأخيرة',d=>fmt(d.balloon)],
+    ['المدة',d=>d.n+' شهر'],
+    ['قرض للمقدمة؟',d=>d.dpFin?`<span class="tag n">نعم · ${d.dpm}×${d.dpn}</span>`:'لا'],
+    ['إجمالي ما تدفعه',d=>`<span class="tag ${d.grandTotal===minTot?'g':'r'}">${fmt(d.grandTotal)}</span>`],
+    ['ملاحظات',d=>d.note?`<span style="white-space:normal;color:var(--mut);font-size:11px">${d.note}</span>`:'—'],
+    ['',(d,i)=>`<button class="del" onclick="delRow(${i})">✕</button>`],
+  ];
+  let h='<div class="tablewrap"><table><tbody>';
+  rows.forEach(([lbl,fn])=>{
+    h+=`<tr><th>${lbl}</th>`;
+    data.forEach((d,i)=>h+=`<td>${fn(d,i)}</td>`);
+    h+='</tr>';
+  });
+  h+='</tbody></table></div>';
+  if(data.length>1)h+=`<div class="note">✅ <b>الأخضر</b> = الأفضل: أقل APR (${pct(minApr,1)}) وأقل إجمالي (${fmt(minTot)} ريال). إن اختلف الصفّان، تذكّر: APR يقيس جودة التمويل، والإجمالي يقيس ما يخرج من جيبك.</div>`;
+  el.innerHTML=h;
+}
+async function delRow(i){
+  const data=JSON.parse(await Store.get(KEY)||'[]');data.splice(i,1);await Store.set(KEY,JSON.stringify(data));renderCmp();updateCount();
+}
+async function clearAll(){
+  if(!confirm('مسح كل العروض المحفوظة؟'))return;
+  await Store.set(KEY,'[]');renderCmp();updateCount();
+}
+async function exportData(){
+  const data=JSON.parse(await Store.get(KEY)||'[]');
+  if(!data.length){alert('لا يوجد ما يُصدَّر');return}
+  let csv='\uFEFFالاسم,APR فعلي,نسبة الزيادة,نسبة ثابتة,سعر كاش,دفعة مقدمة,قسط شهري,الدفعة الأخيرة,مدة(شهر),إجمالي,ملاحظات\n';
+  data.forEach(d=>{csv+=`"${d.name}",${(d.aprEff||0).toFixed(2)},${(d.incr||0).toFixed(2)},${(d.flat||0).toFixed(2)},${d.cash},${d.down},${d.m},${d.balloon},${d.n},${d.grandTotal},"${(d.note||'').replace(/"/g,'""')}"\n`});
+  const blob=new Blob([csv],{type:'text/csv;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a');
+  a.href=url;a.download='مقارنة_التمويل.csv';a.click();URL.revokeObjectURL(url);
+}
+async function updateCount(){const data=JSON.parse(await Store.get(KEY)||'[]');document.getElementById('cnt').textContent=data.length+' عرض محفوظ'}
+/* ===== نسخ احتياطي/استعادة موحّد للقائمتين ===== */
+async function backupAll(){
+  const offers=JSON.parse(await Store.get(KEY)||'[]');
+  const payments=JSON.parse(await Store.get(PKEY)||'[]');
+  const obj={app:'حاسبة التمويل الذكية',version:'1.3.1',date:new Date().toISOString(),offers,payments};
+  const blob=new Blob([JSON.stringify(obj,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');
+  const d=new Date(),stamp=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  a.href=url;a.download=`نسخة_احتياطية_الحاسبة_${stamp}.json`;a.click();URL.revokeObjectURL(url);
+}
+function restoreAll(ev){
+  const file=ev.target.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=async e=>{
+    try{
+      const parsed=JSON.parse(e.target.result);
+      let offers=null,payments=null;
+      if(Array.isArray(parsed)){
+        // ملف قديم بصيغة مصفوفة واحدة — نحدد نوعه تلقائياً
+        const s=parsed[0]||{};
+        if(('rateType' in s)||('grand' in s)) payments=parsed; else offers=parsed;
+      }else if(parsed&&typeof parsed==='object'){
+        if(Array.isArray(parsed.offers)) offers=parsed.offers;
+        if(Array.isArray(parsed.payments)) payments=parsed.payments;
+      }
+      if(!offers&&!payments){alert('الملف غير صالح');ev.target.value='';return}
+      const curO=JSON.parse(await Store.get(KEY)||'[]');
+      const curP=JSON.parse(await Store.get(PKEY)||'[]');
+      const nO=offers?offers.length:0,nP=payments?payments.length:0;
+      const merge=confirm(`الملف يحتوي: ${nO} عرضاً و${nP} قسطاً.\nموافق = دمج مع الموجود (${curO.length} عرض، ${curP.length} قسط)\nإلغاء = استبدال`);
+      if(offers!==null)await Store.set(KEY,JSON.stringify(merge?curO.concat(offers):offers));
+      if(payments!==null)await Store.set(PKEY,JSON.stringify(merge?curP.concat(payments):payments));
+      renderCmp();renderPCmp();updateCount();updatePCount();
+      alert('تمت الاستعادة بنجاح ✓');
+    }catch(err){alert('الملف غير صالح')}
+    ev.target.value='';
+  };
+  reader.readAsText(file);
+}
+/* ============ 8) مقارنة الأقساط (قائمة منفصلة) ============ */
+let lastPayment=null;
+async function savePayment(){
+  if(!lastPayment)return;
+  const data=JSON.parse(await Store.get(PKEY)||'[]');
+  data.push(lastPayment);await Store.set(PKEY,JSON.stringify(data));
+  const btn=document.getElementById('p_save');btn.textContent='✓ تم الحفظ';setTimeout(()=>btn.textContent='💾 حفظ للمقارنة',1500);
+  updatePCount();
+}
+async function renderPCmp(){
+  const data=JSON.parse(await Store.get(PKEY)||'[]');
+  const el=document.getElementById('pcmp');
+  if(!data.length){el.innerHTML='<div class="empty">لا توجد أقساط محفوظة بعد.<br>احسب قسطاً في تبويب «حاسبة القسط» ثم اضغط حفظ.</div>';return}
+  const minM=Math.min(...data.map(d=>d.m).filter(isFinite));
+  const minApr=Math.min(...data.map(d=>d.aprEff).filter(isFinite));
+  const ploan=d=>(d.down>0?d.down/60+300:0);
+  const totMon=d=>d.m+ploan(d);
+  const minTotMon=Math.min(...data.map(d=>totMon(d)).filter(isFinite));
+  const grandFin=d=>(d.grand-d.down)+ploan(d)*60;
+  const profitFin=d=>d.profit+(ploan(d)*60-d.down);
+  const incrFin=d=>d.price>0?(grandFin(d)-d.price)/d.price*100:NaN;
+  const minTot=Math.min(...data.map(d=>grandFin(d)).filter(isFinite));
+  const minProfit=Math.min(...data.map(d=>profitFin(d)).filter(isFinite));
+  const rtype=d=>d.rateType==='flat'?'ثابتة':'فعلية';
+  const rows=[
+    ['الاسم',d=>`<b>${d.name}</b>`],
+    ['القسط الشهري (سيارة)',d=>`<span class="tag ${d.m===minM?'g':'n'}">${fmt(d.m)}</span>`],
+    ['قسط القرض الشخصي (الدفعة÷60 +300)',d=>d.down>0?fmt(ploan(d)):'—'],
+    ['إجمالي القسط الشهري (سيارة + شخصي)',d=>`<span class="tag ${totMon(d)===minTotMon?'g':'n'}">${fmt(totMon(d))}</span>`],
+    ['سعر/مبلغ التمويل',d=>fmt(d.price)],
+    ['دفعة مقدمة',d=>fmt(d.down)],
+    ['المبلغ الممول',d=>fmt(d.F)],
+    ['الدفعة الأخيرة',d=>fmt(d.balloon)],
+    ['النسبة المدخلة',d=>`${pct(d.rate,2)} <span class="tag n">${rtype(d)}</span>`],
+    ['APR فعلي',d=>`<span class="tag ${d.aprEff===minApr?'g':'n'}">${pct(d.aprEff,1)}</span>`],
+    ['المدة',d=>d.n+' شهر'],
+    ['إجمالي الربح',d=>`<span class="tag ${profitFin(d)===minProfit?'g':'n'}">${fmt(profitFin(d))}</span>`],
+    ['إجمالي ما تدفعه',d=>`<span class="tag ${grandFin(d)===minTot?'g':'r'}">${fmt(grandFin(d))}</span>`],
+    ['نسبة الزيادة',d=>pct(incrFin(d),1)],
+    ['',(d,i)=>`<button class="del" onclick="delPRow(${i})">✕</button>`],
+  ];
+  let h='<div class="tablewrap"><table><tbody>';
+  rows.forEach(([lbl,fn])=>{h+=`<tr><th>${lbl}</th>`;data.forEach((d,i)=>h+=`<td>${fn(d,i)}</td>`);h+='</tr>';});
+  h+='</tbody></table></div>';
+  if(data.length>1)h+=`<div class="note">✅ <b>الأخضر</b> = الأفضل في كل صف: أقل قسط سيارة (${fmt(minM)}) وأقل إجمالي قسط شهري (${fmt(minTotMon)}) وأقل إجمالي مدفوع (${fmt(minTot)}) وأقل ربح (${fmt(minProfit)}) وأقل APR (${pct(minApr,1)}).<br><span style="color:var(--mut2)">قسط القرض الشخصي = الدفعة المقدمة ÷ 60 + 300. و«إجمالي ما تدفعه» و«إجمالي الربح» و«نسبة الزيادة» تفترض جميعها <b>تمويل الدفعة المقدمة بهذا القرض الشخصي</b> عند وجود دفعة (لذا تتحقق دائماً: ما تدفعه − الربح = سعر السيارة). فإن دفعت المقدمة كاش، اطرح 18,000 لكل حالة بها دفعة.</span></div>`;
+  el.innerHTML=h;
+}
+async function delPRow(i){
+  const data=JSON.parse(await Store.get(PKEY)||'[]');data.splice(i,1);await Store.set(PKEY,JSON.stringify(data));renderPCmp();updatePCount();
+}
+async function clearPAll(){
+  if(!confirm('مسح كل الأقساط المحفوظة؟'))return;
+  await Store.set(PKEY,'[]');renderPCmp();updatePCount();
+}
+async function exportPData(){
+  const data=JSON.parse(await Store.get(PKEY)||'[]');
+  if(!data.length){alert('لا يوجد ما يُصدَّر');return}
+  let csv='\uFEFFالاسم,القسط الشهري (سيارة),قسط القرض الشخصي,إجمالي القسط الشهري,سعر/مبلغ التمويل,دفعة مقدمة,المبلغ الممول,الدفعة الأخيرة,النسبة المدخلة,نوع النسبة,APR فعلي,مدة(شهر),إجمالي الربح,إجمالي مدفوع,نسبة الزيادة\n';
+  data.forEach(d=>{const plRaw=d.down>0?d.down/60+300:0;const pl=Math.round(plRaw);const tot=Math.round(d.m+plRaw);const gFin=Math.round((d.grand-d.down)+plRaw*60);const profFin=Math.round((d.profit||0)+(plRaw*60-d.down));const iFin=d.price>0?((gFin-d.price)/d.price*100):0;csv+=`"${d.name}",${d.m},${pl},${tot},${d.price},${d.down},${d.F},${d.balloon},${d.rate||0},"${d.rateType==='flat'?'ثابتة':'فعلية'}",${(d.aprEff||0).toFixed(2)},${d.n},${profFin},${gFin},${iFin.toFixed(2)}\n`});
+  const blob=new Blob([csv],{type:'text/csv;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a');
+  a.href=url;a.download='مقارنة_الأقساط.csv';a.click();URL.revokeObjectURL(url);
+}
+async function updatePCount(){const data=JSON.parse(await Store.get(PKEY)||'[]');document.getElementById('pcnt').textContent=data.length+' قسط محفوظ'}
+
+updateCount();updatePCount();
 <\/script>
 </body>
 </html>
