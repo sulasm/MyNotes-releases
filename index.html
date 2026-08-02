@@ -5,7 +5,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
   <meta name="theme-color" content="#667eea">
-  <meta name="app-version" content="1.11.0">
+  <meta name="app-version" content="1.12.0">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <title>المنظم</title>
@@ -2044,6 +2044,8 @@
       <div id="fin-app-btn" onclick="openFinApp()" title="حاسبة التمويل الذكية"
         style="position:absolute;inset-inline-end:48px;bottom:1px;font-size:16px;padding:4px 10px;border-radius:8px;cursor:pointer;user-select:none;-webkit-tap-highlight-color:transparent;transition:background .15s;line-height:1.2;"
         onpointerdown="this.style.background='rgba(var(--ov),0.13)'" onpointerup="this.style.background=''" onpointerleave="this.style.background=''">🧮</div>
+      <div id="umluj-wx" onclick="openRainApp()" title="أملج الآن: الحرارة المحسوسة 🌡 ونقطة الندى 💧 — انقر للتفاصيل"
+        style="display:none;position:absolute;inset-inline-start:6px;bottom:1px;color:var(--tw);font-size:11px;font-weight:700;padding:6px 8px;border-radius:8px;cursor:pointer;user-select:none;-webkit-tap-highlight-color:transparent;line-height:1.2;white-space:nowrap;opacity:.95;"></div>
     </div>
 
     <div class="pages" style="display:flex;flex-direction:column;flex:1;overflow:hidden">
@@ -3462,6 +3464,35 @@
       var ov = document.getElementById('fin-ov');
       if (ov) ov.style.display = 'none';
     }
+
+    /* ══════════════════════════════════════
+       مؤشر أملج الحي في الشريط العلوي: الحرارة المحسوسة + نقطة الندى (التكثف)
+       يُجلب من Open-Meteo (current) ويتحدث كل 30 دقيقة وعند العودة للتطبيق؛
+       يبقى مخفياً حتى أول جلب ناجح ويفشل بصمت دون إنترنت.
+    ══════════════════════════════════════ */
+    var _UMLUJ_WX_URL = 'https://api.open-meteo.com/v1/forecast?latitude=25.0213&longitude=37.2685'
+      + '&current=apparent_temperature,dew_point_2m&timezone=Asia%2FRiyadh';
+    var _umlujWxLast = 0;
+
+    function _updateUmlujWx() {
+      var el = document.getElementById('umluj-wx');
+      if (!el) return;
+      fetch(_UMLUJ_WX_URL, { cache: 'no-store' })
+        .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+        .then(function (j) {
+          var c = j && j.current;
+          if (!c || typeof c.apparent_temperature !== 'number' || typeof c.dew_point_2m !== 'number') return;
+          el.textContent = 'أملج 🌡' + Math.round(c.apparent_temperature) + '° 💧' + Math.round(c.dew_point_2m) + '°';
+          el.style.display = 'block';
+          _umlujWxLast = Date.now();
+        })
+        .catch(function () { /* بصمت: تبقى آخر قيمة معروضة، أو يبقى مخفياً قبل أول نجاح */ });
+    }
+    setTimeout(_updateUmlujWx, 2500);
+    setInterval(_updateUmlujWx, 30 * 60e3);
+    document.addEventListener('visibilitychange', function () {
+      if (!document.hidden && Date.now() - _umlujWxLast > 15 * 60e3) _updateUmlujWx();
+    });
 
 
 
