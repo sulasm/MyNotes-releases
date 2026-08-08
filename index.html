@@ -5,7 +5,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
   <meta name="theme-color" content="#667eea">
-  <meta name="app-version" content="1.13.2">
+  <meta name="app-version" content="1.14.0">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <title>المنظم</title>
@@ -2044,6 +2044,9 @@
       <div id="fin-app-btn" onclick="openFinApp()" title="حاسبة التمويل الذكية"
         style="position:absolute;inset-inline-end:48px;bottom:1px;font-size:16px;padding:4px 10px;border-radius:8px;cursor:pointer;user-select:none;-webkit-tap-highlight-color:transparent;transition:background .15s;line-height:1.2;"
         onpointerdown="this.style.background='rgba(var(--ov),0.13)'" onpointerup="this.style.background=''" onpointerleave="this.style.background=''">🧮</div>
+      <div id="map-app-btn" onclick="openMapApp()" title="الخريطة — أماكني وملاحظاتي على خرائط جوجل"
+        style="position:absolute;inset-inline-end:90px;bottom:1px;font-size:16px;padding:4px 10px;border-radius:8px;cursor:pointer;user-select:none;-webkit-tap-highlight-color:transparent;transition:background .15s;line-height:1.2;"
+        onpointerdown="this.style.background='rgba(var(--ov),0.13)'" onpointerup="this.style.background=''" onpointerleave="this.style.background=''">🗺️</div>
       <div id="umluj-wx" onclick="openUmlujApp()" title="أملج الآن: الحرارة المحسوسة 🌡️ ونقطة الندى 💧 — انقر للتفاصيل"
         style="display:none;position:absolute;inset-inline-start:6px;bottom:1px;color:var(--tw);font-size:11px;font-weight:700;padding:6px 8px;border-radius:8px;cursor:pointer;user-select:none;-webkit-tap-highlight-color:transparent;line-height:1.2;white-space:nowrap;opacity:.95;"></div>
     </div>
@@ -2115,6 +2118,19 @@
             </button>
           </div>
           <div id="app-ver-label" style="font-size:11px;color:var(--text-m);padding:10px 0 0;text-align:center;opacity:.75;">الإصدار —</div>
+        </div>
+
+        <!-- قسم الخريطة -->
+        <div class="section">
+          <div class="sec-t">🗺️ الخريطة</div>
+          <div style="font-size:12px;color:var(--text-m);padding:4px 0 8px;">
+            مفتاح Google Maps API لعرض خرائط جوجل. أنشئه من console.cloud.google.com
+            (فعّل Maps JavaScript API). يُحفظ محلياً على جهازك فقط.
+          </div>
+          <input type="text" id="cfg-maps-key" placeholder="AIza..." dir="ltr" autocomplete="off"
+            onchange="setMapsKey(this.value)"
+            style="width:100%;box-sizing:border-box;padding:9px 10px;border-radius:10px;border:1px solid rgba(var(--ov),.15);background:rgba(var(--ov),.06);color:var(--tw);font-size:13px;font-family:monospace;">
+          <div id="maps-key-status" style="font-size:12px;color:var(--text-m);padding:8px 0 0;"></div>
         </div>
 
         <!-- قسم التذكيرات -->
@@ -2513,6 +2529,7 @@
       const _vl = document.getElementById('app-ver-label');
       if (_vl) _vl.textContent = 'الإصدار ' + (_getLocalHash() || '');
       const _rh = document.getElementById('remind-hour'); if (_rh) _rh.value = _remindHour();
+      if (typeof _reflectMapsKey === 'function') _reflectMapsKey();
       if (typeof renderTrash === 'function') renderTrash();
       if (typeof _reflectThemeButtons === 'function') _reflectThemeButtons();
       const fd = document.getElementById('cfg-folder-path');
@@ -2887,7 +2904,8 @@
       if (p && Array.isArray(p.notes)) return {
         v: p.v || 2, savedAt: +p.savedAt || 0, notes: p.notes,
         trash: Array.isArray(p.trash) ? p.trash : [],
-        cats: _validCats(p.cats)
+        cats: _validCats(p.cats),
+        places: Array.isArray(p.places) ? p.places : []
       };
       throw new Error('bad-notes-format');
     }
@@ -3466,6 +3484,131 @@
     }
 
     /* ══════════════════════════════════════
+       الخريطة المدمجة — خرائط جوجل + أماكني المحفوظة + مواقع الملاحظات
+       نفس نمط الأمطار/الحاسبة: قالب text/html يُحقن في iframe عند أول فتح.
+       الـ iframe (srcdoc = نفس الأصل) يتعامل مع التخزين والملاحظات حصراً عبر
+       جسر MapBridge أدناه، فلا يلمس localStorage الأم مباشرة.
+    ══════════════════════════════════════ */
+    var _mapLoaded = false;
+    var _MAPS_KEY_LS = 'gmaps_api_key';
+    var _MAP_PLACES_LS = 'map_places_v1';
+    var _MAP_VIEW_LS = 'map_last_view_v1';
+
+    function _mapFrameWin() {
+      var f = document.getElementById('map-frame');
+      return (f && f.contentWindow) || null;
+    }
+
+    /* pickFor: null = تصفح عادي، وإلا معرّف الملاحظة الجاري تحديد موقعها */
+    function openMapApp(pickFor) {
+      var ov = document.getElementById('map-ov');
+      if (!ov) return;
+      if (!_mapLoaded) {
+        var tpl = document.getElementById('map-app-tpl');
+        if (!tpl) return;
+        document.getElementById('map-frame').srcdoc =
+          tpl.textContent.replace(/<\\\/script>/g, '<' + '/script>');
+        _mapLoaded = true;
+      }
+      ov.style.display = 'flex';
+      hPush();
+      /* أبلغ الـ iframe بوضع التشغيل (قد لا يكون جاهزاً عند أول حقن — يقرأ
+         الوضع بنفسه من MapBridge.pickTarget عند اكتمال تحميله) */
+      MapBridge.pickTarget = pickFor || null;
+      var w = _mapFrameWin();
+      if (w && typeof w._mnMapSync === 'function') { try { w._mnMapSync(); } catch (e) { } }
+    }
+
+    function closeMapApp() {
+      var ov = document.getElementById('map-ov');
+      if (ov) ov.style.display = 'none';
+      MapBridge.pickTarget = null;
+    }
+
+    function setMapsKey(v) {
+      v = String(v || '').trim();
+      try {
+        if (v) localStorage.setItem(_MAPS_KEY_LS, v);
+        else localStorage.removeItem(_MAPS_KEY_LS);
+      } catch (e) { }
+      _reflectMapsKey();
+      showFb(v ? '🗺️ حُفظ مفتاح الخريطة' : 'أُزيل مفتاح الخريطة');
+      /* مفتاح جديد بعد فتح سابق: أعد بناء الـ iframe من الصفر، ومع إعادة الفتح
+         فوراً إن كانت الخريطة معروضة (مسار الحفظ من شاشة الإعداد داخلها) */
+      if (_mapLoaded) {
+        var wasOpen = document.getElementById('map-ov')?.style.display === 'flex';
+        _mapLoaded = false;
+        var f = document.getElementById('map-frame');
+        if (f) f.srcdoc = '';
+        if (wasOpen && v) openMapApp(MapBridge.pickTarget);
+      }
+    }
+
+    function _reflectMapsKey() {
+      var inp = document.getElementById('cfg-maps-key');
+      var st = document.getElementById('maps-key-status');
+      var k = '';
+      try { k = localStorage.getItem(_MAPS_KEY_LS) || ''; } catch (e) { }
+      if (inp && document.activeElement !== inp) inp.value = k;
+      if (st) st.textContent = k ? '✅ المفتاح محفوظ — الخريطة جاهزة' : 'بلا مفتاح — ستظهر شاشة الإعداد عند فتح الخريطة';
+    }
+
+    /* جسر الـ iframe: كل ما تحتاجه الخريطة من الصفحة الأم في مكان واحد */
+    var MapBridge = {
+      pickTarget: null,
+      getKey() { try { return localStorage.getItem(_MAPS_KEY_LS) || ''; } catch (e) { return ''; } },
+      saveKey(v) { setMapsKey(v); },
+      getPlaces() {
+        try {
+          var a = JSON.parse(localStorage.getItem(_MAP_PLACES_LS) || '[]');
+          return Array.isArray(a) ? a.filter(function (p) { return p && typeof p === 'object' && isFinite(p.lat) && isFinite(p.lng); }) : [];
+        } catch (e) { return []; }
+      },
+      setPlaces(a) {
+        try { localStorage.setItem(_MAP_PLACES_LS, JSON.stringify(Array.isArray(a) ? a : [])); } catch (e) { }
+      },
+      getView() { try { return JSON.parse(localStorage.getItem(_MAP_VIEW_LS) || 'null'); } catch (e) { return null; } },
+      setView(v) { try { localStorage.setItem(_MAP_VIEW_LS, JSON.stringify(v)); } catch (e) { } },
+      newId() { return newNoteId(); },
+      /* الملاحظات الحيّة التي لها موقع — نسخة مبسّطة للعرض على الخريطة */
+      notesWithLoc() {
+        return DB.get().filter(function (n) { return n && n.loc && isFinite(n.loc.lat) && isFinite(n.loc.lng); })
+          .map(function (n) {
+            return { id: n.id, lat: +n.loc.lat, lng: +n.loc.lng,
+              label: (n.text || [n.main, n.sub].filter(Boolean).join(' › ') || 'ملاحظة').slice(0, 60),
+              cat: [n.main, n.sub].filter(Boolean).join(' › '),
+              ic: (n.main && CATS[n.main] && CATS[n.main].ic) || '📝',
+              status: n.status || '' };
+          });
+      },
+      openNote(id) { closeMapApp(); setTimeout(function () { openNote(id); }, 120); },
+      close() { closeMapApp(); },
+      /* الموقع الحالي للملاحظة المستهدفة في وضع الالتقاط (إن وُجد) */
+      pickInitial() {
+        var t = MapBridge.pickTarget; if (!t) return null;
+        if (_editId && _sameId(_editId, t) && _editLoc) return { lat: _editLoc.lat, lng: _editLoc.lng };
+        var n = DB.get().find(function (x) { return _sameId(x.id, t); });
+        return (n && n.loc && isFinite(n.loc.lat)) ? { lat: +n.loc.lat, lng: +n.loc.lng } : null;
+      },
+      /* نتيجة وضع الالتقاط: يثبّت الموقع على الملاحظة المستهدفة */
+      pickResult(lat, lng) {
+        var target = MapBridge.pickTarget;
+        closeMapApp();
+        if (!target) return;
+        if (_editId && _sameId(_editId, target)) {
+          _editLoc = { lat: +lat, lng: +lng };
+          _refreshEditLoc();
+        } else {
+          var notes = DB.get();
+          var n = notes.find(function (x) { return _sameId(x.id, target); });
+          if (n) { n.loc = { lat: +lat, lng: +lng }; DB.set(notes); }
+        }
+        showFb('📍 تم تحديد موقع الملاحظة');
+      },
+      toast(msg, err) { showFb(msg, err ? 1 : 0); }
+    };
+
+    /* ══════════════════════════════════════
        مؤشر أملج الحي في الشريط العلوي: الحرارة المحسوسة + نقطة الندى (التكثف)
        يُجلب من Open-Meteo (current) ويتحدث كل 30 دقيقة وعند العودة للتطبيق؛
        يبقى مخفياً حتى أول جلب ناجح ويفشل بصمت دون إنترنت.
@@ -3630,6 +3773,10 @@
       }
       if (document.getElementById('umluj-ov')?.style.display === 'flex') {
         closeUmlujApp();
+        return true;
+      }
+      if (document.getElementById('map-ov')?.style.display === 'flex') {
+        closeMapApp();
         return true;
       }
       if (_inSettings) {
@@ -4632,6 +4779,19 @@
           incomingTrash.forEach(t => { const k = String(t.id); if (!map.has(k) && !tmap.has(k)) tmap.set(k, t); });
           resultTrash = [...tmap.values()];
           if (parsed.cats) { CATS = Object.assign({}, parsed.cats, CATS); saveCats(); }
+          /* دمج أماكن الخريطة حسب المعرّف (الأحدث يفوز) */
+          if (Array.isArray(parsed.places) && parsed.places.length) {
+            const pmap = new Map();
+            MapBridge.getPlaces().forEach(p => pmap.set(String(p.id), p));
+            parsed.places.forEach(p => {
+              if (!p || typeof p !== 'object' || !isFinite(p.lat) || !isFinite(p.lng)) return;
+              const k = String(p.id || '');
+              const ex = pmap.get(k);
+              if (!k) return;
+              if (!ex || String(p.ts || '') > String(ex.ts || '')) pmap.set(k, p);
+            });
+            MapBridge.setPlaces([...pmap.values()]);
+          }
         } else {
           if (!confirm('⚠️ سيتم استبدال جميع الملاحظات الحالية (' + DB.get().length + ') بمحتوى الملف نهائياً. متابعة؟')) {
             showFb('أُلغي الاستيراد'); return;
@@ -4639,6 +4799,7 @@
           result = incoming;
           resultTrash = incomingTrash;
           if (parsed.cats) { CATS = parsed.cats; saveCats(); }
+          if (Array.isArray(parsed.places) && parsed.places.length) MapBridge.setPlaces(parsed.places.filter(p => p && typeof p === 'object' && isFinite(p.lat) && isFinite(p.lng)));
         }
         /* الاستيراد يُعد تحميلاً ناجحاً */
         _notesLoaded = true;
@@ -5070,8 +5231,8 @@
 
     /* تصدير يدوي */
     function exportData() {
-      /* v3: يشمل السلة والفئات المخصّصة — استعادة كاملة من ملف واحد */
-      const payload = { v: 3, savedAt: Date.now(), notes: DB.get(), trash: _trashCache, cats: CATS };
+      /* v3: يشمل السلة والفئات المخصّصة وأماكن الخريطة — استعادة كاملة من ملف واحد */
+      const payload = { v: 3, savedAt: Date.now(), notes: DB.get(), trash: _trashCache, cats: CATS, places: MapBridge.getPlaces() };
       const json = JSON.stringify(payload, null, 2);
       const blob = new Blob([json], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
@@ -5160,6 +5321,36 @@
     let _editStatus = '';
     let _editDH = '', _editDG = '';
     let _editMain = '', _editSub = '', _editSec = '';
+    let _editLoc = null;
+
+    /* ── موقع الملاحظة على الخريطة ── */
+    function _refreshEditLoc() {
+      const tx = document.getElementById('edit-loc-tx');
+      const del = document.getElementById('edit-loc-del');
+      if (!tx) return;
+      if (_editLoc && isFinite(_editLoc.lat)) {
+        tx.textContent = 'موقع معيّن ✓';
+        tx.style.color = 'var(--tw)';
+        if (del) del.style.display = 'inline';
+      } else {
+        tx.textContent = 'تحديد على الخريطة';
+        tx.style.color = 'rgba(var(--ov),.5)';
+        if (del) del.style.display = 'none';
+      }
+    }
+    /* يفتح الخريطة بوضع الالتقاط للملاحظة الجارية؛ التغيير يُحفظ فوراً في _editLoc
+       ويثبت نهائياً مع «حفظ» (أو يبقى القديم عند الإغلاق دون حفظ) */
+    function openEditLocPicker() {
+      if (!_editId) return;
+      openMapApp(_editId);
+    }
+    function clearEditLoc(e) {
+      if (e) e.stopPropagation();
+      if (!_editLoc) return;
+      if (!confirm('إزالة الموقع من الملاحظة؟')) return;
+      _editLoc = null;
+      _refreshEditLoc();
+    }
 
     function openNote(id) {
       const n = DB.get().find(x => _sameId(x.id, id)); if (!n) return;
@@ -5184,6 +5375,9 @@
       else { dtx.textContent = 'اختر التاريخ'; dtx.style.color = 'rgba(var(--ov),.5)'; }
       /* المرفق */
       _refreshEditAtt(n);
+      /* الموقع */
+      _editLoc = (n.loc && isFinite(n.loc.lat) && isFinite(n.loc.lng)) ? { lat: +n.loc.lat, lng: +n.loc.lng } : null;
+      _refreshEditLoc();
       /* الملاحظات المرتبطة */
       _renderEditLinks(n);
       document.getElementById('edit-ov').classList.add('open');
@@ -5388,6 +5582,7 @@
       notes[idx].main   = _editMain;
       notes[idx].sub    = _editSub;
       notes[idx].sec    = _editSec;
+      notes[idx].loc    = _editLoc ? { lat: _editLoc.lat, lng: _editLoc.lng } : null;
       DB.set(notes);
       return true;
     }
@@ -5727,6 +5922,16 @@
           </div>
         </div>
         <input type="file" id="edit-att-input" style="display:none" onchange="handleAttFromEdit(event)">
+
+        <!-- ص٥: الموقع على الخريطة -->
+        <div class="edit-field-lbl">📍 الموقع</div>
+        <div id="edit-loc-cell" class="edit-inp" style="cursor:pointer;display:flex;align-items:center;gap:6px;padding:7px 10px;" onclick="openEditLocPicker()">
+          <span style="font-size:14px;">🗺️</span>
+          <span id="edit-loc-tx" style="flex:1;color:rgba(var(--ov),.5);font-size:12px;">تحديد على الخريطة</span>
+          <span id="edit-loc-del" onclick="clearEditLoc(event)" title="إزالة الموقع"
+            style="display:none;color:#fca5a5;font-size:13px;padding:2px 6px;">✕</span>
+          <span style="color:rgba(var(--ov),.4);font-size:11px;">›</span>
+        </div>
 
         <!-- الملاحظات المرتبطة -->
         <div id="edit-links-section" style="display:none;margin-top:4px;">
@@ -6593,6 +6798,17 @@ load();
         style="position:absolute;inset-inline-end:6px;bottom:1px;color:var(--tw);font-size:15px;font-weight:700;padding:4px 12px;border-radius:8px;cursor:pointer;user-select:none;-webkit-tap-highlight-color:transparent;line-height:1.2;">🔄</div>
     </div>
     <div id="umluj-body" style="flex:1;overflow-y:auto;padding:12px 14px calc(20px + env(safe-area-inset-bottom,0px));"></div>
+  </div>
+
+  <!-- ══ الخريطة المدمجة — خرائط جوجل ══
+       نافذة ملء الشاشة تحوي iframe يُحقن فيه القالب أدناه عند أول فتح (openMapApp) -->
+  <div id="map-ov" style="display:none;position:fixed;inset:0;z-index:9700;background:var(--bg-p);flex-direction:column;">
+    <div style="position:relative;display:flex;align-items:center;justify-content:center;padding:env(safe-area-inset-top,0px) 0 0;background:var(--grad);flex-shrink:0;box-shadow:0 2px 10px rgba(102,126,234,0.4);">
+      <div style="color:var(--tw);font-size:14px;font-weight:700;padding:5px 22px;line-height:1.2;user-select:none;">🗺️ الخريطة</div>
+      <div onclick="closeMapApp()" title="رجوع"
+        style="position:absolute;inset-inline-start:6px;bottom:1px;color:var(--tw);font-size:15px;font-weight:700;padding:4px 12px;border-radius:8px;cursor:pointer;user-select:none;-webkit-tap-highlight-color:transparent;line-height:1.2;">‹ رجوع</div>
+    </div>
+    <iframe id="map-frame" title="الخريطة" style="flex:1;width:100%;border:0;background:transparent;"></iframe>
   </div>
 
   <!-- قالب حاسبة التمويل — لا يُنفَّذ (type=text/html)؛ وسوم الإغلاق الداخلية مهرَّبة </script> -->
@@ -7519,6 +7735,433 @@ updateCount();updatePCount();
 </body>
 </html>
 
+  </script>
+
+  <!-- قالب الخريطة المدمجة — لا يُنفَّذ (type=text/html)؛ وسوم الإغلاق الداخلية مهرَّبة <\/script> -->
+  <script type="text/html" id="map-app-tpl">
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>الخريطة — أماكني وملاحظاتي</title>
+<style>
+  :root{
+    --bg:#1a1033; --card:#241640; --line:rgba(255,255,255,.14);
+    --tx:#f5f3ff; --mut:#b6aed6; --acc:#6366f1; --accg:linear-gradient(135deg,#667eea,#764ba2);
+  }
+  body.light{ --bg:#eef1f8; --card:#ffffff; --line:rgba(20,20,60,.14); --tx:#1e1b3a; --mut:#5b5878; }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{height:100%;margin:0;}
+  body{font-family:'Segoe UI',Tahoma,Arial,sans-serif;background:var(--bg);color:var(--tx);overflow:hidden;}
+  #map{position:absolute;inset:0;}
+  button{font-family:inherit;cursor:pointer;}
+
+  /* ── شاشة الإعداد (بلا مفتاح) ── */
+  #gate{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:18px;overflow-y:auto;background:var(--bg);z-index:50;}
+  .gate-card{max-width:430px;width:100%;background:var(--card);border:1px solid var(--line);border-radius:18px;padding:22px 20px;}
+  .gate-card h2{margin:0 0 10px;font-size:18px;}
+  .gate-card p,.gate-card li{font-size:13px;line-height:1.8;color:var(--mut);margin:0 0 8px;}
+  .gate-card ol{padding-inline-start:18px;margin:0 0 12px;}
+  .gate-card input{width:100%;padding:11px 12px;border-radius:12px;border:1px solid var(--line);background:rgba(127,127,180,.1);color:var(--tx);font-size:14px;direction:ltr;font-family:monospace;}
+  .gate-err{color:#fca5a5;font-size:12.5px;font-weight:700;margin:0 0 10px;}
+  .btn{border:none;border-radius:12px;padding:11px 18px;font-size:14px;font-weight:700;color:#fff;background:var(--accg);}
+  .btn.gray{background:rgba(127,127,180,.22);color:var(--tx);}
+
+  /* ── شريط الأدوات العائم ── */
+  #bar{position:absolute;top:10px;inset-inline:10px;z-index:20;display:flex;gap:7px;}
+  #q{flex:1;min-width:0;padding:10px 13px;border-radius:13px;border:1px solid var(--line);background:var(--card);color:var(--tx);font-size:13.5px;box-shadow:0 3px 14px rgba(0,0,0,.3);}
+  #q::placeholder{color:var(--mut);}
+  .tbtn{width:41px;flex-shrink:0;border-radius:13px;border:1px solid var(--line);background:var(--card);color:var(--tx);font-size:17px;box-shadow:0 3px 14px rgba(0,0,0,.3);}
+  .tbtn.on{background:var(--accg);border-color:transparent;}
+
+  /* ── شريط وضع الالتقاط ── */
+  #pickbar{position:absolute;bottom:0;inset-inline:0;z-index:30;display:none;flex-direction:column;gap:9px;padding:13px 14px calc(14px + env(safe-area-inset-bottom,0px));background:var(--card);border-top:1px solid var(--line);box-shadow:0 -6px 22px rgba(0,0,0,.35);}
+  #pickbar .ttl{font-size:13.5px;font-weight:700;}
+  #pickbar .sub{font-size:12px;color:var(--mut);}
+  #pickbar .row{display:flex;gap:8px;}
+  #pickbar .row .btn{flex:1;}
+  #pick-ok:disabled{opacity:.45;cursor:default;}
+
+  /* ── الورقة السفلية (تفاصيل/إضافة/تعديل) ── */
+  #sheet{position:absolute;bottom:0;inset-inline:0;z-index:31;display:none;flex-direction:column;gap:9px;max-height:62%;overflow-y:auto;padding:13px 15px calc(15px + env(safe-area-inset-bottom,0px));background:var(--card);border-top:1px solid var(--line);border-radius:18px 18px 0 0;box-shadow:0 -6px 22px rgba(0,0,0,.35);}
+  #sheet h3{margin:0;font-size:15px;}
+  #sheet .mut{font-size:12.5px;color:var(--mut);line-height:1.7;white-space:pre-wrap;}
+  #sheet input[type=text],#sheet textarea{width:100%;padding:10px 12px;border-radius:11px;border:1px solid var(--line);background:rgba(127,127,180,.1);color:var(--tx);font-size:13.5px;resize:none;}
+  .colors{display:flex;gap:9px;padding:2px 0;}
+  .cdot{width:26px;height:26px;border-radius:50%;border:2.5px solid transparent;cursor:pointer;}
+  .cdot.on{border-color:var(--tx);}
+  .rowb{display:flex;gap:8px;}
+  .rowb .btn{flex:1;font-size:13px;padding:10px 8px;}
+  .btn.red{background:rgba(239,68,68,.18);color:#fca5a5;border:1px solid rgba(239,68,68,.35);}
+
+  /* ── قائمة أماكني ── */
+  #drawer{position:absolute;top:60px;bottom:0;inset-inline-start:0;width:min(320px,88%);z-index:32;display:none;flex-direction:column;background:var(--card);border-inline-end:1px solid var(--line);box-shadow:6px 0 24px rgba(0,0,0,.35);}
+  #drawer .dh{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid var(--line);font-weight:700;font-size:14px;}
+  #dlist{flex:1;overflow-y:auto;padding:8px 10px calc(12px + env(safe-area-inset-bottom,0px));}
+  .sec-lbl{font-size:11.5px;color:var(--mut);font-weight:700;padding:8px 4px 5px;}
+  .prow{display:flex;align-items:center;gap:9px;padding:9px 10px;border-radius:11px;cursor:pointer;border:1px solid transparent;}
+  .prow:hover{background:rgba(127,127,180,.12);border-color:var(--line);}
+  .prow .nm{flex:1;min-width:0;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .prow .sb{font-size:10.5px;color:var(--mut);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .dot{width:13px;height:13px;border-radius:50%;flex-shrink:0;border:1.5px solid rgba(255,255,255,.5);}
+  .empty{font-size:12.5px;color:var(--mut);text-align:center;padding:18px 8px;line-height:1.8;}
+  #hint{position:absolute;bottom:calc(12px + env(safe-area-inset-bottom,0px));inset-inline:12px;z-index:19;text-align:center;pointer-events:none;}
+  #hint span{display:inline-block;background:rgba(20,12,44,.78);color:#e6e1ff;font-size:11.5px;padding:6px 13px;border-radius:99px;backdrop-filter:blur(4px);}
+  body.light #hint span{background:rgba(255,255,255,.85);color:#333;}
+</style>
+</head>
+<body>
+
+  <!-- شاشة الإعداد: تظهر بلا مفتاح أو عند رفضه/فشل التحميل -->
+  <div id="gate" style="display:none">
+    <div class="gate-card">
+      <h2>🗺️ تفعيل خرائط جوجل</h2>
+      <p id="gate-err" class="gate-err" style="display:none"></p>
+      <p>لعرض الخريطة يلزم مفتاح Google Maps API (مجاني لحد الاستخدام الشخصي):</p>
+      <ol>
+        <li>افتح <b dir="ltr">console.cloud.google.com</b> وأنشئ مشروعاً</li>
+        <li>فعّل <b dir="ltr">Maps JavaScript API</b> (وستحتاج تفعيل الفوترة)</li>
+        <li>من «Credentials» أنشئ <b dir="ltr">API Key</b> والصقه هنا</li>
+      </ol>
+      <input type="text" id="gate-key" placeholder="AIza..." autocomplete="off">
+      <div style="height:11px"></div>
+      <button class="btn" style="width:100%" onclick="saveGateKey()">💾 حفظ وتشغيل الخريطة</button>
+    </div>
+  </div>
+
+  <div id="wrap" style="display:none">
+    <div id="map"></div>
+    <div id="bar">
+      <button class="tbtn" id="drawer-btn" onclick="toggleDrawer()" title="أماكني وملاحظاتي">📍</button>
+      <input type="text" id="q" placeholder="بحث عن مكان أو مدينة..." onkeydown="if(event.key==='Enter')doSearch()">
+      <button class="tbtn" onclick="doSearch()" title="بحث">🔍</button>
+      <button class="tbtn" id="sat-btn" onclick="toggleSat()" title="قمر صناعي">🛰️</button>
+    </div>
+    <div id="hint"><span>اضغط على مكان فارغ في الخريطة لإضافته إلى أماكنك</span></div>
+
+    <!-- وضع الالتقاط: تحديد موقع لملاحظة -->
+    <div id="pickbar">
+      <div class="ttl">📍 تحديد موقع الملاحظة</div>
+      <div class="sub" id="pick-sub">اضغط على الخريطة لاختيار الموقع</div>
+      <div class="row">
+        <button class="btn" id="pick-ok" disabled onclick="confirmPick()">✅ اعتماد هذا الموقع</button>
+        <button class="btn gray" onclick="cancelPick()">إلغاء</button>
+      </div>
+    </div>
+
+    <!-- الورقة السفلية -->
+    <div id="sheet"></div>
+
+    <!-- قائمة أماكني -->
+    <div id="drawer">
+      <div class="dh"><span>📍 أماكني وملاحظاتي</span>
+        <button class="btn gray" style="padding:6px 13px;font-size:12px" onclick="toggleDrawer()">✕</button></div>
+      <div id="dlist"></div>
+    </div>
+  </div>
+
+<script>
+/* ينفَّذ داخل iframe بنفس الأصل — كل التخزين عبر جسر الصفحة الأم MapBridge */
+var B = (function(){ try { return window.parent.MapBridge; } catch(e){ return null; } })();
+var map=null, geocoder=null, tempMk=null, pickMk=null;
+var placeMks=[], noteMks=[];
+var pickMode=false, editingPlaceId=null;
+var COLORS=['#ef4444','#f59e0b','#22c55e','#3b82f6','#a855f7','#14b8a6'];
+var _selColor=COLORS[0];
+
+/* سمة فاتحة إن كانت الصفحة الأم كذلك */
+try { if (window.parent.document.documentElement.getAttribute('data-theme')==='light') document.body.className='light'; } catch(e){}
+
+function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function toast(m,err){ if(B&&B.toast) B.toast(m,err); }
+
+/* ══ الإقلاع: مفتاح موجود → حمّل خرائط جوجل، وإلا شاشة الإعداد ══ */
+function boot(){
+  var k = B ? B.getKey() : '';
+  if(!B){ showGate('تعذّر الاتصال بالتطبيق الأم'); return; }
+  if(!k){ showGate(''); return; }
+  var s=document.createElement('script');
+  s.src='https://maps.googleapis.com/maps/api/js?key='+encodeURIComponent(k)+'&language=ar&region=SA&callback=_gmReady';
+  s.async=true;
+  s.onerror=function(){ showGate('تعذّر تحميل خرائط جوجل — تحقق من الاتصال بالإنترنت ثم أعد فتح الخريطة'); };
+  document.head.appendChild(s);
+}
+/* تستدعيها مكتبة جوجل عند رفض المفتاح */
+window.gm_authFailure=function(){ showGate('رُفض المفتاح — تأكد من صحته ومن تفعيل Maps JavaScript API والفوترة في مشروعك'); };
+
+function showGate(err){
+  document.getElementById('wrap').style.display='none';
+  var g=document.getElementById('gate'); g.style.display='flex';
+  var e=document.getElementById('gate-err');
+  e.style.display=err?'block':'none'; e.textContent=err||'';
+  var inp=document.getElementById('gate-key');
+  if(B) inp.value=B.getKey()||'';
+}
+function saveGateKey(){
+  var v=document.getElementById('gate-key').value.trim();
+  if(!v){ toast('ألصق المفتاح أولاً',1); return; }
+  /* الأم تحفظ وتعيد بناء هذا الـ iframe بالمفتاح الجديد */
+  if(B) B.saveKey(v);
+}
+
+/* ══ تهيئة الخريطة ══ */
+window._gmReady=function(){
+  var v=(B&&B.getView())||null;
+  map=new google.maps.Map(document.getElementById('map'),{
+    center:{lat:(v&&isFinite(v.lat))?v.lat:24.2,lng:(v&&isFinite(v.lng))?v.lng:43.5},
+    zoom:(v&&isFinite(v.zoom))?v.zoom:6,
+    mapTypeId:(v&&v.type==='hybrid')?'hybrid':'roadmap',
+    clickableIcons:true,           /* بيانات جوجل: أسماء الأماكن تُفتح ببطاقاتها */
+    fullscreenControl:false, streetViewControl:false, mapTypeControl:false,
+    zoomControlOptions:{position:google.maps.ControlPosition.LEFT_BOTTOM}
+  });
+  geocoder=new google.maps.Geocoder();
+  map.addListener('click',onMapClick);
+  map.addListener('idle',function(){
+    if(!B||!map) return;
+    var c=map.getCenter();
+    B.setView({lat:c.lat(),lng:c.lng(),zoom:map.getZoom(),type:map.getMapTypeId()==='hybrid'?'hybrid':'roadmap'});
+  });
+  document.getElementById('gate').style.display='none';
+  document.getElementById('wrap').style.display='block';
+  window._mnMapSync();
+};
+
+/* مزامنة كاملة — تستدعيها الأم عند كل فتح، وبعد أي تعديل داخلي */
+window._mnMapSync=function(){
+  if(!map) return;
+  renderPlaces(); renderNotes(); syncMode();
+};
+
+function pinIcon(color){
+  return { path:'M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z',
+    fillColor:color, fillOpacity:1, strokeColor:'#ffffff', strokeWeight:1.6,
+    scale:1.5, anchor:new google.maps.Point(12,22), labelOrigin:new google.maps.Point(12,9) };
+}
+
+/* ══ أماكني المحفوظة ══ */
+function renderPlaces(){
+  placeMks.forEach(function(m){ m.setMap(null); }); placeMks=[];
+  (B?B.getPlaces():[]).forEach(function(p){
+    var mk=new google.maps.Marker({map:map,position:{lat:+p.lat,lng:+p.lng},title:p.name||'',icon:pinIcon(p.color||COLORS[0])});
+    mk.addListener('click',function(){ showPlaceSheet(p.id); });
+    placeMks.push(mk);
+  });
+}
+function showPlaceSheet(id){
+  var p=(B?B.getPlaces():[]).find(function(x){ return String(x.id)===String(id); });
+  if(!p) return;
+  openSheet(
+    '<h3><span class="dot" style="display:inline-block;background:'+esc(p.color||COLORS[0])+'"></span> '+esc(p.name||'مكان')+'</h3>'
+    +(p.desc?'<div class="mut">'+esc(p.desc)+'</div>':'')
+    +'<div class="mut" dir="ltr" style="text-align:end">'+(+p.lat).toFixed(5)+', '+(+p.lng).toFixed(5)+'</div>'
+    +'<div class="rowb">'
+    +'<button class="btn" onclick="openPlaceForm(\''+esc(String(p.id))+'\')">✏️ تعديل</button>'
+    +'<button class="btn red" onclick="deletePlace(\''+esc(String(p.id))+'\')">🗑️ حذف</button>'
+    +'<button class="btn gray" onclick="closeSheet()">إغلاق</button>'
+    +'</div>'
+  );
+  map.panTo({lat:+p.lat,lng:+p.lng});
+}
+/* نموذج إضافة/تعديل مكان — lat/lng يمرَّران عند الإضافة فقط */
+function openPlaceForm(id,lat,lng){
+  var p=id?(B?B.getPlaces():[]).find(function(x){ return String(x.id)===String(id); }):null;
+  editingPlaceId=id||null;
+  _selColor=(p&&p.color)||COLORS[0];
+  window._fLat=p?+p.lat:+lat; window._fLng=p?+p.lng:+lng;
+  openSheet(
+    '<h3>'+(p?'✏️ تعديل المكان':'📍 إضافة مكان جديد')+'</h3>'
+    +'<input type="text" id="f-name" placeholder="اسم المكان (مطلوب)" value="'+esc(p?p.name:'')+'">'
+    +'<textarea id="f-desc" rows="2" placeholder="وصف اختياري...">'+esc(p?p.desc:'')+'</textarea>'
+    +'<div class="colors">'+COLORS.map(function(c){
+        return '<div class="cdot'+(c===_selColor?' on':'')+'" style="background:'+c+'" onclick="pickColor(this,\''+c+'\')"></div>';
+      }).join('')+'</div>'
+    +'<div class="mut" dir="ltr" style="text-align:end">'+window._fLat.toFixed(5)+', '+window._fLng.toFixed(5)+'</div>'
+    +'<div class="rowb">'
+    +'<button class="btn" onclick="savePlaceForm()">💾 حفظ</button>'
+    +'<button class="btn gray" onclick="closeSheet()">إلغاء</button>'
+    +'</div>'
+  );
+  setTimeout(function(){ var f=document.getElementById('f-name'); if(f&&!p) f.focus(); },80);
+}
+function pickColor(el,c){
+  _selColor=c;
+  document.querySelectorAll('.cdot').forEach(function(d){ d.classList.remove('on'); });
+  el.classList.add('on');
+}
+function savePlaceForm(){
+  var name=document.getElementById('f-name').value.trim();
+  if(!name){ toast('أدخل اسم المكان',1); return; }
+  var desc=document.getElementById('f-desc').value.trim();
+  var arr=B?B.getPlaces():[];
+  if(editingPlaceId){
+    var p=arr.find(function(x){ return String(x.id)===String(editingPlaceId); });
+    if(p){ p.name=name; p.desc=desc; p.color=_selColor; p.ts=new Date().toISOString(); }
+  } else {
+    arr.push({ id:B?B.newId():String(Date.now()), name:name, desc:desc, color:_selColor,
+      lat:window._fLat, lng:window._fLng, ts:new Date().toISOString() });
+  }
+  if(B) B.setPlaces(arr);
+  closeSheet(); clearTemp(); renderPlaces(); renderDrawer();
+  toast('📍 '+(editingPlaceId?'حُدّث المكان':'أُضيف المكان'));
+  editingPlaceId=null;
+}
+function deletePlace(id){
+  if(!confirm('حذف هذا المكان نهائياً؟')) return;
+  if(B) B.setPlaces((B.getPlaces()||[]).filter(function(x){ return String(x.id)!==String(id); }));
+  closeSheet(); renderPlaces(); renderDrawer();
+  toast('🗑️ حُذف المكان');
+}
+
+/* ══ الملاحظات ذات المواقع ══ */
+function renderNotes(){
+  noteMks.forEach(function(m){ m.setMap(null); }); noteMks=[];
+  (B?B.notesWithLoc():[]).forEach(function(n){
+    var mk=new google.maps.Marker({map:map,position:{lat:n.lat,lng:n.lng},title:n.label,
+      icon:pinIcon('#6366f1'), label:{text:n.ic||'📝',fontSize:'13px'}});
+    mk.addListener('click',function(){ showNoteSheet(n); });
+    noteMks.push(mk);
+  });
+}
+function showNoteSheet(n){
+  openSheet(
+    '<h3>'+esc(n.ic||'📝')+' ملاحظة</h3>'
+    +'<div class="mut">'+esc(n.label)+'</div>'
+    +(n.cat?'<div class="mut" style="opacity:.75">'+esc(n.cat)+(n.status?' · '+esc(n.status):'')+'</div>':'')
+    +'<div class="rowb">'
+    +'<button class="btn" onclick=\'B.openNote('+JSON.stringify(String(n.id))+')\'>📖 فتح الملاحظة</button>'
+    +'<button class="btn gray" onclick="closeSheet()">إغلاق</button>'
+    +'</div>'
+  );
+  map.panTo({lat:n.lat,lng:n.lng});
+}
+
+/* ══ القائمة الجانبية ══ */
+function toggleDrawer(){
+  var d=document.getElementById('drawer');
+  var show=d.style.display!=='flex';
+  d.style.display=show?'flex':'none';
+  document.getElementById('drawer-btn').classList.toggle('on',show);
+  if(show) renderDrawer();
+}
+function renderDrawer(){
+  var el=document.getElementById('dlist'); if(!el) return;
+  var places=B?B.getPlaces():[], notes=B?B.notesWithLoc():[];
+  var h='<div class="sec-lbl">📍 أماكني ('+places.length+')</div>';
+  if(!places.length) h+='<div class="empty">لا أماكن بعد — اضغط على الخريطة لإضافة مكانك الأول</div>';
+  places.forEach(function(p){
+    h+='<div class="prow" onclick="gotoPlace(\''+esc(String(p.id))+'\')">'
+      +'<span class="dot" style="background:'+esc(p.color||COLORS[0])+'"></span>'
+      +'<div style="flex:1;min-width:0"><div class="nm">'+esc(p.name||'مكان')+'</div>'
+      +(p.desc?'<div class="sb">'+esc(p.desc)+'</div>':'')+'</div><span style="color:var(--mut)">›</span></div>';
+  });
+  h+='<div class="sec-lbl">📝 ملاحظات لها موقع ('+notes.length+')</div>';
+  if(!notes.length) h+='<div class="empty">حدّد موقعاً لأي ملاحظة من نافذة تعديلها (📍 الموقع)</div>';
+  notes.forEach(function(n){
+    h+='<div class="prow" onclick=\'gotoNote('+JSON.stringify(String(n.id))+')\'>'
+      +'<span style="font-size:15px">'+esc(n.ic||'📝')+'</span>'
+      +'<div style="flex:1;min-width:0"><div class="nm">'+esc(n.label)+'</div>'
+      +(n.cat?'<div class="sb">'+esc(n.cat)+'</div>':'')+'</div><span style="color:var(--mut)">›</span></div>';
+  });
+  el.innerHTML=h;
+}
+function gotoPlace(id){
+  var p=(B?B.getPlaces():[]).find(function(x){ return String(x.id)===String(id); });
+  if(!p) return;
+  toggleDrawer(); map.setZoom(Math.max(map.getZoom(),15)); map.panTo({lat:+p.lat,lng:+p.lng});
+  showPlaceSheet(id);
+}
+function gotoNote(id){
+  var n=(B?B.notesWithLoc():[]).find(function(x){ return String(x.id)===String(id); });
+  if(!n) return;
+  toggleDrawer(); map.setZoom(Math.max(map.getZoom(),15)); map.panTo({lat:n.lat,lng:n.lng});
+  showNoteSheet(n);
+}
+
+/* ══ النقر على الخريطة ══ */
+function onMapClick(ev){
+  if(pickMode){
+    if(pickMk) pickMk.setMap(null);
+    pickMk=new google.maps.Marker({map:map,position:ev.latLng,icon:pinIcon('#22c55e')});
+    var ok=document.getElementById('pick-ok'); ok.disabled=false;
+    document.getElementById('pick-sub').textContent=ev.latLng.lat().toFixed(5)+', '+ev.latLng.lng().toFixed(5);
+    if(ev.stop) ev.stop();
+    return;
+  }
+  /* نقرة على معلم جوجل: تُترك لبطاقة جوجل الافتراضية (بيانات المكان) */
+  if(ev.placeId) return;
+  closeSheet();
+  clearTemp();
+  tempMk=new google.maps.Marker({map:map,position:ev.latLng,icon:pinIcon('#94a3b8')});
+  openSheet(
+    '<h3>📌 نقطة جديدة</h3>'
+    +'<div class="mut" dir="ltr" style="text-align:end">'+ev.latLng.lat().toFixed(5)+', '+ev.latLng.lng().toFixed(5)+'</div>'
+    +'<div class="rowb">'
+    +'<button class="btn" onclick="openPlaceForm(null,'+ev.latLng.lat()+','+ev.latLng.lng()+')">📍 حفظ في أماكني</button>'
+    +'<button class="btn gray" onclick="closeSheet();clearTemp()">إلغاء</button>'
+    +'</div>'
+  );
+}
+function clearTemp(){ if(tempMk){ tempMk.setMap(null); tempMk=null; } }
+
+/* ══ وضع الالتقاط (تحديد موقع ملاحظة) ══ */
+function syncMode(){
+  pickMode=!!(B&&B.pickTarget);
+  document.getElementById('pickbar').style.display=pickMode?'flex':'none';
+  document.getElementById('hint').style.display=pickMode?'none':'block';
+  if(pickMk){ pickMk.setMap(null); pickMk=null; }
+  var ok=document.getElementById('pick-ok'); if(ok) ok.disabled=true;
+  var sub=document.getElementById('pick-sub'); if(sub) sub.textContent='اضغط على الخريطة لاختيار الموقع';
+  closeSheet(); clearTemp();
+  if(pickMode){
+    var cur=B.pickInitial();
+    if(cur){
+      pickMk=new google.maps.Marker({map:map,position:cur,icon:pinIcon('#22c55e')});
+      if(ok) ok.disabled=false;
+      if(sub) sub.textContent=(+cur.lat).toFixed(5)+', '+(+cur.lng).toFixed(5);
+      map.setZoom(Math.max(map.getZoom(),14)); map.panTo(cur);
+    }
+  }
+}
+function confirmPick(){
+  if(!pickMk||!B) return;
+  var p=pickMk.getPosition();
+  B.pickResult(p.lat(),p.lng());
+}
+function cancelPick(){ if(B) B.close(); }
+
+/* ══ البحث (Geocoding ضمن مكتبة الخرائط نفسها) ══ */
+function doSearch(){
+  var q=document.getElementById('q').value.trim();
+  if(!q||!geocoder) return;
+  geocoder.geocode({address:q,region:'sa'},function(res,status){
+    if(status==='OK'&&res&&res[0]){
+      var g=res[0].geometry;
+      if(g.viewport) map.fitBounds(g.viewport); else { map.setZoom(15); }
+      map.panTo(g.location);
+      clearTemp();
+      tempMk=new google.maps.Marker({map:map,position:g.location,icon:pinIcon('#94a3b8')});
+    } else if(status==='ZERO_RESULTS'){ toast('لا نتائج للبحث',1); }
+    else { toast('تعذّر البحث — فعّل Geocoding API في مشروعك لتمكينه',1); }
+  });
+}
+
+/* ══ قمر صناعي / خريطة ══ */
+function toggleSat(){
+  var sat=map.getMapTypeId()!=='hybrid';
+  map.setMapTypeId(sat?'hybrid':'roadmap');
+  document.getElementById('sat-btn').classList.toggle('on',sat);
+}
+
+/* ══ الورقة السفلية ══ */
+function openSheet(html){ var s=document.getElementById('sheet'); s.innerHTML=html; s.style.display='flex'; }
+function closeSheet(){ var s=document.getElementById('sheet'); s.style.display='none'; s.innerHTML=''; }
+
+boot();
+<\/script>
+</body>
+</html>
   </script>
 
 </body>
