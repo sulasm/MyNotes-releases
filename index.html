@@ -5,7 +5,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
   <meta name="theme-color" content="#667eea">
-  <meta name="app-version" content="1.17.0">
+  <meta name="app-version" content="1.17.1">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <title>المنظم</title>
@@ -3606,7 +3606,20 @@
         }
         showFb('📍 تم تحديد موقع الملاحظة');
       },
-      toast(msg, err) { showFb(msg, err ? 1 : 0); }
+      toast(msg, err) { showFb(msg, err ? 1 : 0); },
+      /* فتح رابط خارجي (صفحة المكان في خرائط جوجل) بشكل موثوق لكل منصة:
+         - أندرويد: التنقل من الإطار الأعلى يعترضه Capacitor ويفتحه في
+           تطبيق الخرائط/المتصفح دون مغادرة التطبيق (window.open لا يعمل هناك)
+         - ويندوز: window.open يمرّ عبر معالج Electron إلى المتصفح الافتراضي */
+      openExternal(url) {
+        url = String(url || '');
+        if (!/^https?:\/\//.test(url)) return;
+        try {
+          if (window.AndroidFS) { window.location.href = url; return; }
+          var w = window.open(url, '_blank', 'noopener');
+          if (!w) window.location.href = url;
+        } catch (e) { }
+      }
     };
 
     /* ══════════════════════════════════════
@@ -8426,7 +8439,10 @@ function savePoiToMyPlaces(){
   openPlaceForm(null,_locLat(_lastPlace.location),_locLng(_lastPlace.location),_lastPlace.name||'');
 }
 function openInGoogle(){
-  if(_lastPlace&&_lastPlace.url){ try { window.open(_lastPlace.url,'_blank'); } catch(e){} }
+  if(!_lastPlace||!_lastPlace.url) return;
+  /* الفتح من الصفحة الأم — الطريقة الوحيدة الموثوقة على أندرويد */
+  if(B&&B.openExternal){ B.openExternal(_lastPlace.url); return; }
+  try { window.open(_lastPlace.url,'_blank'); } catch(e){}
 }
 
 /* ══ وضع الالتقاط (تحديد موقع ملاحظة) ══ */
