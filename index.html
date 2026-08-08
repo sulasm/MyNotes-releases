@@ -5,7 +5,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
   <meta name="theme-color" content="#667eea">
-  <meta name="app-version" content="1.14.0">
+  <meta name="app-version" content="1.15.0">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <title>المنظم</title>
@@ -2125,7 +2125,8 @@
           <div class="sec-t">🗺️ الخريطة</div>
           <div style="font-size:12px;color:var(--text-m);padding:4px 0 8px;">
             مفتاح Google Maps API لعرض خرائط جوجل. أنشئه من console.cloud.google.com
-            (فعّل Maps JavaScript API). يُحفظ محلياً على جهازك فقط.
+            (فعّل Maps JavaScript API + Places API لمعلومات الأماكن وتعليقاتها).
+            يُحفظ محلياً على جهازك فقط.
           </div>
           <input type="text" id="cfg-maps-key" placeholder="AIza..." dir="ltr" autocomplete="off"
             onchange="setMapsKey(this.value)"
@@ -7795,6 +7796,13 @@ updateCount();updatePCount();
   .rowb .btn{flex:1;font-size:13px;padding:10px 8px;}
   .btn.red{background:rgba(239,68,68,.18);color:#fca5a5;border:1px solid rgba(239,68,68,.35);}
 
+  /* ── تفاصيل أماكن جوجل: نجوم وصور وتعليقات ── */
+  .strs{color:#fbbf24;letter-spacing:1px;}
+  .phrow{display:flex;gap:8px;overflow-x:auto;padding:2px 0;-webkit-overflow-scrolling:touch;}
+  .phrow img{height:96px;border-radius:11px;flex-shrink:0;object-fit:cover;}
+  .rev{border:1px solid var(--line);border-radius:11px;padding:8px 10px;background:rgba(127,127,180,.07);}
+  .rev-h{display:flex;align-items:center;gap:8px;font-size:12.5px;margin-bottom:3px;flex-wrap:wrap;}
+
   /* ── قائمة أماكني ── */
   #drawer{position:absolute;top:60px;bottom:0;inset-inline-start:0;width:min(320px,88%);z-index:32;display:none;flex-direction:column;background:var(--card);border-inline-end:1px solid var(--line);box-shadow:6px 0 24px rgba(0,0,0,.35);}
   #drawer .dh{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid var(--line);font-weight:700;font-size:14px;}
@@ -7822,6 +7830,7 @@ updateCount();updatePCount();
       <ol>
         <li>افتح <b dir="ltr">console.cloud.google.com</b> وأنشئ مشروعاً</li>
         <li>فعّل <b dir="ltr">Maps JavaScript API</b> (وستحتاج تفعيل الفوترة)</li>
+        <li>فعّل أيضاً <b dir="ltr">Places API</b> — لعرض معلومات الأماكن وتعليقاتها والبحث</li>
         <li>من «Credentials» أنشئ <b dir="ltr">API Key</b> والصقه هنا</li>
       </ol>
       <input type="text" id="gate-key" placeholder="AIza..." autocomplete="off">
@@ -7864,7 +7873,7 @@ updateCount();updatePCount();
 <script>
 /* ينفَّذ داخل iframe بنفس الأصل — كل التخزين عبر جسر الصفحة الأم MapBridge */
 var B = (function(){ try { return window.parent.MapBridge; } catch(e){ return null; } })();
-var map=null, geocoder=null, tempMk=null, pickMk=null;
+var map=null, geocoder=null, placesSvc=null, tempMk=null, pickMk=null;
 var placeMks=[], noteMks=[];
 var pickMode=false, editingPlaceId=null;
 var COLORS=['#ef4444','#f59e0b','#22c55e','#3b82f6','#a855f7','#14b8a6'];
@@ -7882,7 +7891,7 @@ function boot(){
   if(!B){ showGate('تعذّر الاتصال بالتطبيق الأم'); return; }
   if(!k){ showGate(''); return; }
   var s=document.createElement('script');
-  s.src='https://maps.googleapis.com/maps/api/js?key='+encodeURIComponent(k)+'&language=ar&region=SA&callback=_gmReady';
+  s.src='https://maps.googleapis.com/maps/api/js?key='+encodeURIComponent(k)+'&language=ar&region=SA&libraries=places&callback=_gmReady';
   s.async=true;
   s.onerror=function(){ showGate('تعذّر تحميل خرائط جوجل — تحقق من الاتصال بالإنترنت ثم أعد فتح الخريطة'); };
   document.head.appendChild(s);
@@ -7917,6 +7926,8 @@ window._gmReady=function(){
     zoomControlOptions:{position:google.maps.ControlPosition.LEFT_BOTTOM}
   });
   geocoder=new google.maps.Geocoder();
+  /* خدمة تفاصيل الأماكن (الاسم/الهاتف/الساعات/الصور/التعليقات) — تتطلب تفعيل Places API */
+  try { if(google.maps.places) placesSvc=new google.maps.places.PlacesService(map); } catch(e){ placesSvc=null; }
   map.addListener('click',onMapClick);
   map.addListener('idle',function(){
     if(!B||!map) return;
@@ -7964,15 +7975,15 @@ function showPlaceSheet(id){
   );
   map.panTo({lat:+p.lat,lng:+p.lng});
 }
-/* نموذج إضافة/تعديل مكان — lat/lng يمرَّران عند الإضافة فقط */
-function openPlaceForm(id,lat,lng){
+/* نموذج إضافة/تعديل مكان — lat/lng يمرَّران عند الإضافة فقط، وnm اسم مبدئي اختياري */
+function openPlaceForm(id,lat,lng,nm){
   var p=id?(B?B.getPlaces():[]).find(function(x){ return String(x.id)===String(id); }):null;
   editingPlaceId=id||null;
   _selColor=(p&&p.color)||COLORS[0];
   window._fLat=p?+p.lat:+lat; window._fLng=p?+p.lng:+lng;
   openSheet(
     '<h3>'+(p?'✏️ تعديل المكان':'📍 إضافة مكان جديد')+'</h3>'
-    +'<input type="text" id="f-name" placeholder="اسم المكان (مطلوب)" value="'+esc(p?p.name:'')+'">'
+    +'<input type="text" id="f-name" placeholder="اسم المكان (مطلوب)" value="'+esc(p?p.name:(nm||''))+'">'
     +'<textarea id="f-desc" rows="2" placeholder="وصف اختياري...">'+esc(p?p.desc:'')+'</textarea>'
     +'<div class="colors">'+COLORS.map(function(c){
         return '<div class="cdot'+(c===_selColor?' on':'')+'" style="background:'+c+'" onclick="pickColor(this,\''+c+'\')"></div>';
@@ -8089,8 +8100,12 @@ function onMapClick(ev){
     if(ev.stop) ev.stop();
     return;
   }
-  /* نقرة على معلم جوجل: تُترك لبطاقة جوجل الافتراضية (بيانات المكان) */
-  if(ev.placeId) return;
+  /* نقرة على معلم جوجل: بطاقة تفاصيل غنية (عنوان/هاتف/ساعات/صور/تعليقات) عبر
+     Places API، وإن لم تكن مفعّلة تُترك بطاقة جوجل الافتراضية المصغّرة */
+  if(ev.placeId){
+    if(placesSvc){ if(ev.stop) ev.stop(); showPlaceDetails(ev.placeId); }
+    return;
+  }
   closeSheet();
   clearTemp();
   tempMk=new google.maps.Marker({map:map,position:ev.latLng,icon:pinIcon('#94a3b8')});
@@ -8104,6 +8119,83 @@ function onMapClick(ev){
   );
 }
 function clearTemp(){ if(tempMk){ tempMk.setMap(null); tempMk=null; } }
+
+/* ══ تفاصيل أماكن جوجل: معلومات المكان وتعليقاته ══ */
+var _lastPlace=null;
+var _DETAIL_FIELDS=['place_id','name','rating','user_ratings_total','formatted_address',
+  'formatted_phone_number','international_phone_number','opening_hours','photos','reviews',
+  'url','geometry','business_status','types'];
+function stars(r){
+  if(!isFinite(r)) return '';
+  var f=Math.round(r);
+  return '<span class="strs">'+'★'.repeat(f)+'☆'.repeat(5-f)+'</span> <b>'+(+r).toFixed(1)+'</b>';
+}
+function showPlaceDetails(pid){
+  if(!placesSvc) return;
+  openSheet('<div class="mut" style="text-align:center;padding:14px">…جارٍ جلب بيانات المكان</div>');
+  placesSvc.getDetails({placeId:pid,fields:_DETAIL_FIELDS},function(p,status){
+    if(status!=='OK'||!p){
+      if(status==='REQUEST_DENIED'){
+        openSheet('<h3>ℹ️ تفاصيل الأماكن غير مفعّلة</h3>'
+          +'<div class="mut">لعرض معلومات المكان وتعليقاته فعّل <b dir="ltr">Places API</b> في مشروعك على Google Cloud (نفس خطوات تفعيل Maps JavaScript API) — بلا رسوم ضمن الحد المجاني.</div>'
+          +'<div class="rowb"><button class="btn gray" onclick="closeSheet()">إغلاق</button></div>');
+      } else { toast('تعذّر جلب بيانات المكان',1); closeSheet(); }
+      return;
+    }
+    _lastPlace=p;
+    renderPlaceDetails(p);
+  });
+}
+function renderPlaceDetails(p){
+  var h='<h3>'+esc(p.name||'مكان')+'</h3>';
+  var meta=[];
+  if(isFinite(p.rating)) meta.push(stars(p.rating)+' <span class="mut">('+(p.user_ratings_total||0)+' تقييم)</span>');
+  if(p.business_status==='CLOSED_PERMANENTLY') meta.push('<span style="color:#fca5a5;font-weight:700">مغلق نهائياً</span>');
+  else { try { if(p.opening_hours&&typeof p.opening_hours.isOpen==='function') meta.push(p.opening_hours.isOpen()?'<span style="color:#86efac;font-weight:700">مفتوح الآن</span>':'<span style="color:#fca5a5;font-weight:700">مغلق الآن</span>'); } catch(e){} }
+  if(meta.length) h+='<div style="font-size:13px">'+meta.join(' · ')+'</div>';
+  if(p.formatted_address) h+='<div class="mut">📍 '+esc(p.formatted_address)+'</div>';
+  var tel=p.formatted_phone_number||p.international_phone_number;
+  if(tel) h+='<div class="mut" dir="ltr" style="text-align:end">📞 '+esc(tel)+'</div>';
+  /* الصور */
+  if(p.photos&&p.photos.length){
+    h+='<div class="phrow">';
+    p.photos.slice(0,5).forEach(function(ph){
+      try { h+='<img src="'+ph.getUrl({maxWidth:400,maxHeight:280})+'" loading="lazy" alt="">'; } catch(e){}
+    });
+    h+='</div>';
+  }
+  /* التعليقات (المراجعات) */
+  if(p.reviews&&p.reviews.length){
+    h+='<div class="sec-lbl" style="padding-inline:0">💬 التعليقات ('+p.reviews.length+')</div>';
+    p.reviews.slice(0,5).forEach(function(r){
+      h+='<div class="rev">'
+        +'<div class="rev-h"><b>'+esc(r.author_name||'زائر')+'</b>'
+        +(isFinite(r.rating)?'<span class="strs">'+'★'.repeat(Math.round(r.rating))+'</span>':'')
+        +(r.relative_time_description?'<span class="mut" style="font-size:11px">'+esc(r.relative_time_description)+'</span>':'')
+        +'</div>'
+        +(r.text?'<div class="mut" style="font-size:12px">'+esc(r.text)+'</div>':'')
+        +'</div>';
+    });
+  } else {
+    h+='<div class="mut">لا تعليقات منشورة لهذا المكان</div>';
+  }
+  h+='<div class="rowb">'
+    +'<button class="btn" onclick="savePoiToMyPlaces()">📍 حفظ في أماكني</button>'
+    +(p.url?'<button class="btn gray" onclick="openInGoogle()">🌐 خرائط جوجل</button>':'')
+    +'<button class="btn gray" onclick="closeSheet()">✕</button>'
+    +'</div>';
+  openSheet(h);
+  if(p.geometry&&p.geometry.location) map.panTo(p.geometry.location);
+}
+/* حفظ معلم جوجل ضمن أماكني — الاسم والإحداثيات معبّأة مسبقاً */
+function savePoiToMyPlaces(){
+  if(!_lastPlace||!_lastPlace.geometry||!_lastPlace.geometry.location) return;
+  var l=_lastPlace.geometry.location;
+  openPlaceForm(null,l.lat(),l.lng(),_lastPlace.name||'');
+}
+function openInGoogle(){
+  if(_lastPlace&&_lastPlace.url){ try { window.open(_lastPlace.url,'_blank'); } catch(e){} }
+}
 
 /* ══ وضع الالتقاط (تحديد موقع ملاحظة) ══ */
 function syncMode(){
@@ -8131,10 +8223,29 @@ function confirmPick(){
 }
 function cancelPick(){ if(B) B.close(); }
 
-/* ══ البحث (Geocoding ضمن مكتبة الخرائط نفسها) ══ */
+/* ══ البحث: أماكن جوجل أولاً (Places) وبالعناوين احتياطاً (Geocoding) ══ */
 function doSearch(){
   var q=document.getElementById('q').value.trim();
-  if(!q||!geocoder) return;
+  if(!q) return;
+  if(placesSvc){
+    placesSvc.textSearch({query:q,location:map.getCenter(),radius:50000},function(res,status){
+      if(status==='OK'&&res&&res.length){
+        var r=res[0], g=r.geometry;
+        if(g){ map.setZoom(Math.max(map.getZoom(),15)); map.panTo(g.location); }
+        clearTemp();
+        if(g) tempMk=new google.maps.Marker({map:map,position:g.location,icon:pinIcon('#94a3b8')});
+        if(r.place_id) showPlaceDetails(r.place_id);
+        return;
+      }
+      if(status==='ZERO_RESULTS'){ toast('لا نتائج للبحث',1); return; }
+      _geoSearch(q);   /* Places غير مفعّلة/فشلت → جرّب Geocoding */
+    });
+    return;
+  }
+  _geoSearch(q);
+}
+function _geoSearch(q){
+  if(!geocoder) return;
   geocoder.geocode({address:q,region:'sa'},function(res,status){
     if(status==='OK'&&res&&res[0]){
       var g=res[0].geometry;
@@ -8143,7 +8254,7 @@ function doSearch(){
       clearTemp();
       tempMk=new google.maps.Marker({map:map,position:g.location,icon:pinIcon('#94a3b8')});
     } else if(status==='ZERO_RESULTS'){ toast('لا نتائج للبحث',1); }
-    else { toast('تعذّر البحث — فعّل Geocoding API في مشروعك لتمكينه',1); }
+    else { toast('تعذّر البحث — فعّل Places API (أو Geocoding API) في مشروعك',1); }
   });
 }
 
