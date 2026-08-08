@@ -5,7 +5,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
   <meta name="theme-color" content="#667eea">
-  <meta name="app-version" content="1.15.0">
+  <meta name="app-version" content="1.16.0">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <title>المنظم</title>
@@ -2125,7 +2125,7 @@
           <div class="sec-t">🗺️ الخريطة</div>
           <div style="font-size:12px;color:var(--text-m);padding:4px 0 8px;">
             مفتاح Google Maps API لعرض خرائط جوجل. أنشئه من console.cloud.google.com
-            (فعّل Maps JavaScript API + Places API لمعلومات الأماكن وتعليقاتها).
+            (فعّل Maps JavaScript API + Places API (New) لمعلومات الأماكن وتعليقاتها).
             يُحفظ محلياً على جهازك فقط.
           </div>
           <input type="text" id="cfg-maps-key" placeholder="AIza..." dir="ltr" autocomplete="off"
@@ -7799,9 +7799,17 @@ updateCount();updatePCount();
   /* ── تفاصيل أماكن جوجل: نجوم وصور وتعليقات ── */
   .strs{color:#fbbf24;letter-spacing:1px;}
   .phrow{display:flex;gap:8px;overflow-x:auto;padding:2px 0;-webkit-overflow-scrolling:touch;}
-  .phrow img{height:96px;border-radius:11px;flex-shrink:0;object-fit:cover;}
+  .phrow img{height:96px;border-radius:11px;flex-shrink:0;object-fit:cover;cursor:pointer;}
+  #photo-ov{display:none;position:absolute;inset:0;z-index:60;background:rgba(0,0,0,.92);align-items:center;justify-content:center;}
+  #photo-ov img{max-width:96%;max-height:88%;border-radius:10px;object-fit:contain;}
+  #photo-cnt{position:absolute;top:12px;inset-inline-start:14px;color:#fff;font-size:13px;font-weight:700;background:rgba(0,0,0,.5);border-radius:99px;padding:4px 12px;direction:ltr;}
+  .ph-nav{position:absolute;top:50%;transform:translateY(-50%);width:42px;height:56px;border:none;border-radius:12px;background:rgba(255,255,255,.14);color:#fff;font-size:26px;font-weight:700;}
+  .ph-prev{inset-inline-start:8px;}
+  .ph-next{inset-inline-end:8px;}
+  .ph-close{position:absolute;top:10px;inset-inline-end:12px;width:38px;height:38px;border:none;border-radius:50%;background:rgba(255,255,255,.16);color:#fff;font-size:16px;font-weight:700;}
   .rev{border:1px solid var(--line);border-radius:11px;padding:8px 10px;background:rgba(127,127,180,.07);}
   .rev-h{display:flex;align-items:center;gap:8px;font-size:12.5px;margin-bottom:3px;flex-wrap:wrap;}
+  .snum{width:22px;height:22px;border-radius:50%;background:#f97316;color:#fff;font-size:11.5px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
 
   /* ── قائمة أماكني ── */
   #drawer{position:absolute;top:60px;bottom:0;inset-inline-start:0;width:min(320px,88%);z-index:32;display:none;flex-direction:column;background:var(--card);border-inline-end:1px solid var(--line);box-shadow:6px 0 24px rgba(0,0,0,.35);}
@@ -7830,7 +7838,7 @@ updateCount();updatePCount();
       <ol>
         <li>افتح <b dir="ltr">console.cloud.google.com</b> وأنشئ مشروعاً</li>
         <li>فعّل <b dir="ltr">Maps JavaScript API</b> (وستحتاج تفعيل الفوترة)</li>
-        <li>فعّل أيضاً <b dir="ltr">Places API</b> — لعرض معلومات الأماكن وتعليقاتها والبحث</li>
+        <li>فعّل أيضاً <b dir="ltr">Places API (New)</b> — لعرض معلومات الأماكن وتعليقاتها والبحث (وإن وجدت <b dir="ltr">Places API</b> القديمة فتفعيلها معاً أفضل)</li>
         <li>من «Credentials» أنشئ <b dir="ltr">API Key</b> والصقه هنا</li>
       </ol>
       <input type="text" id="gate-key" placeholder="AIza..." autocomplete="off">
@@ -7867,6 +7875,15 @@ updateCount();updatePCount();
       <div class="dh"><span>📍 أماكني وملاحظاتي</span>
         <button class="btn gray" style="padding:6px 13px;font-size:12px" onclick="toggleDrawer()">✕</button></div>
       <div id="dlist"></div>
+    </div>
+
+    <!-- عارض صور المكان بالحجم الكامل -->
+    <div id="photo-ov" onclick="closePhoto()">
+      <img id="photo-img" alt="" onclick="event.stopPropagation()">
+      <div id="photo-cnt"></div>
+      <button class="ph-nav ph-prev" onclick="stepPhoto(1,event)">‹</button>
+      <button class="ph-nav ph-next" onclick="stepPhoto(-1,event)">›</button>
+      <button class="ph-close" onclick="closePhoto()">✕</button>
     </div>
   </div>
 
@@ -7922,6 +7939,7 @@ window._gmReady=function(){
     zoom:(v&&isFinite(v.zoom))?v.zoom:6,
     mapTypeId:(v&&v.type==='hybrid')?'hybrid':'roadmap',
     clickableIcons:true,           /* بيانات جوجل: أسماء الأماكن تُفتح ببطاقاتها */
+    gestureHandling:'greedy',      /* داخل iframe الافتراضي «إصبعان للتحريك» — هذا يجعله إصبعاً واحداً */
     fullscreenControl:false, streetViewControl:false, mapTypeControl:false,
     zoomControlOptions:{position:google.maps.ControlPosition.LEFT_BOTTOM}
   });
@@ -8103,7 +8121,7 @@ function onMapClick(ev){
   /* نقرة على معلم جوجل: بطاقة تفاصيل غنية (عنوان/هاتف/ساعات/صور/تعليقات) عبر
      Places API، وإن لم تكن مفعّلة تُترك بطاقة جوجل الافتراضية المصغّرة */
   if(ev.placeId){
-    if(placesSvc){ if(ev.stop) ev.stop(); showPlaceDetails(ev.placeId); }
+    if(placesSvc||_hasNewPlaces()){ if(ev.stop) ev.stop(); showPlaceDetails(ev.placeId); }
     return;
   }
   closeSheet();
@@ -8121,77 +8139,160 @@ function onMapClick(ev){
 function clearTemp(){ if(tempMk){ tempMk.setMap(null); tempMk=null; } }
 
 /* ══ تفاصيل أماكن جوجل: معلومات المكان وتعليقاته ══ */
-var _lastPlace=null;
-var _DETAIL_FIELDS=['place_id','name','rating','user_ratings_total','formatted_address',
-  'formatted_phone_number','international_phone_number','opening_hours','photos','reviews',
-  'url','geometry','business_status','types'];
+var _lastPlace=null, _phUrls=[], _phIdx=0;
+
+/* عارض صور المكان بالحجم الكامل مع تنقّل */
+function openPhoto(i){
+  if(!_phUrls.length) return;
+  _phIdx=Math.max(0,Math.min(i,_phUrls.length-1));
+  var ov=document.getElementById('photo-ov');
+  document.getElementById('photo-img').src=_phUrls[_phIdx];
+  document.getElementById('photo-cnt').textContent=(_phIdx+1)+' / '+_phUrls.length;
+  ov.style.display='flex';
+}
+function stepPhoto(d,ev){
+  if(ev) ev.stopPropagation();
+  openPhoto(_phIdx+d);
+}
+function closePhoto(){ document.getElementById('photo-ov').style.display='none'; }
 function stars(r){
   if(!isFinite(r)) return '';
   var f=Math.round(r);
   return '<span class="strs">'+'★'.repeat(f)+'☆'.repeat(5-f)+'</span> <b>'+(+r).toFixed(1)+'</b>';
 }
+/* هل صنف Place الجديد متاح؟ (Places API New) */
+function _hasNewPlaces(){
+  return !!(google.maps.places&&google.maps.places.Place);
+}
 function showPlaceDetails(pid){
-  if(!placesSvc) return;
   openSheet('<div class="mut" style="text-align:center;padding:14px">…جارٍ جلب بيانات المكان</div>');
-  placesSvc.getDetails({placeId:pid,fields:_DETAIL_FIELDS},function(p,status){
-    if(status!=='OK'||!p){
-      if(status==='REQUEST_DENIED'){
-        openSheet('<h3>ℹ️ تفاصيل الأماكن غير مفعّلة</h3>'
-          +'<div class="mut">لعرض معلومات المكان وتعليقاته فعّل <b dir="ltr">Places API</b> في مشروعك على Google Cloud (نفس خطوات تفعيل Maps JavaScript API) — بلا رسوم ضمن الحد المجاني.</div>'
-          +'<div class="rowb"><button class="btn gray" onclick="closeSheet()">إغلاق</button></div>');
-      } else { toast('تعذّر جلب بيانات المكان',1); closeSheet(); }
-      return;
-    }
-    _lastPlace=p;
-    renderPlaceDetails(p);
+  fetchPlaceDetails(pid).then(function(d){
+    _lastPlace=d;
+    renderPlaceDetails(d);
+  }).catch(function(denied){
+    if(denied==='DENIED'){
+      openSheet('<h3>ℹ️ تفاصيل الأماكن غير مفعّلة</h3>'
+        +'<div class="mut">لعرض معلومات المكان وتعليقاته فعّل <b dir="ltr">Places API (New)</b> — أو <b dir="ltr">Places API</b> القديمة — في مشروعك على Google Cloud (نفس خطوات تفعيل Maps JavaScript API)، بلا رسوم ضمن الحد المجاني.</div>'
+        +'<div class="rowb"><button class="btn gray" onclick="closeSheet()">إغلاق</button></div>');
+    } else { toast('تعذّر جلب بيانات المكان',1); closeSheet(); }
   });
 }
-function renderPlaceDetails(p){
-  var h='<h3>'+esc(p.name||'مكان')+'</h3>';
+/* جلب موحّد: Places API (New) أولاً ثم القديمة احتياطاً — يعيد كائناً مطبَّعاً */
+function fetchPlaceDetails(pid){
+  if(_hasNewPlaces()){
+    var pl=new google.maps.places.Place({id:pid});
+    return pl.fetchFields({fields:['displayName','rating','userRatingCount','formattedAddress',
+      'nationalPhoneNumber','internationalPhoneNumber','regularOpeningHours','photos','reviews',
+      'googleMapsURI','location','businessStatus']})
+      .then(function(){
+        return {
+          name:pl.displayName||'مكان', rating:pl.rating, total:pl.userRatingCount||0,
+          address:pl.formattedAddress||'', phone:pl.nationalPhoneNumber||pl.internationalPhoneNumber||'',
+          closedPerm:pl.businessStatus==='CLOSED_PERMANENTLY', openNow:null,
+          isOpenFn:(typeof pl.isOpen==='function')?function(){ return pl.isOpen(); }:null,
+          photos:(pl.photos||[]).map(function(ph){
+            try { return { t:ph.getURI({maxWidth:400,maxHeight:280}), f:ph.getURI({maxWidth:1400,maxHeight:1000}) }; }
+            catch(e){ return null; }
+          }).filter(Boolean),
+          reviews:(pl.reviews||[]).map(function(r){
+            return { author:(r.authorAttribution&&r.authorAttribution.displayName)||'زائر',
+              rating:r.rating, when:r.relativePublishTimeDescription||'', text:r.text||'' };
+          }),
+          url:pl.googleMapsURI||'', location:pl.location||null
+        };
+      })
+      .catch(function(){ return _legacyDetails(pid); });   /* New مرفوضة/فشلت → القديمة */
+  }
+  return _legacyDetails(pid);
+}
+function _legacyDetails(pid){
+  return new Promise(function(resolve,reject){
+    if(!placesSvc){ reject('DENIED'); return; }
+    placesSvc.getDetails({placeId:pid,fields:['place_id','name','rating','user_ratings_total',
+      'formatted_address','formatted_phone_number','international_phone_number','opening_hours',
+      'photos','reviews','url','geometry','business_status']},function(p,status){
+      if(status!=='OK'||!p){ reject(status==='REQUEST_DENIED'?'DENIED':status); return; }
+      var openNow=null;
+      try { if(p.opening_hours&&typeof p.opening_hours.isOpen==='function') openNow=!!p.opening_hours.isOpen(); } catch(e){}
+      resolve({
+        name:p.name||'مكان', rating:p.rating, total:p.user_ratings_total||0,
+        address:p.formatted_address||'', phone:p.formatted_phone_number||p.international_phone_number||'',
+        closedPerm:p.business_status==='CLOSED_PERMANENTLY', openNow:openNow, isOpenFn:null,
+        photos:(p.photos||[]).map(function(ph){
+          try { return { t:ph.getUrl({maxWidth:400,maxHeight:280}), f:ph.getUrl({maxWidth:1400,maxHeight:1000}) }; }
+          catch(e){ return null; }
+        }).filter(Boolean),
+        reviews:(p.reviews||[]).map(function(r){
+          return { author:r.author_name||'زائر', rating:r.rating,
+            when:r.relative_time_description||'', text:r.text||'' };
+        }),
+        url:p.url||'', location:(p.geometry&&p.geometry.location)||null
+      });
+    });
+  });
+}
+function renderPlaceDetails(d){
+  var h='<h3>'+esc(d.name)+'</h3>';
   var meta=[];
-  if(isFinite(p.rating)) meta.push(stars(p.rating)+' <span class="mut">('+(p.user_ratings_total||0)+' تقييم)</span>');
-  if(p.business_status==='CLOSED_PERMANENTLY') meta.push('<span style="color:#fca5a5;font-weight:700">مغلق نهائياً</span>');
-  else { try { if(p.opening_hours&&typeof p.opening_hours.isOpen==='function') meta.push(p.opening_hours.isOpen()?'<span style="color:#86efac;font-weight:700">مفتوح الآن</span>':'<span style="color:#fca5a5;font-weight:700">مغلق الآن</span>'); } catch(e){} }
+  if(isFinite(d.rating)) meta.push(stars(d.rating)+' <span class="mut">('+(d.total||0)+' تقييم)</span>');
+  if(d.closedPerm) meta.push('<span style="color:#fca5a5;font-weight:700">مغلق نهائياً</span>');
+  else if(d.openNow===true) meta.push('<span style="color:#86efac;font-weight:700">مفتوح الآن</span>');
+  else if(d.openNow===false) meta.push('<span style="color:#fca5a5;font-weight:700">مغلق الآن</span>');
+  else if(d.isOpenFn) meta.push('<span id="open-badge"></span>');
   if(meta.length) h+='<div style="font-size:13px">'+meta.join(' · ')+'</div>';
-  if(p.formatted_address) h+='<div class="mut">📍 '+esc(p.formatted_address)+'</div>';
-  var tel=p.formatted_phone_number||p.international_phone_number;
-  if(tel) h+='<div class="mut" dir="ltr" style="text-align:end">📞 '+esc(tel)+'</div>';
-  /* الصور */
-  if(p.photos&&p.photos.length){
+  if(d.address) h+='<div class="mut">📍 '+esc(d.address)+'</div>';
+  if(d.phone) h+='<div class="mut" dir="ltr" style="text-align:end">📞 '+esc(d.phone)+'</div>';
+  /* الصور: كل ما تعيده الواجهة (حتى 10) والنقر يفتح الصورة بالحجم الكامل */
+  _phUrls=[];
+  if(d.photos.length){
     h+='<div class="phrow">';
-    p.photos.slice(0,5).forEach(function(ph){
-      try { h+='<img src="'+ph.getUrl({maxWidth:400,maxHeight:280})+'" loading="lazy" alt="">'; } catch(e){}
+    d.photos.forEach(function(ph){
+      _phUrls.push(ph.f);
+      h+='<img src="'+ph.t+'" loading="lazy" alt="" onclick="openPhoto('+(_phUrls.length-1)+')">';
     });
     h+='</div>';
   }
-  /* التعليقات (المراجعات) */
-  if(p.reviews&&p.reviews.length){
-    h+='<div class="sec-lbl" style="padding-inline:0">💬 التعليقات ('+p.reviews.length+')</div>';
-    p.reviews.slice(0,5).forEach(function(r){
+  /* التعليقات (المراجعات): واجهة جوجل البرمجية تعيد 5 كحد أقصى — نعرضها كلها */
+  if(d.reviews.length){
+    h+='<div class="sec-lbl" style="padding-inline:0">💬 التعليقات</div>';
+    d.reviews.forEach(function(r){
       h+='<div class="rev">'
-        +'<div class="rev-h"><b>'+esc(r.author_name||'زائر')+'</b>'
+        +'<div class="rev-h"><b>'+esc(r.author)+'</b>'
         +(isFinite(r.rating)?'<span class="strs">'+'★'.repeat(Math.round(r.rating))+'</span>':'')
-        +(r.relative_time_description?'<span class="mut" style="font-size:11px">'+esc(r.relative_time_description)+'</span>':'')
+        +(r.when?'<span class="mut" style="font-size:11px">'+esc(r.when)+'</span>':'')
         +'</div>'
         +(r.text?'<div class="mut" style="font-size:12px">'+esc(r.text)+'</div>':'')
         +'</div>';
     });
+    h+='<div class="mut" style="font-size:11px;opacity:.8">تتيح واجهة جوجل البرمجية أبرز 5 تعليقات فقط — كل التعليقات والصور والفيديوهات عبر زر «خرائط جوجل»</div>';
   } else {
     h+='<div class="mut">لا تعليقات منشورة لهذا المكان</div>';
   }
   h+='<div class="rowb">'
     +'<button class="btn" onclick="savePoiToMyPlaces()">📍 حفظ في أماكني</button>'
-    +(p.url?'<button class="btn gray" onclick="openInGoogle()">🌐 خرائط جوجل</button>':'')
+    +(d.url?'<button class="btn gray" onclick="openInGoogle()">🌐 الكل في خرائط جوجل</button>':'')
     +'<button class="btn gray" onclick="closeSheet()">✕</button>'
     +'</div>';
   openSheet(h);
-  if(p.geometry&&p.geometry.location) map.panTo(p.geometry.location);
+  if(d.location) map.panTo(d.location);
+  /* «مفتوح الآن» في الواجهة الجديدة غير متزامن — يُحدَّث بعد العرض */
+  if(d.isOpenFn){
+    try {
+      d.isOpenFn().then(function(v){
+        var b=document.getElementById('open-badge'); if(!b) return;
+        if(v===true){ b.textContent='مفتوح الآن'; b.style.cssText='color:#86efac;font-weight:700'; }
+        else if(v===false){ b.textContent='مغلق الآن'; b.style.cssText='color:#fca5a5;font-weight:700'; }
+      }).catch(function(){});
+    } catch(e){}
+  }
 }
+/* إحداثيات موقع مطبَّع (LatLng أو {lat,lng}) */
+function _locLat(l){ return typeof l.lat==='function'?l.lat():+l.lat; }
+function _locLng(l){ return typeof l.lng==='function'?l.lng():+l.lng; }
 /* حفظ معلم جوجل ضمن أماكني — الاسم والإحداثيات معبّأة مسبقاً */
 function savePoiToMyPlaces(){
-  if(!_lastPlace||!_lastPlace.geometry||!_lastPlace.geometry.location) return;
-  var l=_lastPlace.geometry.location;
-  openPlaceForm(null,l.lat(),l.lng(),_lastPlace.name||'');
+  if(!_lastPlace||!_lastPlace.location) return;
+  openPlaceForm(null,_locLat(_lastPlace.location),_locLng(_lastPlace.location),_lastPlace.name||'');
 }
 function openInGoogle(){
   if(_lastPlace&&_lastPlace.url){ try { window.open(_lastPlace.url,'_blank'); } catch(e){} }
@@ -8227,35 +8328,92 @@ function cancelPick(){ if(B) B.close(); }
 function doSearch(){
   var q=document.getElementById('q').value.trim();
   if(!q) return;
-  if(placesSvc){
-    placesSvc.textSearch({query:q,location:map.getCenter(),radius:50000},function(res,status){
-      if(status==='OK'&&res&&res.length){
-        var r=res[0], g=r.geometry;
-        if(g){ map.setZoom(Math.max(map.getZoom(),15)); map.panTo(g.location); }
-        clearTemp();
-        if(g) tempMk=new google.maps.Marker({map:map,position:g.location,icon:pinIcon('#94a3b8')});
-        if(r.place_id) showPlaceDetails(r.place_id);
-        return;
-      }
-      if(status==='ZERO_RESULTS'){ toast('لا نتائج للبحث',1); return; }
-      _geoSearch(q);   /* Places غير مفعّلة/فشلت → جرّب Geocoding */
+  searchPlaces(q).then(function(list){
+    list=list.filter(function(r){ return r&&r.location; });
+    if(!list.length){ toast('لا نتائج للبحث',1); return; }
+    clearTemp(); clearSearchMks();
+    _searchList=list;
+    var bounds=new google.maps.LatLngBounds();
+    list.forEach(function(r,i){
+      var mk=new google.maps.Marker({map:map,position:r.location,title:r.name,
+        icon:pinIcon('#f97316'),label:{text:String(i+1),color:'#ffffff',fontSize:'11px',fontWeight:'700'}});
+      mk.addListener('click',function(){ pickSearchResult(i); });
+      searchMks.push(mk); bounds.extend(r.location);
     });
-    return;
-  }
-  _geoSearch(q);
+    if(list.length===1){
+      map.setZoom(Math.max(map.getZoom(),16)); map.panTo(list[0].location);
+      if(list[0].id) showPlaceDetails(list[0].id);
+    } else {
+      map.fitBounds(bounds,60);
+      showSearchList(list);
+    }
+  }).catch(function(){ toast('تعذّر البحث — فعّل Places API (New) أو Geocoding API في مشروعك',1); });
 }
-function _geoSearch(q){
-  if(!geocoder) return;
-  geocoder.geocode({address:q,region:'sa'},function(res,status){
-    if(status==='OK'&&res&&res[0]){
-      var g=res[0].geometry;
-      if(g.viewport) map.fitBounds(g.viewport); else { map.setZoom(15); }
-      map.panTo(g.location);
-      clearTemp();
-      tempMk=new google.maps.Marker({map:map,position:g.location,icon:pinIcon('#94a3b8')});
-    } else if(status==='ZERO_RESULTS'){ toast('لا نتائج للبحث',1); }
-    else { toast('تعذّر البحث — فعّل Places API (أو Geocoding API) في مشروعك',1); }
+/* بحث موحّد: Places API (New) أولاً ثم القديمة ثم Geocoding — يعيد قائمة مطبَّعة */
+function searchPlaces(q){
+  if(_hasNewPlaces()&&typeof google.maps.places.Place.searchByText==='function'){
+    return google.maps.places.Place.searchByText({
+      textQuery:q, fields:['id','displayName','formattedAddress','location','rating'],
+      locationBias:map.getCenter(), maxResultCount:12, language:'ar', region:'SA'
+    }).then(function(res){
+      var list=(res&&res.places||[]).map(function(p){
+        return { id:p.id, name:p.displayName||'', address:p.formattedAddress||'', rating:p.rating, location:p.location };
+      });
+      return list.length?list:_legacySearch(q);
+    }).catch(function(){ return _legacySearch(q); });
+  }
+  return _legacySearch(q);
+}
+function _legacySearch(q){
+  return new Promise(function(resolve,reject){
+    if(placesSvc){
+      placesSvc.textSearch({query:q,location:map.getCenter(),radius:50000},function(res,status){
+        if(status==='OK'&&res&&res.length){
+          resolve(res.map(function(r){
+            return { id:r.place_id, name:r.name||'', address:r.formatted_address||'',
+              rating:r.rating, location:r.geometry&&r.geometry.location };
+          }));
+          return;
+        }
+        if(status==='ZERO_RESULTS'){ resolve([]); return; }
+        _geoResolve(q,resolve,reject);
+      });
+      return;
+    }
+    _geoResolve(q,resolve,reject);
   });
+}
+function _geoResolve(q,resolve,reject){
+  if(!geocoder){ reject(); return; }
+  geocoder.geocode({address:q,region:'sa'},function(res,status){
+    if(status==='OK'&&res&&res.length){
+      resolve(res.map(function(r){
+        return { id:r.place_id, name:r.formatted_address||'', address:'', rating:NaN, location:r.geometry&&r.geometry.location };
+      }));
+    } else if(status==='ZERO_RESULTS'){ resolve([]); }
+    else reject();
+  });
+}
+/* قائمة نتائج البحث في الورقة السفلية — النقر يفتح تفاصيل النتيجة */
+var _searchList=[], searchMks=[];
+function clearSearchMks(){ searchMks.forEach(function(m){ m.setMap(null); }); searchMks=[]; }
+function showSearchList(list){
+  var h='<h3>🔍 نتائج البحث ('+list.length+')</h3>';
+  list.forEach(function(r,i){
+    h+='<div class="prow" onclick="pickSearchResult('+i+')">'
+      +'<span class="snum">'+(i+1)+'</span>'
+      +'<div style="flex:1;min-width:0"><div class="nm">'+esc(r.name||'نتيجة')+'</div>'
+      +'<div class="sb">'+(isFinite(r.rating)?'★ '+(+r.rating).toFixed(1)+' · ':'')+esc(r.address||'')+'</div></div>'
+      +'<span style="color:var(--mut)">›</span></div>';
+  });
+  h+='<div class="rowb"><button class="btn gray" onclick="closeSheet()">إغلاق القائمة</button>'
+    +'<button class="btn red" onclick="closeSheet();clearSearchMks()">مسح النتائج</button></div>';
+  openSheet(h);
+}
+function pickSearchResult(i){
+  var r=_searchList[i]; if(!r||!r.location) return;
+  map.setZoom(Math.max(map.getZoom(),16)); map.panTo(r.location);
+  if(r.id) showPlaceDetails(r.id);
 }
 
 /* ══ قمر صناعي / خريطة ══ */
