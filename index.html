@@ -5,7 +5,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
   <meta name="theme-color" content="#667eea">
-  <meta name="app-version" content="1.17.1">
+  <meta name="app-version" content="1.17.2">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <title>المنظم</title>
@@ -7798,7 +7798,7 @@ updateCount();updatePCount();
   #pick-ok:disabled{opacity:.45;cursor:default;}
 
   /* ── الورقة السفلية (تفاصيل/إضافة/تعديل) ── */
-  #sheet{position:absolute;bottom:0;inset-inline:0;z-index:31;display:none;flex-direction:column;gap:9px;max-height:62%;overflow-y:auto;padding:13px 15px calc(15px + env(safe-area-inset-bottom,0px));background:var(--card);border-top:1px solid var(--line);border-radius:18px 18px 0 0;box-shadow:0 -6px 22px rgba(0,0,0,.35);}
+  #sheet{position:absolute;bottom:0;inset-inline:0;z-index:33;display:none;flex-direction:column;gap:9px;max-height:62%;overflow-y:auto;padding:13px 15px calc(15px + env(safe-area-inset-bottom,0px));background:var(--card);border-top:1px solid var(--line);border-radius:18px 18px 0 0;box-shadow:0 -6px 22px rgba(0,0,0,.35);}
   #sheet h3{margin:0;font-size:15px;}
   #sheet .mut{font-size:12.5px;color:var(--mut);line-height:1.7;white-space:pre-wrap;}
   #sheet input[type=text],#sheet textarea{width:100%;padding:10px 12px;border-radius:11px;border:1px solid var(--line);background:rgba(127,127,180,.1);color:var(--tx);font-size:13.5px;resize:none;}
@@ -7891,7 +7891,8 @@ updateCount();updatePCount();
           <button class="btn gray" style="padding:6px 13px;font-size:12px" onclick="toggleDrawer()">✕</button>
         </span></div>
       <div id="dlist"></div>
-      <input type="file" id="imp-file" accept=".json,.geojson,.kml,.csv,application/json,text/csv" style="display:none" onchange="handleImport(event)">
+      <!-- بلا تصفية أنواع: بعض مديري ملفات أندرويد يحجبون ملفات Takeout مع فلتر accept -->
+      <input type="file" id="imp-file" style="display:none" onchange="handleImport(event)">
     </div>
 
     <!-- عارض صور المكان بالحجم الكامل -->
@@ -8162,7 +8163,13 @@ function handleImport(e){
       return;
     }
     var r=_mergeImported(list);
-    renderPlaces(); renderDrawer(); closeSheet();
+    renderPlaces(); renderDrawer(); closeSheet(); closeDrawer();
+    /* انتقل لعرض الأماكن المستوردة فوراً — كانت تُضاف خارج مجال الرؤية فتبدو مفقودة */
+    if(r.pts.length){
+      var b=new google.maps.LatLngBounds();
+      r.pts.forEach(function(p){ b.extend(p); });
+      map.fitBounds(b,60);
+    }
     toast('⬆️ استُورد '+r.added+' مكاناً'
       +(r.skipped?' — تُخُطّي '+r.skipped+' مكرراً':'')
       +(noCoord?' — '+noCoord+' صفاً بلا إحداثيات':''));
@@ -8237,20 +8244,25 @@ function _parseCsv(t){
 /* دمج دون تكرار: المفتاح اسم + إحداثيات مقرّبة (~11م) */
 function _mergeImported(list){
   var arr=B?B.getPlaces():[];
-  var added=0, skipped=0, seen={};
+  var added=0, skipped=0, seen={}, pts=[];
   arr.forEach(function(p){ seen[p.name+'|'+(+p.lat).toFixed(4)+'|'+(+p.lng).toFixed(4)]=1; });
   list.forEach(function(x,i){
     var k=x.name+'|'+x.lat.toFixed(4)+'|'+x.lng.toFixed(4);
-    if(seen[k]){ skipped++; return; }
+    if(seen[k]){ skipped++; pts.push({lat:x.lat,lng:x.lng}); return; }
     seen[k]=1;
     arr.push({ id:(B?B.newId():String(i))+'_m'+i, name:String(x.name).slice(0,80),
       desc:String(x.desc||'').slice(0,200), color:COLORS[added%COLORS.length],
       lat:x.lat, lng:x.lng, ts:new Date().toISOString() });
-    added++;
+    added++; pts.push({lat:x.lat,lng:x.lng});
   });
   if(B) B.setPlaces(arr);
-  return {added:added,skipped:skipped};
+  return {added:added,skipped:skipped,pts:pts};
 }
+
+/* ══ أدوات حالة الواجهة المفتوحة ══ */
+function _sheetOpen(){ var s=document.getElementById('sheet'); return !!s&&s.style.display==='flex'; }
+function _drawerOpen(){ var d=document.getElementById('drawer'); return !!d&&d.style.display==='flex'; }
+function closeDrawer(){ if(_drawerOpen()) toggleDrawer(); }
 
 /* ══ النقر على الخريطة ══ */
 function onMapClick(ev){
@@ -8265,10 +8277,14 @@ function onMapClick(ev){
   /* نقرة على معلم جوجل: بطاقة تفاصيل غنية (عنوان/هاتف/ساعات/صور/تعليقات) عبر
      Places API، وإن لم تكن مفعّلة تُترك بطاقة جوجل الافتراضية المصغّرة */
   if(ev.placeId){
-    if(placesSvc||_hasNewPlaces()){ if(ev.stop) ev.stop(); showPlaceDetails(ev.placeId); }
+    if(placesSvc||_hasNewPlaces()){ if(ev.stop) ev.stop(); closeDrawer(); showPlaceDetails(ev.placeId); }
     return;
   }
-  closeSheet();
+  /* نقرة على فراغ والقائمة أو ورقة مفتوحة: أغلقها فقط — لا تفتح «نقطة جديدة» */
+  if(_sheetOpen()||_drawerOpen()){
+    closeSheet(); closeDrawer(); clearTemp();
+    return;
+  }
   clearTemp();
   tempMk=new google.maps.Marker({map:map,position:ev.latLng,icon:pinIcon('#94a3b8')});
   openSheet(
@@ -8453,7 +8469,7 @@ function syncMode(){
   if(pickMk){ pickMk.setMap(null); pickMk=null; }
   var ok=document.getElementById('pick-ok'); if(ok) ok.disabled=true;
   var sub=document.getElementById('pick-sub'); if(sub) sub.textContent='اضغط على الخريطة لاختيار الموقع';
-  closeSheet(); clearTemp();
+  closeSheet(); clearTemp(); closeDrawer();
   if(pickMode){
     var cur=B.pickInitial();
     if(cur){
