@@ -5,7 +5,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
   <meta name="theme-color" content="#667eea">
-  <meta name="app-version" content="1.17.3">
+  <meta name="app-version" content="1.18.0">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <title>المنظم</title>
@@ -879,6 +879,14 @@
 
     .orgtbl-card:active {
       transform: scale(.97)
+    }
+
+    /* تمييز نص البحث المطابق في النتائج */
+    mark.srch-hl {
+      background: #facc15;
+      color: #1e293b;
+      border-radius: 3px;
+      padding: 0 1px;
     }
 
     .orgtbl-card-text {
@@ -2047,7 +2055,7 @@
       <div id="map-app-btn" onclick="openMapApp()" title="الخريطة — أماكني وملاحظاتي على خرائط جوجل"
         style="position:absolute;inset-inline-end:90px;bottom:1px;font-size:16px;padding:4px 10px;border-radius:8px;cursor:pointer;user-select:none;-webkit-tap-highlight-color:transparent;transition:background .15s;line-height:1.2;"
         onpointerdown="this.style.background='rgba(var(--ov),0.13)'" onpointerup="this.style.background=''" onpointerleave="this.style.background=''">🗺️</div>
-      <div id="umluj-wx" onclick="openUmlujApp()" title="أملج الآن: الحرارة المحسوسة 🌡️ ونقطة الندى 💧 — انقر للتفاصيل"
+      <div id="umluj-wx" onclick="openUmlujApp()" title="الطقس الآن — انقر للتفاصيل"
         style="display:none;position:absolute;inset-inline-start:6px;bottom:1px;color:var(--tw);font-size:11px;font-weight:700;padding:6px 8px;border-radius:8px;cursor:pointer;user-select:none;-webkit-tap-highlight-color:transparent;line-height:1.2;white-space:nowrap;opacity:.95;"></div>
     </div>
 
@@ -2090,6 +2098,10 @@
             <input type="file" id="import-file-input" accept=".json,application/json" style="display:none" onchange="importData(event)">
           </div>
           <div class="srow">
+            <div class="srow-l">مشاركة نسخة احتياطية كاملة — أرسلها إلى Google Drive أو أي تطبيق للنسخ خارج الجهاز</div>
+            <button class="sm-btn" onclick="shareBackup()">☁️ مشاركة</button>
+          </div>
+          <div class="srow">
             <div class="srow-l" style="font-size:11px;color:var(--text-m);">نسخة احتياطية تلقائية: ملف منظم_notes_backup.json في مجلد الملاحظات كل 10 عمليات حفظ + نسخة .bak من الإصدار السابق تحفظها الطبقة الأصلية.</div>
           </div>
         </div>
@@ -2102,6 +2114,19 @@
           </div>
           <div style="font-size:11px;color:var(--text-m);padding:2px 0 8px;">المحذوفات تبقى قابلة للاستعادة، وتُمسح نهائياً تلقائياً بعد 30 يوماً.</div>
           <div id="cfg-trash-list" style="display:flex;flex-direction:column;gap:8px;"></div>
+        </div>
+
+        <!-- قسم مؤشر الطقس في الشريط العلوي -->
+        <div class="section">
+          <div class="sec-t">🌡️ مؤشر الطقس في الشريط العلوي</div>
+          <div style="font-size:12px;color:var(--text-m);padding:4px 0 8px;">اختر المدينة والمعلومات المثبّتة أعلى الشاشة — النقر على المؤشر يفتح نافذة تفاصيل المدينة.</div>
+          <div class="srow">
+            <div class="srow-l">المدينة</div>
+            <select id="wx-city-sel" onchange="setWxCity(this.value)"
+              style="padding:7px 12px;border-radius:8px;border:1px solid rgba(var(--ov),.15);background:rgba(var(--ov),.06);color:var(--tw);font-size:13px;font-family:inherit;"></select>
+          </div>
+          <div id="wx-metric-checks" style="display:flex;flex-wrap:wrap;gap:8px;padding:8px 0 2px;"></div>
+          <div style="font-size:11px;color:var(--text-m);padding:6px 0 0;">إلغاء كل المعلومات يخفي المؤشر من الشريط.</div>
         </div>
 
         <!-- قسم تحديث التطبيق -->
@@ -2530,6 +2555,7 @@
       const _vl = document.getElementById('app-ver-label');
       if (_vl) _vl.textContent = 'الإصدار ' + (_getLocalHash() || '');
       const _rh = document.getElementById('remind-hour'); if (_rh) _rh.value = _remindHour();
+      if (typeof renderWxCfg === 'function') renderWxCfg();
       if (typeof _reflectMapsKey === 'function') _reflectMapsKey();
       if (typeof renderTrash === 'function') renderTrash();
       if (typeof _reflectThemeButtons === 'function') _reflectThemeButtons();
@@ -3557,6 +3583,7 @@
     /* جسر الـ iframe: كل ما تحتاجه الخريطة من الصفحة الأم في مكان واحد */
     var MapBridge = {
       pickTarget: null,
+      focusLoc: null,   /* موقع يُتمركز عليه عند الفتح (زر «فتح» من الملاحظة) */
       getKey() { try { return localStorage.getItem(_MAPS_KEY_LS) || ''; } catch (e) { return ''; } },
       saveKey(v) { setMapsKey(v); },
       getPlaces() {
@@ -3607,6 +3634,29 @@
         showFb('📍 تم تحديد موقع الملاحظة');
       },
       toast(msg, err) { showFb(msg, err ? 1 : 0); },
+      /* حفظ ملف نصي (تصدير KML): عبر مجلد الملاحظات على أندرويد (تنزيل blob لا
+         يعمل في WebView)، وبرابط تنزيل عادي على ويندوز/المتصفح */
+      saveTextFile(fileName, content) {
+        try {
+          if (window.AndroidFS && typeof window.AndroidFS.writeFile === 'function'
+              && typeof window.AndroidFS.hasSavedFolder === 'function' && window.AndroidFS.hasSavedFolder()) {
+            if (window.AndroidFS.writeFile('', fileName, content)) {
+              showFb('💾 حُفظ في مجلد الملاحظات: ' + fileName);
+              return true;
+            }
+          }
+        } catch (e) { }
+        try {
+          var blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+          var url = URL.createObjectURL(blob);
+          var a = document.createElement('a');
+          a.href = url; a.download = fileName;
+          document.body.appendChild(a); a.click();
+          setTimeout(function () { URL.revokeObjectURL(url); a.remove(); }, 1000);
+          showFb('📤 صُدّر ' + fileName);
+          return true;
+        } catch (e) { showFb('تعذّر التصدير', 1); return false; }
+      },
       /* فتح رابط خارجي (صفحة المكان في خرائط جوجل) بشكل موثوق لكل منصة:
          - أندرويد: التنقل من الإطار الأعلى يعترضه Capacitor ويفتحه في
            تطبيق الخرائط/المتصفح دون مغادرة التطبيق (window.open لا يعمل هناك)
@@ -3639,16 +3689,111 @@
     });
 
     /* ══════════════════════════════════════
-       نافذة أملج التفصيلية: الآن + الأيام السابقة والقادمة
+       نافذة الطقس التفصيلية: الآن + الأيام السابقة والقادمة
        تُفتح بالنقر على مؤشر الشريط العلوي؛ جلب واحد (past_days=7 + forecast_days=16)
-       يُعاد استخدامه ما دام أحدث من 30 دقيقة.
+       يُعاد استخدامه ما دام أحدث من 30 دقيقة. المدينة والمعلومات المعروضة في
+       المؤشر قابلة للتخصيص من الإعدادات (topbar_wx_cfg_v1).
     ══════════════════════════════════════ */
-    var _UMLUJ_FULL_URL = 'https://api.open-meteo.com/v1/forecast?latitude=25.0213&longitude=37.2685'
-      + '&current=temperature_2m,apparent_temperature,dew_point_2m,relative_humidity_2m,wind_speed_10m'
-      + '&daily=temperature_2m_max,temperature_2m_min,apparent_temperature_max,apparent_temperature_min,'
-      + 'dew_point_2m_max,dew_point_2m_min,dew_point_2m_mean,relative_humidity_2m_mean,wind_speed_10m_max,precipitation_sum,cloud_cover_mean,weathercode'
-      + '&past_days=7&forecast_days=16&timezone=Asia%2FRiyadh';
-    var _umlujFull = null, _umlujFullAt = 0;
+    /* قائمة المدن — طبق قائمة تطبيق الأمطار (عند إضافة مدينة هناك أضفها هنا) */
+    var WX_CITIES = [
+      { name: 'الباحة', lat: 20.0129, lon: 41.4677 },
+      { name: 'المندق', lat: 20.1105, lon: 41.2828 },
+      { name: 'ميسان', lat: 20.7372, lon: 40.8387 },
+      { name: 'الشفا', lat: 21.0727, lon: 40.3184 },
+      { name: 'أبها', lat: 18.2465, lon: 42.5117 },
+      { name: 'السودة', lat: 18.2745, lon: 42.3646 },
+      { name: 'رجال ألمع', lat: 18.1996, lon: 42.2685 },
+      { name: 'الداير', lat: 17.3520, lon: 43.1102 },
+      { name: 'الريث', lat: 17.5406, lon: 42.8524 },
+      { name: 'جازان', lat: 16.8894, lon: 42.5511 },
+      { name: 'أملج', lat: 25.0213, lon: 37.2685 },
+    ];
+    var WX_METRICS = [
+      { k: 'feels', ic: '🌡️', n: 'المحسوسة', cur: 'apparent_temperature', unit: '°' },
+      { k: 'dew', ic: '💧', n: 'نقطة الندى', cur: 'dew_point_2m', unit: '°' },
+      { k: 'temp', ic: '🌍', n: 'الحرارة الفعلية', cur: 'temperature_2m', unit: '°' },
+      { k: 'hum', ic: '💦', n: 'الرطوبة', cur: 'relative_humidity_2m', unit: '%' },
+      { k: 'wind', ic: '🍃', n: 'الرياح', cur: 'wind_speed_10m', unit: '' },
+    ];
+    var WX_CFG_KEY = 'topbar_wx_cfg_v1';
+    function _wxCfg() {
+      var c = null; try { c = JSON.parse(localStorage.getItem(WX_CFG_KEY) || 'null'); } catch (e) { }
+      if (!c || typeof c !== 'object') c = {};
+      if (!WX_CITIES.some(function (x) { return x.name === c.city; })) c.city = 'أملج';
+      if (!Array.isArray(c.metrics)) c.metrics = ['feels', 'dew'];
+      c.metrics = c.metrics.filter(function (k) { return WX_METRICS.some(function (m) { return m.k === k; }); });
+      return c;
+    }
+    function _storeWxCfg(c) { try { localStorage.setItem(WX_CFG_KEY, JSON.stringify(c)); } catch (e) { } }
+    function _wxCity() {
+      var c = _wxCfg();
+      return WX_CITIES.filter(function (x) { return x.name === c.city; })[0] || WX_CITIES[WX_CITIES.length - 1];
+    }
+    function _wxFullUrl() {
+      var ct = _wxCity();
+      return 'https://api.open-meteo.com/v1/forecast?latitude=' + ct.lat + '&longitude=' + ct.lon
+        + '&current=temperature_2m,apparent_temperature,dew_point_2m,relative_humidity_2m,wind_speed_10m'
+        + '&daily=temperature_2m_max,temperature_2m_min,apparent_temperature_max,apparent_temperature_min,'
+        + 'dew_point_2m_max,dew_point_2m_min,dew_point_2m_mean,relative_humidity_2m_mean,wind_speed_10m_max,precipitation_sum,cloud_cover_mean,weathercode'
+        + '&past_days=7&forecast_days=16&timezone=Asia%2FRiyadh';
+    }
+    var _umlujFull = null, _umlujFullAt = 0, _wxCur = null;
+
+    /* يرسم المؤشر من آخر بيانات لحظية حسب المعلومات المختارة — بلا جلب جديد */
+    function _renderWxIndicator() {
+      var el = document.getElementById('umluj-wx');
+      if (!el) return;
+      var cfg = _wxCfg(), ct = _wxCity(), c = _wxCur;
+      el.title = ct.name + ' الآن — انقر للتفاصيل';
+      if (!c || !cfg.metrics.length) { el.style.display = 'none'; return; }
+      var parts = [];
+      WX_METRICS.forEach(function (m) {
+        if (cfg.metrics.indexOf(m.k) < 0) return;
+        var v = c[m.cur];
+        if (typeof v !== 'number') return;
+        parts.push(m.ic + Math.round(v) + m.unit);
+      });
+      if (!parts.length) { el.style.display = 'none'; return; }
+      el.textContent = ct.name + ' ' + parts.join(' ');
+      el.style.display = 'block';
+    }
+
+    /* واجهة الإعدادات: اختيار المدينة والمعلومات المثبّتة */
+    function renderWxCfg() {
+      var sel = document.getElementById('wx-city-sel');
+      var box = document.getElementById('wx-metric-checks');
+      if (!sel || !box) return;
+      var cfg = _wxCfg();
+      sel.innerHTML = WX_CITIES.map(function (ct) {
+        return '<option value="' + ct.name + '"' + (ct.name === cfg.city ? ' selected' : '') + '>' + ct.name + '</option>';
+      }).join('');
+      box.innerHTML = '';
+      WX_METRICS.forEach(function (m) {
+        var lab = document.createElement('label');
+        lab.style.cssText = 'display:inline-flex;align-items:center;gap:6px;background:rgba(var(--ov),.06);border:1px solid rgba(var(--ov),.15);border-radius:999px;padding:5px 12px;font-size:12px;color:var(--tw);cursor:pointer;user-select:none;-webkit-tap-highlight-color:transparent;';
+        var cb = document.createElement('input');
+        cb.type = 'checkbox'; cb.checked = cfg.metrics.indexOf(m.k) >= 0;
+        cb.addEventListener('change', function () { toggleWxMetric(m.k, cb.checked); });
+        lab.appendChild(cb);
+        lab.appendChild(document.createTextNode(m.ic + ' ' + m.n));
+        box.appendChild(lab);
+      });
+    }
+    function setWxCity(name) {
+      var c = _wxCfg(); c.city = name; _storeWxCfg(c);
+      /* بيانات المدينة السابقة لم تعد صالحة */
+      _umlujFull = null; _umlujFullAt = 0; _wxCur = null; _umlujWxLast = 0;
+      _renderWxIndicator();
+      _fetchUmlujFull();
+    }
+    function toggleWxMetric(k, on) {
+      var c = _wxCfg();
+      var i = c.metrics.indexOf(k);
+      if (on && i < 0) c.metrics.push(k);
+      if (!on && i >= 0) c.metrics.splice(i, 1);
+      _storeWxCfg(c);
+      _renderWxIndicator();
+    }
 
     var _UMLUJ_DAYS_AR = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
     var _UMLUJ_MON_AR = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
@@ -3685,19 +3830,16 @@
     function _fetchUmlujFull() {
       var body = document.getElementById('umluj-body');
       if (body && _umlujOvOpen() && !_umlujFull)
-        body.innerHTML = '<div style="text-align:center;padding:30px;color:var(--text-m);">…جارٍ جلب بيانات أملج</div>';
-      fetch(_UMLUJ_FULL_URL, { cache: 'no-store' })
+        body.innerHTML = '<div style="text-align:center;padding:30px;color:var(--text-m);">…جارٍ جلب بيانات ' + _wxCity().name + '</div>';
+      fetch(_wxFullUrl(), { cache: 'no-store' })
         .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
         .then(function (j) {
           var c = j && j.current;
           /* المؤشر العلوي يتحدث من نفس الرد — مصدر واحد فلا تتضارب القيم */
-          if (c && typeof c.apparent_temperature === 'number' && typeof c.dew_point_2m === 'number') {
-            var el = document.getElementById('umluj-wx');
-            if (el) {
-              el.textContent = 'أملج 🌡️' + Math.round(c.apparent_temperature) + '° 💧' + Math.round(c.dew_point_2m) + '°';
-              el.style.display = 'block';
-            }
+          if (c) {
+            _wxCur = c;
             _umlujWxLast = Date.now();
+            _renderWxIndicator();
           }
           if (!j || !j.daily || !j.daily.time) { if (!c) throw new Error('بيانات ناقصة'); return; }
           _umlujFull = j; _umlujFullAt = Date.now();
@@ -3719,9 +3861,13 @@
       var todayIso = new Date(Date.now() + 3 * 3600e3).toISOString().slice(0, 10);
       var rnd = function (v) { return (v === null || v === undefined || isNaN(v)) ? '—' : Math.round(v); };
 
+      /* عنوان النافذة يتبع المدينة المختارة */
+      var _tt = document.getElementById('umluj-title');
+      if (_tt) _tt.textContent = '🌊 ' + _wxCity().name + ' — المحسوسة ونقطة الندى';
+
       /* بطاقة الآن */
       var html = '<div style="background:rgba(var(--ov),0.07);border:1px solid rgba(var(--ov),0.12);border-radius:14px;padding:12px 14px;margin-bottom:12px;">'
-        + '<div style="font-size:13px;font-weight:700;color:var(--text-m);margin-bottom:8px;">الآن في أملج</div>'
+        + '<div style="font-size:13px;font-weight:700;color:var(--text-m);margin-bottom:8px;">الآن في ' + _wxCity().name + '</div>'
         + '<div style="display:flex;flex-wrap:wrap;gap:14px;font-size:14px;font-weight:700;color:var(--tw);">'
         + '<span>🌡️ المحسوسة ' + rnd(cur.apparent_temperature) + '°</span>'
         + '<span>💧 الندى ' + rnd(cur.dew_point_2m) + '°</span>'
@@ -3773,6 +3919,69 @@
     }
 
 
+
+    /* ══════════════════════════════════════
+       تنبيه فرص المطر: يقرأ إعداد تطبيق الأمطار (sarawat_rain_alert_v1) من
+       التخزين المشترك، ويفحص الاحتمال الجماعي للمدن المفعّلة للأيام الثلاثة
+       القادمة عند الإقلاع — إشعار أصلي واحد لكل مدينة/يوم عبر جسر التذكيرات.
+    ══════════════════════════════════════ */
+    function _rainAlertCheck() {
+      var cfg = null;
+      try { cfg = JSON.parse(localStorage.getItem('sarawat_rain_alert_v1') || 'null'); } catch (e) { }
+      if (!cfg || !cfg.on) return;
+      var th = (+cfg.th >= 10 && +cfg.th <= 100) ? +cfg.th : 60;
+      /* المدن المفعّلة كما يحددها تطبيق الأمطار (الافتراضي: مدن السروات الأربع) */
+      var prefs = {};
+      try { prefs = JSON.parse(localStorage.getItem('sarawat_cities_v1') || '{}') || {}; } catch (e) { }
+      var defs = { 'الباحة': 1, 'المندق': 1, 'ميسان': 1, 'الشفا': 1 };
+      var cities = WX_CITIES.filter(function (ct) { return (ct.name in prefs) ? !!prefs[ct.name] : !!defs[ct.name]; });
+      if (!cities.length) return;
+      var url = 'https://ensemble-api.open-meteo.com/v1/ensemble?latitude='
+        + cities.map(function (c) { return c.lat; }).join(',') + '&longitude=' + cities.map(function (c) { return c.lon; }).join(',')
+        + '&models=ecmwf_ifs025,gfs025,ecmwf_aifs025_ensemble&daily=precipitation_sum&forecast_days=3&timezone=Asia%2FRiyadh';
+      fetch(url, { cache: 'no-store' })
+        .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+        .then(function (j) {
+          var arr = Array.isArray(j) ? j : [j];
+          var fired = {};
+          try { fired = JSON.parse(localStorage.getItem('rain_alert_fired_v1') || '{}') || {}; } catch (e) { }
+          var now = Date.now(), changed = false, delay = 4000;
+          arr.forEach(function (loc, li) {
+            if (!loc || !loc.daily || !cities[li]) return;
+            var d = loc.daily;
+            (d.time || []).forEach(function (iso, i) {
+              /* نسبة أعضاء الجماعية المتوقعين ≥0.5 ملم — نفس منهجية تطبيق الأمطار */
+              var vals = [];
+              for (var k in d) {
+                if (k === 'time' || k.indexOf('precipitation_sum') !== 0) continue;
+                var v = d[k][i];
+                if (v !== null && v !== undefined) vals.push(+v);
+              }
+              if (!vals.length) return;
+              var p = Math.round(100 * vals.filter(function (v) { return v >= 0.5; }).length / vals.length);
+              if (p < th) return;
+              var fk = cities[li].name + '|' + iso;
+              if (fired[fk]) return;
+              fired[fk] = now; changed = true;
+              try {
+                if (window.AndroidFS && typeof window.AndroidFS.scheduleReminder === 'function')
+                  window.AndroidFS.scheduleReminder('rainalert_' + fk, String(now + delay),
+                    '🌧️ ' + cities[li].name + ': فرصة مطر ' + p + '%',
+                    'اليوم ' + iso + ' — افتح تطبيق الأمطار للتفاصيل');
+              } catch (e) { }
+              delay += 1500;   /* مباعدة الإشعارات المتعددة */
+              try { showFb('🌧️ فرصة مطر ' + p + '% في ' + cities[li].name + ' — ' + iso, 0); } catch (e) { }
+            });
+          });
+          if (changed) {
+            var cutoff = now - 20 * 86400e3;
+            for (var k2 in fired) { if (fired[k2] < cutoff) delete fired[k2]; }
+            try { localStorage.setItem('rain_alert_fired_v1', JSON.stringify(fired)); } catch (e) { }
+          }
+        })
+        .catch(function () { /* بصمت — سيُعاد الفحص في الإقلاع القادم */ });
+    }
+    setTimeout(_rainAlertCheck, 8000);
 
     /* دالة مركزية تُعالج الرجوع من أي مصدر */
     function _handleBack() {
@@ -4366,9 +4575,10 @@
     function _noteSearchText(n) {
       const key = (n.text || '') + ' ' + (n.main || '') + ' ' + (n.sub || '') + ' ' +
         (n.sec || '') + ' ' + (n.num || '') + ' ' + (n.dH || '') + ' ' +
-        (n.dG || '') + ' ' + (n.status || '');
+        (n.dG || '') + ' ' + (n.status || '') + ' ' + (Array.isArray(n.tags) ? n.tags.join(' ') : '');
       if (n._stKey === key && typeof n._st === 'string') return n._st;
-      const txt = [n.text, n.main, n.sub, n.sec, n.num, n.dH, n.dG, n.status]
+      const txt = [n.text, n.main, n.sub, n.sec, n.num, n.dH, n.dG, n.status,
+        Array.isArray(n.tags) ? n.tags.join(' ') : '']
         .filter(Boolean).join(' ').toLowerCase();
       /* غير قابلة للتعداد كي لا تدخل التسلسل/التصدير */
       Object.defineProperty(n, '_st', { value: txt, writable: true, configurable: true, enumerable: false });
@@ -4463,7 +4673,44 @@
     function badgeCls(s) { return SMAP[s]?.cls || 'badge-def'; }
     function esc(s) { return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
 
+    /* تمييز نص البحث المطابق داخل النص (يُهرَّب كل جزء ثم يُغلَّف المطابق بـ mark) */
+    function _hlText(raw, q) {
+      const s = String(raw || '');
+      if (!q) return esc(s);
+      const low = s.toLowerCase();
+      let out = '', pos = 0, i;
+      while ((i = low.indexOf(q, pos)) !== -1) {
+        out += esc(s.slice(pos, i)) + '<mark class="srch-hl">' + esc(s.slice(i, i + q.length)) + '</mark>';
+        pos = i + q.length;
+      }
+      return out + esc(s.slice(pos));
+    }
+    /* نص خلية مع تمييز البحث النشط — يستخدم innerHTML فقط عند وجود بحث */
+    function _setCellText(el, raw, q) {
+      if (q) el.innerHTML = _hlText(raw, q);
+      else el.textContent = raw;
+    }
+    /* رقائق الوسوم لبطاقة/صف — النقر على وسم يبحث به */
+    function _tagChips(n) {
+      if (!Array.isArray(n.tags) || !n.tags.length) return null;
+      const tg = document.createElement('div');
+      tg.style.cssText = 'display:flex;flex-wrap:wrap;gap:4px;margin-top:3px;';
+      n.tags.slice(0, 10).forEach(t => {
+        const chip = document.createElement('span');
+        chip.textContent = '#' + t;
+        chip.style.cssText = 'font-size:10px;color:#93c5fd;background:rgba(147,197,253,.13);border-radius:999px;padding:1px 8px;cursor:pointer;';
+        chip.onclick = ev => {
+          ev.stopPropagation();
+          const ft = document.getElementById('f-text');
+          if (ft) { ft.value = t; renderNotes(); }
+        };
+        tg.appendChild(chip);
+      });
+      return tg;
+    }
+
     function renderTable(ns, con) {
+      const _q = (document.getElementById('f-text')?.value || '').toLowerCase().trim();
       const t = document.createElement('table'); t.className = 'orgtbl-table';
       const hr = t.createTHead().insertRow();
       ['📝 النص', '🔢 الرقم', '🔸 الثانوية', '📊 الحالة', '📅 التاريخ', '📎'].forEach(h => { const th = document.createElement('th'); th.textContent = h; hr.appendChild(th); });
@@ -4473,7 +4720,8 @@
         const stCls = _stClass(n.status);
         if (stCls) tr.classList.add(stCls);
         tr.onclick = () => openNote(n.id);
-        const td1 = tr.insertCell(); td1.className = 'td-text'; td1.textContent = String(n.text || '—').slice(0, 80) + (n.text?.length > 80 ? '…' : '');
+        const td1 = tr.insertCell(); td1.className = 'td-text';
+        _setCellText(td1, String(n.text || '—').slice(0, 80) + (n.text?.length > 80 ? '…' : ''), _q);
         const td2 = tr.insertCell(); td2.className = 'td-c'; td2.textContent = n.num || '—';
         const td3 = tr.insertCell(); td3.className = 'td-c'; td3.textContent = cleanTxt(n.sec) || '—';
         const td4 = tr.insertCell(); td4.className = 'td-c';
@@ -4497,6 +4745,7 @@
       con.appendChild(t);
     }
     function renderCards(ns, con) {
+      const _q = (document.getElementById('f-text')?.value || '').toLowerCase().trim();
       const g = document.createElement('div'); g.className = 'orgtbl-cards';
       /* E3: حساب الروابط الواردة مرة واحدة لكل تمريرة عرض بدل O(n²) */
       const _allNotes = DB.get();
@@ -4528,10 +4777,11 @@
         }
         if (n.text) {
           const t = document.createElement('div'); t.className = 'orgtbl-card-text';
-          t.textContent = String(n.text).slice(0, 100) + (n.text.length > 100 ? '…' : '');
+          _setCellText(t, String(n.text).slice(0, 100) + (n.text.length > 100 ? '…' : ''), _q);
           c.appendChild(t);
         }
         if (n.sec) { const s = document.createElement('small'); s.textContent = cleanTxt(n.sec); s.style.cssText = 'color:#a78bfa;font-size:10px'; c.appendChild(s); }
+        const _tgc = _tagChips(n); if (_tgc) c.appendChild(_tgc);
 
         /* مؤشر الروابط — من الخريطة المحسوبة مسبقاً */
         const _own = Array.isArray(n.links) ? n.links : [];
@@ -5260,6 +5510,20 @@
       showFb('📤 تم التصدير');
     }
 
+    /* مشاركة النسخة الاحتياطية عبر منتقي المشاركة الأصلي (أندرويد) —
+       المستخدم يختار Google Drive أو غيره فتصير نسخته خارج الجهاز.
+       على ويندوز/المتصفح: تنزيل عادي عبر exportData */
+    function shareBackup() {
+      if (window.AndroidFS && typeof window.AndroidFS.shareTextFile === 'function') {
+        const payload = { v: 3, savedAt: Date.now(), notes: DB.get(), trash: _trashCache, cats: CATS, places: MapBridge.getPlaces() };
+        const name = 'منظم-' + new Date().toISOString().split('T')[0] + '.json';
+        window.AndroidFS.shareTextFile(name, 'application/json', JSON.stringify(payload, null, 2));
+        showFb('☁️ اختر وجهة المشاركة — Drive للنسخ السحابي');
+        return;
+      }
+      exportData();
+    }
+
     /* ══════════════════════════════════════
        الترتيب
     ══════════════════════════════════════ */
@@ -5341,16 +5605,26 @@
     function _refreshEditLoc() {
       const tx = document.getElementById('edit-loc-tx');
       const del = document.getElementById('edit-loc-del');
+      const op = document.getElementById('edit-loc-open');
       if (!tx) return;
       if (_editLoc && isFinite(_editLoc.lat)) {
         tx.textContent = 'موقع معيّن ✓';
         tx.style.color = 'var(--tw)';
         if (del) del.style.display = 'inline';
+        if (op) op.style.display = 'inline';
       } else {
         tx.textContent = 'تحديد على الخريطة';
         tx.style.color = 'rgba(var(--ov),.5)';
         if (del) del.style.display = 'none';
+        if (op) op.style.display = 'none';
       }
+    }
+    /* فتح موقع الملاحظة على الخريطة للتصفح (بلا وضع التقاط) */
+    function openNoteLocOnMap(e) {
+      if (e) e.stopPropagation();
+      if (!_editLoc || !isFinite(_editLoc.lat)) return;
+      MapBridge.focusLoc = { lat: +_editLoc.lat, lng: +_editLoc.lng };
+      openMapApp(null);
     }
     /* يفتح الخريطة بوضع الالتقاط للملاحظة الجارية؛ التغيير يُحفظ فوراً في _editLoc
        ويثبت نهائياً مع «حفظ» (أو يبقى القديم عند الإغلاق دون حفظ) */
@@ -5377,6 +5651,8 @@
       _editSec  = n.sec  || '';
       document.getElementById('edit-text').value = n.text || '';
       document.getElementById('edit-num').value  = n.num  || '';
+      const _tg = document.getElementById('edit-tags');
+      if (_tg) _tg.value = Array.isArray(n.tags) ? n.tags.join('، ') : '';
       /* الحالة */
       const ic = SMAP[_editStatus]?.ic || '📊';
       document.getElementById('edit-status-ic').textContent = ic;
@@ -5596,9 +5872,19 @@
       notes[idx].main   = _editMain;
       notes[idx].sub    = _editSub;
       notes[idx].sec    = _editSec;
+      notes[idx].tags   = _parseTags(document.getElementById('edit-tags')?.value);
       notes[idx].loc    = _editLoc ? { lat: _editLoc.lat, lng: _editLoc.lng } : null;
       DB.set(notes);
       return true;
+    }
+    /* وسوم حرة: فواصل عربية/لاتينية، بلا تكرار، حد 10 وسوم × 20 حرفاً */
+    function _parseTags(s) {
+      const out = [];
+      String(s || '').split(/[,،؛;]+/).forEach(t => {
+        t = t.trim().replace(/^#/, '').slice(0, 20);
+        if (t && out.indexOf(t) < 0 && out.length < 10) out.push(t);
+      });
+      return out;
     }
     function saveEdit() {
       if (!_editId) return;
@@ -5899,6 +6185,10 @@
         <div class="edit-field-lbl">📝 النص</div>
         <textarea id="edit-text" class="edit-inp" rows="2" placeholder="النص..." style="resize:none;"></textarea>
 
+        <!-- ص٢ب: وسوم حرة -->
+        <div class="edit-field-lbl">🏷️ وسوم (افصل بينها بفاصلة)</div>
+        <input type="text" id="edit-tags" class="edit-inp" placeholder="مثال: عمل، عاجل" style="padding:7px 10px;">
+
         <!-- ص٣: الرقم + الحالة (عمودان) -->
         <div class="edit-row2">
           <div>
@@ -5942,6 +6232,8 @@
         <div id="edit-loc-cell" class="edit-inp" style="cursor:pointer;display:flex;align-items:center;gap:6px;padding:7px 10px;" onclick="openEditLocPicker()">
           <span style="font-size:14px;">🗺️</span>
           <span id="edit-loc-tx" style="flex:1;color:rgba(var(--ov),.5);font-size:12px;">تحديد على الخريطة</span>
+          <span id="edit-loc-open" onclick="openNoteLocOnMap(event)" title="فتح الموقع على الخريطة"
+            style="display:none;color:#86efac;font-size:12px;padding:2px 8px;font-weight:700;">فتح ⤴</span>
           <span id="edit-loc-del" onclick="clearEditLoc(event)" title="إزالة الموقع"
             style="display:none;color:#fca5a5;font-size:13px;padding:2px 6px;">✕</span>
           <span style="color:rgba(var(--ov),.4);font-size:11px;">›</span>
@@ -6127,6 +6419,16 @@
     <b class="note" style="color:var(--txt)">💾 حفظ بيانات أيام محددة محلياً</b>
     <div class="note">اختر الأيام التي تريد أرشفة توقعاتها: تُحفظ لقطة من بيانات كل مدينة مفعّلة تلقائياً مع كل تحديث (بحد أدنى ٣٠ دقيقة بين اللقطات) لمراجعتها لاحقاً.</div>
     <div id="dayChecks" class="checks"></div>
+    <hr class="sep">
+    <b class="note" style="color:var(--txt)">🔔 تنبيه فرص المطر</b>
+    <div class="note">عند فتح «المنظم» يُفحص الاحتمال الجماعي للمدن المفعّلة للأيام الثلاثة القادمة، وإن بلغ العتبة يصلك إشعار — مرة واحدة لكل مدينة/يوم.</div>
+    <div class="checks" style="align-items:center">
+      <label class="chk"><input type="checkbox" id="alertOn" onchange="setRainAlert()"> تفعيل التنبيه</label>
+      <label class="chk">العتبة
+        <input type="number" id="alertTh" min="10" max="100" step="5" onchange="setRainAlert()"
+          style="width:60px;background:transparent;border:1px solid var(--line);border-radius:8px;color:var(--txt);padding:3px 6px;text-align:center;font-family:inherit">%
+      </label>
+    </div>
     <hr class="sep">
     <b class="note" style="color:var(--txt)">📂 البيانات المحفوظة</b>
     <div id="savedList"></div>
@@ -6622,7 +6924,29 @@ function toggleWSettings(){
   if(show) renderSettings();
   c.style.display = show ? "block" : "none";
 }
-function renderSettings(){ renderCityChecks(); renderDayChecks(); renderSavedList(); }
+function renderSettings(){ renderCityChecks(); renderDayChecks(); renderAlertCfg(); renderSavedList(); }
+
+/* ══ تنبيه فرص المطر: الإعداد يُخزَّن هنا ويقرؤه «المنظم» عند إقلاعه ══ */
+const ALERT_KEY = "sarawat_rain_alert_v1";
+function alertCfg(){
+  const c = loadJSON(ALERT_KEY, null);
+  return (c && typeof c==="object") ? {on:!!c.on, th:(+c.th>=10&&+c.th<=100)?+c.th:60} : {on:false, th:60};
+}
+function renderAlertCfg(){
+  const c = alertCfg();
+  const on = document.getElementById("alertOn"), th = document.getElementById("alertTh");
+  if(on) on.checked = c.on;
+  if(th) th.value = c.th;
+}
+function setRainAlert(){
+  const on = document.getElementById("alertOn").checked;
+  let th = parseInt(document.getElementById("alertTh").value, 10);
+  if(!(th>=10 && th<=100)) th = 60;
+  document.getElementById("alertTh").value = th;
+  storeJSON(ALERT_KEY, {on:on, th:th});
+  /* إذن الإشعارات يُطلب من الطبقة الأصلية في الصفحة الأم */
+  if(on){ try{ window.parent.AndroidFS?.requestNotificationPermission?.(); }catch(e){} }
+}
 
 function renderCityChecks(){
   const box = document.getElementById("cityChecks");
@@ -6763,6 +7087,7 @@ function renderSavedList(){
     }).join("");
     det.innerHTML =
       `<summary>📅 ${fmtDate(iso)} <span class="note">(${snaps.length} لقطة)</span></summary>`
+      + _snapChart(snaps, cityNames)
       + `<div class="wrap" style="margin-top:6px"><table class="mini"><thead>${head}</thead><tbody>${rows}</tbody></table></div>`
       + `<div style="margin-top:6px"><button class="sm danger" data-del="${iso}">🗑️ حذف بيانات هذا اليوم</button></div>`;
     det.querySelector("[data-del]").addEventListener("click", ()=>{
@@ -6781,6 +7106,39 @@ function renderSavedList(){
     renderSavedList();
   });
   box.appendChild(clr);
+}
+
+/* رسم SVG خطي: تطور الاحتمال الجماعي عبر اللقطات المحفوظة، خط لكل مدينة */
+function _snapChart(snaps, cityNames){
+  if(!Array.isArray(snaps) || snaps.length < 2) return "";
+  const W=340, H=112, PL=26, PR=6, PT=8, PB=20;
+  const iw=W-PL-PR, ih=H-PT-PB;
+  const CLR=["#38bdf8","#f59e0b","#22c55e","#f87171","#a78bfa","#f472b6","#fbbf24","#34d399","#60a5fa","#fb923c","#e879f9"];
+  const x=i=> PL + i*iw/(snaps.length-1);
+  const y=p=> PT + ih - (Math.max(0,Math.min(100,p))*ih/100);
+  let sv="";
+  [0,50,100].forEach(p=>{
+    sv += `<line x1="${PL}" y1="${y(p)}" x2="${W-PR}" y2="${y(p)}" stroke="var(--line)" stroke-width="0.6"/>`
+        + `<text x="${PL-4}" y="${y(p)+2.5}" font-size="7" fill="var(--muted)" text-anchor="end">${p}</text>`;
+  });
+  let legend="";
+  cityNames.forEach((n,ci)=>{
+    const pts=[];
+    snaps.forEach((s,i)=>{
+      const c=(s.cities||{})[n];
+      if(c && c.p!==null && c.p!==undefined) pts.push(x(i).toFixed(1)+","+y(c.p).toFixed(1));
+    });
+    if(pts.length<2) return;
+    sv += `<polyline points="${pts.join(" ")}" fill="none" stroke="${CLR[ci%CLR.length]}" stroke-width="1.6" stroke-linejoin="round"/>`;
+    legend += `<span class="lg"><i style="background:${CLR[ci%CLR.length]}"></i>${n}</span>`;
+  });
+  if(!legend) return "";
+  const ft=s=>new Date(s.t).toLocaleString("ar-SA",{month:"numeric",day:"numeric",hour:"numeric",minute:"2-digit"});
+  sv += `<text x="${PL}" y="${H-6}" font-size="7" fill="var(--muted)" text-anchor="start">${ft(snaps[0])}</text>`
+      + `<text x="${W-PR}" y="${H-6}" font-size="7" fill="var(--muted)" text-anchor="end">${ft(snaps[snaps.length-1])}</text>`;
+  return `<div class="note" style="margin-top:8px">📈 تطور الاحتمال الجماعي عبر اللقطات (٪):</div>`
+    + `<svg viewBox="0 0 ${W} ${H}" style="width:100%;max-width:560px;display:block" xmlns="http://www.w3.org/2000/svg">${sv}</svg>`
+    + `<div class="legend">${legend}</div>`;
 }
 
 load();
@@ -6805,7 +7163,7 @@ load();
        تُفتح بالنقر على مؤشر أملج في الشريط العلوي (openUmlujApp) -->
   <div id="umluj-ov" style="display:none;position:fixed;inset:0;z-index:9700;background:var(--bg-p);flex-direction:column;">
     <div style="position:relative;display:flex;align-items:center;justify-content:center;padding:env(safe-area-inset-top,0px) 0 0;background:var(--grad);flex-shrink:0;box-shadow:0 2px 10px rgba(102,126,234,0.4);">
-      <div style="color:var(--tw);font-size:14px;font-weight:700;padding:5px 22px;line-height:1.2;user-select:none;">🌊 أملج — المحسوسة ونقطة الندى</div>
+      <div id="umluj-title" style="color:var(--tw);font-size:14px;font-weight:700;padding:5px 22px;line-height:1.2;user-select:none;">🌊 الطقس — المحسوسة ونقطة الندى</div>
       <div onclick="closeUmlujApp()" title="رجوع"
         style="position:absolute;inset-inline-start:6px;bottom:1px;color:var(--tw);font-size:15px;font-weight:700;padding:4px 12px;border-radius:8px;cursor:pointer;user-select:none;-webkit-tap-highlight-color:transparent;line-height:1.2;">‹ رجوع</div>
       <div onclick="_fetchUmlujFull()" title="تحديث"
@@ -7888,6 +8246,7 @@ updateCount();updatePCount();
       <div class="dh"><span>📍 أماكني وملاحظاتي</span>
         <span style="display:flex;gap:6px;">
           <button class="btn gray" style="padding:6px 13px;font-size:12px" onclick="openImportSheet()" title="استيراد أماكنك المحفوظة في حساب جوجل">⬆️ استيراد</button>
+          <button class="btn gray" style="padding:6px 13px;font-size:12px" onclick="exportKml()" title="تصدير كل أماكني كملف KML (يُستورد في خرائط جوجل My Maps وغيرها)">⬇️ تصدير</button>
           <button class="btn gray" style="padding:6px 13px;font-size:12px" onclick="toggleDrawer()">✕</button>
         </span></div>
       <div id="dlist"></div>
@@ -7969,6 +8328,8 @@ window._gmReady=function(){
     if(!B||!map) return;
     var c=map.getCenter();
     B.setView({lat:c.lat(),lng:c.lng(),zoom:map.getZoom(),type:map.getMapTypeId()==='hybrid'?'hybrid':'roadmap'});
+    /* إعادة بناء التجميع عند تغيّر التقريب (فقط حين يكون التجميع وارداً) */
+    if((B?B.getPlaces():[]).length>=CLUSTER_MIN && map.getZoom()!==_lastClusterZ) renderPlaces();
   });
   document.getElementById('gate').style.display='none';
   document.getElementById('wrap').style.display='block';
@@ -7979,6 +8340,13 @@ window._gmReady=function(){
 window._mnMapSync=function(){
   if(!map) return;
   renderPlaces(); renderNotes(); syncMode();
+  /* طلب تمركز من الأم (زر «فتح» في نافذة تعديل الملاحظة) */
+  var f=B&&B.focusLoc;
+  if(f&&isFinite(f.lat)&&isFinite(f.lng)){
+    B.focusLoc=null;
+    map.setCenter({lat:+f.lat,lng:+f.lng});
+    if(map.getZoom()<15) map.setZoom(15);
+  }
 };
 
 function pinIcon(color){
@@ -7988,13 +8356,49 @@ function pinIcon(color){
 }
 
 /* ══ أماكني المحفوظة ══ */
+/* تجميع شبكي خفيف عند التزاحم — بلا مكتبات خارجية: عند وجود أماكن كثيرة
+   وتقريب بعيد تُدمج المتقاربة (خلية ~60 بكسل) في دائرة عدّ تُقرّب عند النقر */
+var CLUSTER_MIN=30, CLUSTER_MAX_Z=15, _lastClusterZ=null;
+function _placeMarker(p){
+  var mk=new google.maps.Marker({map:map,position:{lat:+p.lat,lng:+p.lng},title:p.name||'',icon:pinIcon(p.color||COLORS[0])});
+  mk.addListener('click',function(){ showPlaceSheet(p.id); });
+  return mk;
+}
 function renderPlaces(){
   placeMks.forEach(function(m){ m.setMap(null); }); placeMks=[];
-  (B?B.getPlaces():[]).forEach(function(p){
-    var mk=new google.maps.Marker({map:map,position:{lat:+p.lat,lng:+p.lng},title:p.name||'',icon:pinIcon(p.color||COLORS[0])});
-    mk.addListener('click',function(){ showPlaceSheet(p.id); });
-    placeMks.push(mk);
-  });
+  var places=(B?B.getPlaces():[]);
+  var z=map?map.getZoom():15;
+  _lastClusterZ=z;
+  if(places.length>=CLUSTER_MIN && z<CLUSTER_MAX_Z){
+    var cell=60/(256*Math.pow(2,z))*360;   /* عرض الخلية بدرجات الطول ≈ 60 بكسل */
+    var grid={};
+    places.forEach(function(p){
+      var k=Math.round(p.lng/cell)+'_'+Math.round(p.lat/cell);
+      (grid[k]=grid[k]||[]).push(p);
+    });
+    Object.keys(grid).forEach(function(k){
+      var g=grid[k];
+      if(g.length===1){ placeMks.push(_placeMarker(g[0])); return; }
+      var la=0,ln=0;
+      g.forEach(function(p){ la+=+p.lat; ln+=+p.lng; });
+      la/=g.length; ln/=g.length;
+      var mk=new google.maps.Marker({
+        map:map, position:{lat:la,lng:ln},
+        label:{text:String(g.length),color:'#ffffff',fontWeight:'700',fontSize:'12px'},
+        icon:{ path:google.maps.SymbolPath.CIRCLE, scale:16, fillColor:'#667eea', fillOpacity:.92, strokeColor:'#ffffff', strokeWeight:2 },
+        title:g.length+' أماكن — انقر للتقريب'
+      });
+      mk.addListener('click',function(){
+        var b=new google.maps.LatLngBounds();
+        g.forEach(function(p){ b.extend({lat:+p.lat,lng:+p.lng}); });
+        map.fitBounds(b,70);
+        google.maps.event.addListenerOnce(map,'idle',function(){ if(map.getZoom()>17) map.setZoom(17); });
+      });
+      placeMks.push(mk);
+    });
+    return;
+  }
+  places.forEach(function(p){ placeMks.push(_placeMarker(p)); });
 }
 function showPlaceSheet(id){
   var p=(B?B.getPlaces():[]).find(function(x){ return String(x.id)===String(id); });
@@ -8181,6 +8585,21 @@ function handleImport(e){
   };
   rd.readAsText(f);
 }
+/* ══ تصدير أماكني إلى KML ══ */
+function _xmlEsc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function exportKml(){
+  var places=B?B.getPlaces():[];
+  if(!places.length){ toast('لا أماكن للتصدير',1); return; }
+  var pm=places.map(function(p){
+    return '<Placemark><name>'+_xmlEsc(p.name)+'</name>'
+      +(p.desc?'<description>'+_xmlEsc(p.desc)+'</description>':'')
+      +'<Point><coordinates>'+(+p.lng)+','+(+p.lat)+',0</coordinates></Point></Placemark>';
+  }).join('\n');
+  var kml='<?xml version="1.0" encoding="UTF-8"?>\n<kml xmlns="http://www.opengis.net/kml/2.2"><Document><name>أماكني</name>\n'+pm+'\n</Document></kml>';
+  if(B&&typeof B.saveTextFile==='function')
+    B.saveTextFile('أماكني-'+new Date().toISOString().slice(0,10)+'.kml', kml);
+}
+
 /* KML (My Maps / النجوم): Placemark → name + Point coordinates "lng,lat" */
 function _parseKml(t){
   var out=[];
