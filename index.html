@@ -5,7 +5,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
   <meta name="theme-color" content="#667eea">
-  <meta name="app-version" content="1.17.2">
+  <meta name="app-version" content="1.17.3">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <title>المنظم</title>
@@ -8163,12 +8163,17 @@ function handleImport(e){
       return;
     }
     var r=_mergeImported(list);
-    renderPlaces(); renderDrawer(); closeSheet(); closeDrawer();
-    /* انتقل لعرض الأماكن المستوردة فوراً — كانت تُضاف خارج مجال الرؤية فتبدو مفقودة */
-    if(r.pts.length){
+    renderPlaces(); closeSheet(); closeDrawer();
+    /* انتقل لعرض الأماكن المستوردة فوراً — كانت تُضاف خارج مجال الرؤية فتبدو مفقودة.
+       مكان واحد أو نقاط متطابقة: سقف للتقريب كي لا يقفز fitBounds لأقصى تكبير */
+    if(list.length===1){
+      map.setCenter({lat:list[0].lat,lng:list[0].lng});
+      map.setZoom(15);
+    } else {
       var b=new google.maps.LatLngBounds();
-      r.pts.forEach(function(p){ b.extend(p); });
+      list.forEach(function(p){ b.extend({lat:p.lat,lng:p.lng}); });
       map.fitBounds(b,60);
+      google.maps.event.addListenerOnce(map,'idle',function(){ if(map.getZoom()>16) map.setZoom(16); });
     }
     toast('⬆️ استُورد '+r.added+' مكاناً'
       +(r.skipped?' — تُخُطّي '+r.skipped+' مكرراً':'')
@@ -8244,19 +8249,20 @@ function _parseCsv(t){
 /* دمج دون تكرار: المفتاح اسم + إحداثيات مقرّبة (~11م) */
 function _mergeImported(list){
   var arr=B?B.getPlaces():[];
-  var added=0, skipped=0, seen={}, pts=[];
+  var added=0, skipped=0, seen={};
   arr.forEach(function(p){ seen[p.name+'|'+(+p.lat).toFixed(4)+'|'+(+p.lng).toFixed(4)]=1; });
   list.forEach(function(x,i){
-    var k=x.name+'|'+x.lat.toFixed(4)+'|'+x.lng.toFixed(4);
-    if(seen[k]){ skipped++; pts.push({lat:x.lat,lng:x.lng}); return; }
+    /* المفتاح بنفس تطبيع التخزين (قصّ الاسم لـ80) وإلا تتكرر الأسماء الطويلة عند كل استيراد */
+    var k=String(x.name).slice(0,80)+'|'+x.lat.toFixed(4)+'|'+x.lng.toFixed(4);
+    if(seen[k]){ skipped++; return; }
     seen[k]=1;
     arr.push({ id:(B?B.newId():String(i))+'_m'+i, name:String(x.name).slice(0,80),
       desc:String(x.desc||'').slice(0,200), color:COLORS[added%COLORS.length],
       lat:x.lat, lng:x.lng, ts:new Date().toISOString() });
-    added++; pts.push({lat:x.lat,lng:x.lng});
+    added++;
   });
   if(B) B.setPlaces(arr);
-  return {added:added,skipped:skipped,pts:pts};
+  return {added:added,skipped:skipped};
 }
 
 /* ══ أدوات حالة الواجهة المفتوحة ══ */
@@ -8275,9 +8281,11 @@ function onMapClick(ev){
     return;
   }
   /* نقرة على معلم جوجل: بطاقة تفاصيل غنية (عنوان/هاتف/ساعات/صور/تعليقات) عبر
-     Places API، وإن لم تكن مفعّلة تُترك بطاقة جوجل الافتراضية المصغّرة */
+     Places API، وإن لم تكن مفعّلة تُترك بطاقة جوجل الافتراضية المصغّرة.
+     في الحالتين تُغلق القائمة كي لا تحجب البطاقة، ويُمسح مؤشر «نقطة جديدة» المؤقت */
   if(ev.placeId){
-    if(placesSvc||_hasNewPlaces()){ if(ev.stop) ev.stop(); closeDrawer(); showPlaceDetails(ev.placeId); }
+    closeDrawer(); clearTemp();
+    if(placesSvc||_hasNewPlaces()){ if(ev.stop) ev.stop(); showPlaceDetails(ev.placeId); }
     return;
   }
   /* نقرة على فراغ والقائمة أو ورقة مفتوحة: أغلقها فقط — لا تفتح «نقطة جديدة» */
