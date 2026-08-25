@@ -5,7 +5,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
   <meta name="theme-color" content="#667eea">
-  <meta name="app-version" content="1.19.0">
+  <meta name="app-version" content="1.19.1">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <title>المنظم</title>
@@ -2840,7 +2840,7 @@
         return null;
       },
       _arithToH(gd) {
-        let r = Math.floor((gd - this.base.g) / 864e5), { y, m, d } = { y: this.base.h.y, m: this.base.h.m - 1, d: this.base.h.d };
+        let r = Math.floor((/** @type {number} */ (gd) - /** @type {number} */ (/** @type {any} */ (this.base.g))) / 864e5), { y, m, d } = { y: this.base.h.y, m: this.base.h.m - 1, d: this.base.h.d };
         while (r !== 0) { const dm = this.md(y, m); if (r > 0) { const e = dm - d + 1; if (r >= e) { r -= e; d = 1; m++; if (m >= 12) { m = 0; y++; } } else { d += r; r = 0; } } else { if (Math.abs(r) < d) { d += r; r = 0; } else { r += d; m--; if (m < 0) { m = 11; y--; } d = this.md(y, m); } } if (Math.abs(r) > 4e5) break; }
         return { y, m: m + 1, d };
       },
@@ -4419,13 +4419,13 @@
     /* تحويل الأرقام العربية إلى غربية (للمقارنة الداخلية) */
     function toWestern(s) {
       return String(s)
-        .replace(/[٠١٢٣٤٥٦٧٨٩]/g, d => d.charCodeAt(0) - 1632)
-        .replace(/[۰۱۲۳۴۵۶۷۸۹]/g, d => d.charCodeAt(0) - 1776);
+        .replace(/[٠١٢٣٤٥٦٧٨٩]/g, d => String(d.charCodeAt(0) - 1632))
+        .replace(/[۰۱۲۳۴۵۶۷۸۹]/g, d => String(d.charCodeAt(0) - 1776));
     }
 
     function setDateDisp(t, dh, dg) {
       const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-      let gDay = '—', gMon = '';
+      let gDay = /** @type {string|number} */ ('—'), gMon = '';
       if (dg) {
         if (dg.includes('/')) { // dd/mm/yyyy (تنسيق التقويم)
           const p = dg.split('/');
@@ -4506,7 +4506,7 @@
             const reader = new FileReader();
             reader.onerror = () => { showFb('❌ خطأ في قراءة الملف', 1); resolve(false); };
             reader.onload = () => {
-              const base64 = reader.result.split(',')[1];
+              const base64 = String(reader.result).split(',')[1];
               if (typeof window.AndroidFS.saveAttachment === 'function') {
                 window.AndroidFS.saveAttachment(folderName, fName, base64);
                 showFb('✅ تم الحفظ في المرفقات'); resolve(true);
@@ -4626,7 +4626,7 @@
     ══════════════════════════════════════ */
     function normalizeD(s) {
       if (!s) return '';
-      return String(s).replace(/[٠١٢٣٤٥٦٧٨٩]/g, d => d.charCodeAt(0) - 1632).replace(/[۰۱۲۳۴۵۶۷۸۹]/g, d => d.charCodeAt(0) - 1776);
+      return String(s).replace(/[٠١٢٣٤٥٦٧٨٩]/g, d => String(d.charCodeAt(0) - 1632)).replace(/[۰۱۲۳۴۵۶۷۸۹]/g, d => String(d.charCodeAt(0) - 1776));
     }
     function cleanTxt(s) {
       if (!s) return '';
@@ -6817,6 +6817,7 @@ function ensembleDay(ensLoc, i){
 // ===== إجماع النماذج الحتمية لموقع/يوم =====
 function detDay(omLoc, metDays, iso, i){
   const g = (v,m) => num(omLoc ? (omLoc.daily[v+"_"+m]||[])[i] : null);
+  /** @type {{name:string, mm:any, partial?:boolean}[]} */
   const models = OM_MODELS.map(m => ({name:m.name, mm:g("precipitation_sum",m.key)}));
   const mr = metDays ? metDays[iso] : null;
   models.push({name:"MET Norway (نرويجي)",
@@ -6976,9 +6977,9 @@ async function load(){
     document.getElementById(id).style.display="none";
 
   const metOpts = LOCS.map(l => fetchJSON(urlMet(l)).then(aggregateMet));
-  const [omR, ensR, hrR, cmfR, ...metR] = await Promise.allSettled([
+  const [omR, ensR, hrR, cmfR, ...metR] = /** @type {any[]} */ (await Promise.allSettled([
     fetchJSON(urlOM()), fetchJSON(urlEns()), fetchJSON(urlHr()), fetchComfort(), ...metOpts
-  ]);
+  ]));
   if(seq !== _loadSeq) return;
   const om  = omR.status==="fulfilled" ? asArr(omR.value) : null;
   const ens = ensR.status==="fulfilled" ? asArr(ensR.value) : null;
@@ -8142,6 +8143,7 @@ async function renderCmp(){
   // أفضل (أقل) APR
   const minApr=Math.min(...data.map(d=>d.aprEff).filter(isFinite));
   const minTot=Math.min(...data.map(d=>d.grandTotal).filter(isFinite));
+  /** @type {[string, (d?:any, i?:any)=>string][]} */
   const rows=[
     ['الاسم',d=>`<b>${d.name}</b>`],
     ['APR فعلي',d=>`<span class="tag ${d.aprEff===minApr?'g':'n'}">${pct(d.aprEff,1)}</span>`],
@@ -8197,7 +8199,7 @@ function restoreAll(ev){
   const reader=new FileReader();
   reader.onload=async e=>{
     try{
-      const parsed=JSON.parse(e.target.result);
+      const parsed=JSON.parse(String(e.target.result));
       let offers=null,payments=null;
       if(Array.isArray(parsed)){
         // ملف قديم بصيغة مصفوفة واحدة — نحدد نوعه تلقائياً
@@ -8245,6 +8247,7 @@ async function renderPCmp(){
   const minTot=Math.min(...data.map(d=>grandFin(d)).filter(isFinite));
   const minProfit=Math.min(...data.map(d=>profitFin(d)).filter(isFinite));
   const rtype=d=>d.rateType==='flat'?'ثابتة':'فعلية';
+  /** @type {[string, (d?:any, i?:any)=>string][]} */
   const rows=[
     ['الاسم',d=>`<b>${d.name}</b>`],
     ['القسط الشهري (سيارة)',d=>`<span class="tag ${d.m===minM?'g':'n'}">${fmt(d.m)}</span>`],
@@ -8746,7 +8749,9 @@ function handleImport(e){
       }
     } catch(err){ toast('ملف غير صالح أو تنسيق غير مدعوم',1); return; }
     if(!list.length){
-      toast(noCoord?('الملف بلا إحداثيات ('+noCoord+' صفاً) — استخدم Saved Places.json من Takeout أو KML',1):'لم يُعثر على أماكن في الملف',1);
+      /* علّة كشفها فحص الأنواع: القوس السابق جعل الفرع الأول تعبيرَ فاصلة
+         ('نص',1) فيُقيَّم إلى 1 وتظهر الرسالة «1» بدل النص */
+      toast(noCoord?('الملف بلا إحداثيات ('+noCoord+' صفاً) — استخدم Saved Places.json من Takeout أو KML'):'لم يُعثر على أماكن في الملف',1);
       return;
     }
     var r=_mergeImported(list);
