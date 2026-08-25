@@ -5,7 +5,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
   <meta name="theme-color" content="#667eea">
-  <meta name="app-version" content="1.18.0">
+  <meta name="app-version" content="1.19.0">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <title>المنظم</title>
@@ -2917,10 +2917,17 @@
     function idbGet(key) { return _idbKV('readonly', st => st.get(key)); }
     function idbSet(key, val) { return _idbKV('readwrite', st => st.put(val, key)); }
 
-    /* ── تنسيق الحفظ v3: {v, savedAt, notes, trash, cats} مع توافق رجعي كامل
-       مع v2 (بلا cats) والمصفوفة المجردة (v1) ── */
-    function _serializeNotes() {
-      return JSON.stringify({ v: 3, savedAt: Date.now(), notes: _notesCache, trash: _trashCache, cats: CATS });
+    /* ── تنسيق الحفظ v3: {v, savedAt, notes, trash, cats, places} مع توافق رجعي كامل
+       مع v2 (بلا cats) والمصفوفة المجردة (v1).
+       forFile=true (الكتابة لملف المجلد): يسجّل savedAt كمرجع لكشف تغيّر الملف
+       خارجياً (مزامنة من جهاز آخر) — انظر _syncMergeCheck ── */
+    let _lastFileSavedAt = 0;
+    function _serializeNotes(forFile) {
+      const savedAt = Date.now();
+      if (forFile) _lastFileSavedAt = savedAt;
+      let places = [];
+      try { if (typeof MapBridge !== 'undefined') places = MapBridge.getPlaces(); } catch (e) { }
+      return JSON.stringify({ v: 3, savedAt, notes: _notesCache, trash: _trashCache, cats: CATS, places });
     }
     function _validCats(c) {
       return (c && typeof c === 'object' && !Array.isArray(c) && Object.keys(c).length) ? c : null;
@@ -2980,7 +2987,7 @@
         return;
       }
       _persistPending = false;
-      const json = _serializeNotes();
+      const json = _serializeNotes(true);
       /* أندرويد / ويندوز (جسر AndroidFS) */
       if (window.AndroidFS && typeof window.AndroidFS.writeJson === 'function'
         && localStorage.getItem('notes_storage') === 'android_fs') {
@@ -3200,6 +3207,7 @@
         try { localStorage.setItem('notes_cats', JSON.stringify(CATS)); } catch (e) { }
       }
       _notesLoaded = true;
+      _lastFileSavedAt = +parsed.savedAt || 0;   /* مرجع كشف التغيّر الخارجي */
       hideSaveError();
       if (fromBak) showFb('تمت الاستعادة من النسخة الاحتياطية');
       if (needResave) _persistNotes();
@@ -3213,8 +3221,147 @@
     const DB = {
       get() { return _notesCache; },
       set(a) { _notesCache = Array.isArray(a) ? a : []; _persistNotes(); updCount(); _syncRemindersDebounced(); },
-      add(n) { _notesCache.unshift(n); _persistNotes(); updCount(); _syncRemindersDebounced(); }
+      add(n) { if (n && !n.mt) n.mt = Date.now(); _notesCache.unshift(n); _persistNotes(); updCount(); _syncRemindersDebounced(); }
     };
+
+    /* ══════════════════════════════════════
+       دمج المزامنة الآمن: المستخدم يزامن مجلد الملاحظات بأداة خارجية
+       (OneDrive/Syncthing…) بين أجهزته. الأداة تنقل الملف، وهذا الجزء يجعل
+       التطبيق واعياً بذلك: يكشف تغيّر الملف خارجياً (savedAt مختلف عن آخر
+       قراءة/كتابة لنا) ويدمج لكل عنصر — الأحدث بختمه يفوز — بدل أن يكتب
+       نسخة الذاكرة فوق تعديلات الجهاز الآخر فتضيع.
+       التقارب مضمون: أي طرف يفوّت تغييراً سيستعيده الطرف الآخر في دمجه التالي.
+    ══════════════════════════════════════ */
+    const CONFLICT_BACKUP_FILE = 'منظم_conflict_backup.json';
+
+    /* قراءة خام لملف الملاحظات عبر قناة التخزين الحالية (بلا أي أثر جانبي) */
+    async function _readNotesRaw() {
+      const storage = localStorage.getItem('notes_storage');
+      if (window.AndroidFS && typeof window.AndroidFS.readJson === 'function' && storage === 'android_fs') {
+        try {
+          let raw = window.AndroidFS.readJson(NOTES_FILE);
+          if (raw && typeof raw.then === 'function') raw = await raw;
+          return { raw: raw === undefined ? null : raw, failed: false };
+        } catch (e) { return { raw: null, failed: true }; }
+      }
+      if (_dirHandle) {
+        try {
+          const fh = await _dirHandle.getFileHandle(NOTES_FILE);
+          return { raw: await (await fh.getFile()).text(), failed: false };
+        } catch (e) {
+          if (e && (e.name === 'NotFoundError' || e.name === 'TypeMismatchError')) return { raw: null, failed: false };
+          return { raw: null, failed: true };
+        }
+      }
+      return { raw: null, failed: true };   /* لا مجلد → لا مزامنة خارجية أصلاً */
+    }
+
+    function _noteStamp(n) {
+      const mt = +(n && n.mt) || 0;
+      if (mt) return mt;
+      const t = n && n.ts ? Date.parse(n.ts) : 0;
+      return isFinite(t) ? (t || 0) : 0;
+    }
+    function _trashStamp(t) {
+      const d = +(t && t._delAt) || 0;
+      return d || _noteStamp(t);
+    }
+
+    /* دمج حالتين (المحلية والخارجية) لكل عنصر: الأحدث بختمه يفوز.
+       عنصر في الحيّة والسلة معاً بعد الدمج → الختم الأحدث يحسم مصيره. */
+    function _mergeStates(loc, ext) {
+      const notes = new Map(), trash = new Map();
+      (loc.notes || []).forEach(n => { if (n && n.id != null) notes.set(String(n.id), n); });
+      (ext.notes || []).forEach(n => {
+        if (!n || n.id == null) return;
+        const k = String(n.id), cur = notes.get(k);
+        if (!cur || _noteStamp(n) > _noteStamp(cur)) notes.set(k, n);
+      });
+      (loc.trash || []).forEach(t => { if (t && t.id != null) trash.set(String(t.id), t); });
+      (ext.trash || []).forEach(t => {
+        if (!t || t.id == null) return;
+        const k = String(t.id), cur = trash.get(k);
+        if (!cur || _trashStamp(t) > _trashStamp(cur)) trash.set(k, t);
+      });
+      for (const [k, t] of [...trash]) {
+        const n = notes.get(k);
+        if (!n) continue;
+        if (_trashStamp(t) >= _noteStamp(n)) notes.delete(k);
+        else trash.delete(k);
+      }
+      /* الفئات بلا ختم لكل مفتاح: اتحاد المفاتيح والمحلي يفوز عند التعارض */
+      let cats = _validCats(loc.cats) || null;
+      const extCats = _validCats(ext.cats);
+      if (extCats) {
+        if (!cats) cats = extCats;
+        else for (const k of Object.keys(extCats)) if (!(k in cats)) cats[k] = extCats[k];
+      }
+      return { notes: [...notes.values()], trash: [...trash.values()], cats };
+    }
+
+    /* نسخة أمان قبل تطبيق أي دمج — أفضل جهد وبصمت */
+    function _writeConflictBackup(json) {
+      try {
+        const storage = localStorage.getItem('notes_storage');
+        if (window.AndroidFS && typeof window.AndroidFS.writeFile === 'function' && storage === 'android_fs') {
+          window.AndroidFS.writeFile('', CONFLICT_BACKUP_FILE, json);
+        } else if (_dirHandle) {
+          (async () => {
+            const fh = await _dirHandle.getFileHandle(CONFLICT_BACKUP_FILE, { create: true });
+            const w = await fh.createWritable(); await w.write(json); await w.close();
+          })().catch(() => { });
+        }
+      } catch (e) { }
+    }
+
+    let _mergeBusy = false;
+    async function _syncMergeCheck() {
+      if (!_notesLoaded || _mergeBusy) return false;
+      _mergeBusy = true;
+      try {
+        const { raw, failed } = await _readNotesRaw();
+        if (failed || raw == null || String(raw).trim() === '') return false;
+        let ext;
+        try { ext = _deserializeNotes(String(raw)); } catch (e) { return false; }  /* تالف: يعالجه مسار التحميل */
+        const extAt = +ext.savedAt || 0;
+        if (extAt === _lastFileSavedAt) return false;   /* الملف كما تركناه — لا تغيّر خارجي */
+
+        _writeConflictBackup(_serializeNotes());
+        const merged = _mergeStates({ notes: _notesCache, trash: _trashCache, cats: CATS }, ext);
+        _notesCache = merged.notes;
+        _trashCache = merged.trash;
+        if (merged.cats) {
+          CATS = merged.cats;
+          try { localStorage.setItem('notes_cats', JSON.stringify(CATS)); } catch (e) { }
+        }
+        /* أماكن الخريطة: دمج بالمعرّف والأحدث بختمه ts يفوز */
+        try {
+          if (Array.isArray(ext.places) && ext.places.length && typeof MapBridge !== 'undefined') {
+            const pmap = new Map();
+            MapBridge.getPlaces().forEach(p => pmap.set(String(p.id), p));
+            ext.places.forEach(p => {
+              if (!p || typeof p !== 'object' || !isFinite(p.lat) || !isFinite(p.lng)) return;
+              const cur = pmap.get(String(p.id));
+              if (!cur || String(p.ts || '') > String(cur.ts || '')) pmap.set(String(p.id), p);
+            });
+            MapBridge.setPlaces([...pmap.values()]);
+          }
+        } catch (e) { }
+
+        _persistNotes();   /* اكتب الحالة المدموجة — فيتقارب الجهازان */
+        updCount(); _syncRemindersDebounced();
+        if (typeof renderNotes === 'function') renderNotes();
+        showFb('🔄 دُمجت تغييرات واصلة من جهاز آخر');
+        return true;
+      } finally { _mergeBusy = false; }
+    }
+
+    /* المحفزات: عند العودة للتطبيق، ودورياً كل 90 ثانية وهو ظاهر، وبعد الإقلاع */
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') setTimeout(() => { _syncMergeCheck(); }, 800);
+    });
+    setInterval(() => { if (!document.hidden) _syncMergeCheck(); }, 90e3);
+    setTimeout(() => { _syncMergeCheck(); }, 6000);
 
     /* ══════════════════════════════════════
        سلة المحذوفات + تنظيف المرفقات اليتيمة
@@ -3290,6 +3437,7 @@
       if (idx < 0) return;
       const note = _trashCache[idx];
       delete note._delAt;
+      note.mt = Date.now();   /* الاستعادة تعديلٌ — تتفوق على حذف أقدم عند دمج المزامنة */
       _trashCache.splice(idx, 1);
       _notesCache.unshift(note);
       _persistNotes(); updCount(); _syncRemindersDebounced();
@@ -3785,6 +3933,7 @@
       _umlujFull = null; _umlujFullAt = 0; _wxCur = null; _umlujWxLast = 0;
       _renderWxIndicator();
       _fetchUmlujFull();
+      if (typeof _pushWxNativeCfg === 'function') _pushWxNativeCfg();   /* الودجت يتبع المدينة */
     }
     function toggleWxMetric(k, on) {
       var c = _wxCfg();
@@ -3925,7 +4074,37 @@
        التخزين المشترك، ويفحص الاحتمال الجماعي للمدن المفعّلة للأيام الثلاثة
        القادمة عند الإقلاع — إشعار أصلي واحد لكل مدينة/يوم عبر جسر التذكيرات.
     ══════════════════════════════════════ */
+    /* مرآة إعدادات الطقس للطبقة الأصلية: localStorage لا تصله Kotlin/عملية
+       Electron الرئيسية، فتُدفع الإعدادات عبر الجسر عند الإقلاع وكل تغيير —
+       ليعمل الفحص الخلفي والودجت والتطبيق مغلق */
+    function _pushWxNativeCfg() {
+      try {
+        if (!window.AndroidFS || typeof window.AndroidFS.setWxConfig !== 'function') return;
+        var alert = null;
+        try { alert = JSON.parse(localStorage.getItem('sarawat_rain_alert_v1') || 'null'); } catch (e) { }
+        var prefs = {};
+        try { prefs = JSON.parse(localStorage.getItem('sarawat_cities_v1') || '{}') || {}; } catch (e) { }
+        var defs = { 'الباحة': 1, 'المندق': 1, 'ميسان': 1, 'الشفا': 1 };
+        var cities = WX_CITIES.filter(function (ct) { return (ct.name in prefs) ? !!prefs[ct.name] : !!defs[ct.name]; });
+        var wc = _wxCity();
+        window.AndroidFS.setWxConfig(JSON.stringify({
+          on: !!(alert && alert.on),
+          th: (alert && +alert.th >= 10 && +alert.th <= 100) ? +alert.th : 60,
+          cities: cities.map(function (c) { return { name: c.name, lat: c.lat, lon: c.lon }; }),
+          widget: { name: wc.name, lat: wc.lat, lon: wc.lon }
+        }));
+      } catch (e) { }
+    }
+    setTimeout(_pushWxNativeCfg, 4000);
+
     function _rainAlertCheck() {
+      /* الطبقة الأصلية الحديثة تتولى الفحص (وتعمل حتى والتطبيق مغلق) —
+         نحدّث مرآتها ونطلب فحصاً فورياً؛ مسار الجلب أدناه يبقى للأصداف الأقدم */
+      if (window.AndroidFS && typeof window.AndroidFS.rainAlertCheckNow === 'function') {
+        _pushWxNativeCfg();
+        try { window.AndroidFS.rainAlertCheckNow(); } catch (e) { }
+        return;
+      }
       var cfg = null;
       try { cfg = JSON.parse(localStorage.getItem('sarawat_rain_alert_v1') || 'null'); } catch (e) { }
       if (!cfg || !cfg.on) return;
@@ -5874,6 +6053,7 @@
       notes[idx].sec    = _editSec;
       notes[idx].tags   = _parseTags(document.getElementById('edit-tags')?.value);
       notes[idx].loc    = _editLoc ? { lat: _editLoc.lat, lng: _editLoc.lng } : null;
+      notes[idx].mt     = Date.now();   /* ختم التعديل — يحسم دمج المزامنة بين الأجهزة */
       DB.set(notes);
       return true;
     }
@@ -6944,8 +7124,10 @@ function setRainAlert(){
   if(!(th>=10 && th<=100)) th = 60;
   document.getElementById("alertTh").value = th;
   storeJSON(ALERT_KEY, {on:on, th:th});
-  /* إذن الإشعارات يُطلب من الطبقة الأصلية في الصفحة الأم */
+  /* إذن الإشعارات يُطلب من الطبقة الأصلية في الصفحة الأم، وتُحدَّث مرآتها
+     كي يعمل الفحص الخلفي والتطبيق مغلق */
   if(on){ try{ window.parent.AndroidFS?.requestNotificationPermission?.(); }catch(e){} }
+  try{ window.parent._pushWxNativeCfg?.(); }catch(e){}
 }
 
 function renderCityChecks(){
@@ -6966,6 +7148,7 @@ function renderCityChecks(){
         return;
       }
       const p = cityPrefs(); p[l.name] = cb.checked; storeJSON(CITY_KEY, p);
+      try{ window.parent._pushWxNativeCfg?.(); }catch(e){}   /* مدن التنبيه الخلفي تتبع المفعّلة */
       LOCS = activeLocs();
       renderCityChecks();
       load();
