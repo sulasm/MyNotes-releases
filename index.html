@@ -5,7 +5,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
   <meta name="theme-color" content="#667eea">
-  <meta name="app-version" content="1.20.0">
+  <meta name="app-version" content="1.21.0">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <title>المنظم</title>
@@ -2046,9 +2046,9 @@
       <div id="app-title"
         style="color:var(--tw);font-size:14px;font-weight:700;padding:5px 22px;border-radius:8px;cursor:pointer;user-select:none;-webkit-tap-highlight-color:transparent;transition:background .15s;line-height:1.2;"
         oncontextmenu="event.preventDefault();return false;">📋 المنظم</div>
-      <div id="rain-app-btn" onclick="openRainApp()" title="أمطار السروات — توقعات الهطول"
+      <div id="rain-app-btn" onclick="openRainApp()" title="تطبيق الطقس — الأمطار والحرارة المحسوسة"
         style="position:absolute;inset-inline-end:6px;bottom:1px;font-size:16px;padding:4px 10px;border-radius:8px;cursor:pointer;user-select:none;-webkit-tap-highlight-color:transparent;transition:background .15s;line-height:1.2;"
-        onpointerdown="this.style.background='rgba(var(--ov),0.13)'" onpointerup="this.style.background=''" onpointerleave="this.style.background=''">🌧️</div>
+        onpointerdown="this.style.background='rgba(var(--ov),0.13)'" onpointerup="this.style.background=''" onpointerleave="this.style.background=''">🌦️</div>
       <div id="fin-app-btn" onclick="openFinApp()" title="حاسبة التمويل الذكية"
         style="position:absolute;inset-inline-end:48px;bottom:1px;font-size:16px;padding:4px 10px;border-radius:8px;cursor:pointer;user-select:none;-webkit-tap-highlight-color:transparent;transition:background .15s;line-height:1.2;"
         onpointerdown="this.style.background='rgba(var(--ov),0.13)'" onpointerup="this.style.background=''" onpointerleave="this.style.background=''">🧮</div>
@@ -3606,7 +3606,7 @@
     }
 
     /* ══════════════════════════════════════
-       تطبيق أمطار السروات المدمج
+       تطبيق الطقس المدمج
        يُحقن كود التطبيق (قالب text/html أسفل الصفحة) داخل iframe معزول
        عند أول فتح فقط، ثم يبقى محمَّلاً كي لا تُعاد جلبات البيانات عند كل فتح.
     ══════════════════════════════════════ */
@@ -3635,7 +3635,7 @@
 
     /* ══════════════════════════════════════
        حاسبة التمويل الذكية المدمجة
-       نفس نمط تطبيق الأمطار: قالب text/html يُحقن في iframe معزول عند أول فتح.
+       نفس نمط تطبيق الطقس: قالب text/html يُحقن في iframe معزول عند أول فتح.
     ══════════════════════════════════════ */
     var _finLoaded = false;
 
@@ -3660,7 +3660,7 @@
 
     /* ══════════════════════════════════════
        الخريطة المدمجة — خرائط جوجل + أماكني المحفوظة + مواقع الملاحظات
-       نفس نمط الأمطار/الحاسبة: قالب text/html يُحقن في iframe عند أول فتح.
+       نفس نمط الطقس/الحاسبة: قالب text/html يُحقن في iframe عند أول فتح.
        الـ iframe (srcdoc = نفس الأصل) يتعامل مع التخزين والملاحظات حصراً عبر
        جسر MapBridge أدناه، فلا يلمس localStorage الأم مباشرة.
     ══════════════════════════════════════ */
@@ -3842,7 +3842,7 @@
        يُعاد استخدامه ما دام أحدث من 30 دقيقة. المدينة والمعلومات المعروضة في
        المؤشر قابلة للتخصيص من الإعدادات (topbar_wx_cfg_v1).
     ══════════════════════════════════════ */
-    /* قائمة المدن — طبق قائمة تطبيق الأمطار (عند إضافة مدينة هناك أضفها هنا) */
+    /* قائمة المدن — طبق قائمة تطبيق الطقس (عند إضافة مدينة هناك أضفها هنا) */
     var WX_CITIES = [
       { name: 'الباحة', lat: 20.0129, lon: 41.4677 },
       { name: 'المندق', lat: 20.1105, lon: 41.2828 },
@@ -4070,7 +4070,7 @@
 
 
     /* ══════════════════════════════════════
-       تنبيه فرص المطر: يقرأ إعداد تطبيق الأمطار (sarawat_rain_alert_v1) من
+       تنبيه فرص المطر: يقرأ إعداد تطبيق الطقس (sarawat_rain_alert_v1) من
        التخزين المشترك، ويفحص الاحتمال الجماعي للمدن المفعّلة للأيام الثلاثة
        القادمة عند الإقلاع — إشعار أصلي واحد لكل مدينة/يوم عبر جسر التذكيرات.
     ══════════════════════════════════════ */
@@ -4109,7 +4109,7 @@
       try { cfg = JSON.parse(localStorage.getItem('sarawat_rain_alert_v1') || 'null'); } catch (e) { }
       if (!cfg || !cfg.on) return;
       var th = (+cfg.th >= 10 && +cfg.th <= 100) ? +cfg.th : 60;
-      /* المدن المفعّلة كما يحددها تطبيق الأمطار (الافتراضي: مدن السروات الأربع) */
+      /* المدن المفعّلة كما يحددها تطبيق الطقس (الافتراضي: مدن السروات الأربع) */
       var prefs = {};
       try { prefs = JSON.parse(localStorage.getItem('sarawat_cities_v1') || '{}') || {}; } catch (e) { }
       var defs = { 'الباحة': 1, 'المندق': 1, 'ميسان': 1, 'الشفا': 1 };
@@ -4129,7 +4129,7 @@
             if (!loc || !loc.daily || !cities[li]) return;
             var d = loc.daily;
             (d.time || []).forEach(function (iso, i) {
-              /* نسبة أعضاء الجماعية المتوقعين ≥0.5 ملم — نفس منهجية تطبيق الأمطار */
+              /* نسبة أعضاء الجماعية المتوقعين ≥0.5 ملم — نفس منهجية تطبيق الطقس */
               var vals = [];
               for (var k in d) {
                 if (k === 'time' || k.indexOf('precipitation_sum') !== 0) continue;
@@ -4146,7 +4146,7 @@
                 if (window.AndroidFS && typeof window.AndroidFS.scheduleReminder === 'function')
                   window.AndroidFS.scheduleReminder('rainalert_' + fk, String(now + delay),
                     '🌧️ ' + cities[li].name + ': فرصة مطر ' + p + '%',
-                    'اليوم ' + iso + ' — افتح تطبيق الأمطار للتفاصيل');
+                    'اليوم ' + iso + ' — افتح تطبيق الطقس للتفاصيل');
               } catch (e) { }
               delay += 1500;   /* مباعدة الإشعارات المتعددة */
               try { showFb('🌧️ فرصة مطر ' + p + '% في ' + cities[li].name + ' — ' + iso, 0); } catch (e) { }
@@ -6457,25 +6457,25 @@
   </div>
 
 
-  <!-- ══ تطبيق أمطار السروات المدمج ══
+  <!-- ══ تطبيق الطقس المدمج ══
        نافذة ملء الشاشة تحوي iframe يُحقن فيه القالب أدناه عند أول فتح (openRainApp) -->
   <div id="rain-ov" style="display:none;position:fixed;inset:0;z-index:9700;background:var(--bg-p);flex-direction:column;">
     <div style="position:relative;display:flex;align-items:center;justify-content:center;padding:env(safe-area-inset-top,0px) 0 0;background:var(--grad);flex-shrink:0;box-shadow:0 2px 10px rgba(102,126,234,0.4);">
-      <div style="color:var(--tw);font-size:14px;font-weight:700;padding:5px 22px;line-height:1.2;user-select:none;">🌧️ أمطار السروات</div>
+      <div style="color:var(--tw);font-size:14px;font-weight:700;padding:5px 22px;line-height:1.2;user-select:none;">🌦️ تطبيق الطقس</div>
       <div onclick="closeRainApp()" title="رجوع"
         style="position:absolute;inset-inline-start:6px;bottom:1px;color:var(--tw);font-size:15px;font-weight:700;padding:4px 12px;border-radius:8px;cursor:pointer;user-select:none;-webkit-tap-highlight-color:transparent;line-height:1.2;">‹ رجوع</div>
     </div>
-    <iframe id="rain-frame" title="أمطار السروات" style="flex:1;width:100%;border:0;background:transparent;"></iframe>
+    <iframe id="rain-frame" title="تطبيق الطقس" style="flex:1;width:100%;border:0;background:transparent;"></iframe>
   </div>
 
-  <!-- قالب تطبيق الأمطار — لا يُنفَّذ (type=text/html)؛ وسوم الإغلاق الداخلية مهرَّبة <\/script> -->
+  <!-- قالب تطبيق الطقس — لا يُنفَّذ (type=text/html)؛ وسوم الإغلاق الداخلية مهرَّبة <\/script> -->
   <script type="text/html" id="rain-app-tpl">
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>أمطار السروات — لوحة مواقع الجنوب</title>
+<title>تطبيق الطقس — لوحة مواقع الجنوب</title>
 <style>
   :root{
     --bg:#0f172a; --card:#1e293b; --line:#334155; --txt:#e2e8f0;
@@ -6519,6 +6519,9 @@
   .mmc{font-size:.66rem;color:var(--txt);display:block}
   .mmc .cl{color:var(--muted)}
   .cons.hi{color:var(--ok);font-weight:700}
+  .cmf{font-size:.66rem;color:var(--muted);display:block;white-space:nowrap}
+  .cmf .fl{color:var(--hi)} .cmf .dw{color:var(--accent)}
+  body.no-cmf .cmf{display:none}
   .tr-up{color:var(--hi);font-size:.7rem;font-weight:700}
   .tr-dn{color:var(--accent);font-size:.7rem;font-weight:700}
   td.strong{background:var(--hiBg)}
@@ -6579,7 +6582,7 @@
 </style>
 </head>
 <body>
-  <h1 id="mainTitle">🌧️ أمطار السروات</h1>
+  <h1 id="mainTitle">🌦️ تطبيق الطقس</h1>
   <div class="sub" id="subLine"></div>
 
   <div class="bar">
@@ -6588,7 +6591,7 @@
     <span id="updated" class="note"></span>
   </div>
 
-  <!-- إعدادات تطبيق الأمطار: المدن المعروضة + أيام الحفظ المحلي + مراجعة المحفوظ -->
+  <!-- إعدادات تطبيق الطقس: المدن المعروضة + أيام الحفظ المحلي + مراجعة المحفوظ -->
   <div id="setCard" class="card" style="display:none">
     <h2>⚙️ الإعدادات</h2>
     <b class="note" style="color:var(--txt)">🏙️ المدن المعروضة</b>
@@ -6599,6 +6602,12 @@
     <b class="note" style="color:var(--txt)">💾 حفظ بيانات أيام محددة محلياً</b>
     <div class="note">اختر الأيام التي تريد أرشفة توقعاتها: تُحفظ لقطة من بيانات كل مدينة مفعّلة تلقائياً مع كل تحديث (بحد أدنى ٣٠ دقيقة بين اللقطات) لمراجعتها لاحقاً.</div>
     <div id="dayChecks" class="checks"></div>
+    <hr class="sep">
+    <b class="note" style="color:var(--txt)">🌡️ الراحة الحرارية</b>
+    <div class="note">أظهر الحرارة المحسوسة (عظمى/صغرى) ونقطة الندى لكل يوم داخل خلايا الجدول — نقطة الندى فوق ١٦° تعني رطوبة خانقة، وفوق ٢٠° تعني تكثّفاً وضبابياً محتملاً.</div>
+    <div class="checks">
+      <label class="chk"><input type="checkbox" id="cmfOn" onchange="setComfortPref()"> عرض المحسوسة ونقطة الندى في الجدول</label>
+    </div>
     <hr class="sep">
     <b class="note" style="color:var(--txt)">🔔 تنبيه فرص المطر</b>
     <div class="note">عند فتح «المنظم» يُفحص الاحتمال الجماعي للمدن المفعّلة للأيام الثلاثة القادمة، وإن بلغ العتبة يصلك إشعار — مرة واحدة لكل مدينة/يوم.</div>
@@ -6635,6 +6644,7 @@
       <b>الرقم الكبير:</b> الاحتمال الجماعي = نسبة أعضاء ECMWF ENS (51) + GEFS (31) + AIFS ENS (51) الذين يتوقعون ≥0.5 ملم —
       الطريقة العلمية المعتمدة لحساب احتمال المطر ·
       <b>≈ملم:</b> الكمية المتوقعة (متوسط أعضاء الجماعية) · <b>☁️:</b> الغطاء السحابي النهاري (6ص–6م لأول 3 أيام)، وبعدها متوسط اليوم كاملاً بليله عبر النماذج الحتمية المتوفرة — لذا يبدو منخفضاً في أيام السحب العصرية، وقد يخالف الاحتمال الجماعي في المدى البعيد لاختلاف المصدر ·
+      <b>🌡️/💧:</b> الحرارة المحسوسة عظمى/صغرى ونقطة الندى (تُخفى أو تُظهر من الإعدادات) ·
       <b>الإجماع:</b> النماذج الحتمية السبعة ·
       <b>↑↓</b> تغيّر الاحتمال ≥10% منذ آخر تحديث محفوظ · الخلفية الذهبية = فرصة قوية.
     </div>
@@ -6665,7 +6675,7 @@
           <tr><td>ECMWF · GFS · ICON · GEM · UKMO · AIFS</td><td>أوروبي · أمريكي · ألماني · كندي · بريطاني · ذكاء اصطناعي</td><td rowspan="2">إجماع الكميات (السطر الصغير) وتفاصيل النقر</td><td>6–16 يوماً</td></tr>
           <tr><td>MET Norway (Yr)</td><td>النرويجية — مزوّد مستقل</td><td>~9 أيام</td></tr>
           <tr><td>الساعي: احتمال + كمية + CAPE + غطاء سحابي</td><td>Open-Meteo (أفضل نموذج)</td><td>توقيت الزخات والقابلية الرعدية</td><td>72 ساعة</td></tr>
-          <tr><td>الحرارة المحسوسة + نقطة الندى (التكثف)</td><td>Open-Meteo (أفضل نموذج)</td><td>الراحة الحرارية — في تفاصيل النقر على التاريخ</td><td>16 يوماً</td></tr>
+          <tr><td>الحرارة المحسوسة + نقطة الندى (التكثف)</td><td>Open-Meteo (أفضل نموذج)</td><td>الراحة الحرارية — في خلايا الجدول وتفاصيل النقر</td><td>16 يوماً</td></tr>
         </tbody>
       </table>
     </div>
@@ -6681,7 +6691,7 @@
       <li>زخات الصيف في السروات عصرية محلية جداً؛ شريط التوقيت يبين ساعة الذروة المرجحة لكل موقع.</li>
       <li>للإنذارات الرسمية المعتمدة: <a href="https://ncm.gov.sa" target="_blank" rel="noopener">المركز الوطني للأرصاد (ncm.gov.sa)</a>.</li>
     </ul>
-    <div class="ver">Open-Meteo (Forecast + Ensemble APIs) · MET Norway API · الإصدار 3.3.0</div>
+    <div class="ver">Open-Meteo (Forecast + Ensemble APIs) · MET Norway API · الإصدار 3.4.0</div>
   </div>
 
 <script>
@@ -6696,6 +6706,7 @@ const CITY_KEY = "sarawat_cities_v1";        /* تفعيل/تعطيل المدن
 const SAVED_DAYS_KEY = "sarawat_saved_days_v1"; /* الأيام المختارة للحفظ المحلي */
 const SAVED_DATA_KEY = "sarawat_saved_data_v1"; /* لقطات البيانات المحفوظة */
 const SNAP_MIN_GAP_MIN = 30, SNAP_MAX = 40;  /* حد أدنى بين اللقطات وسقف لكل يوم */
+const CMF_KEY = "wx_comfort_v1";             /* عرض المحسوسة ونقطة الندى في الجدول */
 
 /* كل المواقع المتاحة — def يحدد الحالة الافتراضية قبل أي اختيار من الإعدادات */
 const ALL_LOCS = [
@@ -6743,7 +6754,7 @@ const urlEns = () => "https://ensemble-api.open-meteo.com/v1/ensemble?latitude="
   +"&timezone="+encodeURIComponent(TZ);
 
 const urlHr = () => "https://api.open-meteo.com/v1/forecast?latitude="+latStr()+"&longitude="+lonStr()
-  +"&hourly=precipitation_probability,precipitation,cape,cloud_cover&forecast_days=3"
+  +"&hourly=precipitation_probability,precipitation,cape,cloud_cover,dew_point_2m,apparent_temperature&forecast_days=3"
   +"&timezone="+encodeURIComponent(TZ);
 
 /* الراحة الحرارية: الحرارة المحسوسة ونقطة الندى (التكثف) — طلب منفصل كي لا يُسقط
@@ -6946,7 +6957,13 @@ function buildHourly(hr){
       const cape = num(h.cape[i]) ?? 0;
       const c = document.createElement("span");
       c.className = "hc" + (p>=60?" h3":p>=40?" h2":p>=20?" h1":"") + (cape>=CAPE_ZAP && p>=20 ? " zap":"");
-      c.title = `${l.short} — ${t.replace("T"," ")}\nاحتمال: ${p}% · كمية: ${mm.toFixed(1)} ملم · CAPE: ${Math.round(cape)}`;
+      const dw = h.dew_point_2m ? num(h.dew_point_2m[i]) : null;
+      const ap = h.apparent_temperature ? num(h.apparent_temperature[i]) : null;
+      const cmfLine = (dw!==null || ap!==null)
+        ? "\n" + [ap!==null ? "محسوسة: "+Math.round(ap)+"°" : "", dw!==null ? "نقطة الندى: "+Math.round(dw)+"°" : ""]
+            .filter(Boolean).join(" · ")
+        : "";
+      c.title = `${l.short} — ${t.replace("T"," ")}\nاحتمال: ${p}% · كمية: ${mm.toFixed(1)} ملم · CAPE: ${Math.round(cape)}` + cmfLine;
       strip.appendChild(c);
     });
     grid.appendChild(nameEl); grid.appendChild(strip);
@@ -7036,6 +7053,7 @@ async function load(){
         + `<span class="ep ${eClass(e.p)}">${pTxt}${trendArrow(oldTrend, l.name, iso, e.p)}</span>`
         + (mid ? `<span class="mmc">${mmTxt}${mmTxt&&clTxt?" · ":""}<span class="cl">${clTxt}</span></span>` : "")
         + `<span class="${consCls}">${dd.avail ? "إجماع "+dd.wet+"/"+dd.avail : "&nbsp;"}</span>`
+        + comfortCell(cmf, li, i)
         + `</td>`;
     });
     tr.innerHTML = cellsHtml;
@@ -7086,10 +7104,42 @@ async function load(){
     "آخر تحديث: " + new Date().toLocaleString("ar-SA");
 }
 
+/* ══════════ الراحة الحرارية: إظهار المحسوسة ونقطة الندى في الجدول ══════════
+   التفضيل يبدّل صنفاً على body فقط — الخلايا تُبنى دائماً، فالتبديل فوري بلا جلب */
+function comfortOn(){ const v = loadJSON(CMF_KEY, null); return v===null ? true : !!v; }
+function applyComfortPref(){ document.body.classList.toggle("no-cmf", !comfortOn()); }
+function markComfortChk(cb){
+  const lab = cb.closest("label");
+  if(lab) lab.className = "chk" + (cb.checked ? " on" : "");
+}
+function renderComfortCfg(){
+  const cb = /** @type {HTMLInputElement|null} */ (document.getElementById("cmfOn"));
+  if(!cb) return;
+  cb.checked = comfortOn();
+  markComfortChk(cb);
+}
+function setComfortPref(){
+  const cb = /** @type {HTMLInputElement} */ (document.getElementById("cmfOn"));
+  storeJSON(CMF_KEY, !!cb.checked);
+  markComfortChk(cb);
+  applyComfortPref();
+}
+
+/* نص الراحة الحرارية لخلية يوم/موقع — "" إن لم تتوفر بيانات الطلب المنفصل */
+function comfortCell(cmf, li, i){
+  const c = cmf ? cmf[li] : null;
+  const g = v => num(c && c.daily && c.daily[v] ? c.daily[v][i] : null);
+  const ax = g("apparent_temperature_max"), an = g("apparent_temperature_min"), dw = g("dew_point_2m_mean");
+  const feels = (ax!==null && an!==null)
+    ? `<span class="fl">🌡️${Math.round(ax)}/${Math.round(an)}°</span>` : "";
+  const dew = dw!==null ? `<span class="dw">💧${Math.round(dw)}°</span>` : "";
+  return (feels||dew) ? `<span class="cmf">${[feels,dew].filter(Boolean).join(" · ")}</span>` : "";
+}
+
 /* ══════════ الترويسة الديناميكية حسب المدن المفعّلة ══════════ */
 function renderHeader(){
   document.getElementById("mainTitle").textContent =
-    "🌧️ أمطار السروات — " + LOCS.length + (LOCS.length===1 ? " موقع" : " مواقع") + " في لوحة واحدة";
+    "🌦️ تطبيق الطقس — " + LOCS.length + (LOCS.length===1 ? " موقع" : " مواقع") + " في لوحة واحدة";
   document.getElementById("subLine").textContent =
     LOCS.map(l=>l.name).join(" · ")
     + " — احتمالية جماعية من 133 عضو تنبؤ + إجماع 7 نماذج · توقيت الرياض · اضغط أي تاريخ لتفاصيل النماذج";
@@ -7105,7 +7155,7 @@ function toggleWSettings(){
   if(show) renderSettings();
   c.style.display = show ? "block" : "none";
 }
-function renderSettings(){ renderCityChecks(); renderDayChecks(); renderAlertCfg(); renderSavedList(); }
+function renderSettings(){ renderCityChecks(); renderDayChecks(); renderComfortCfg(); renderAlertCfg(); renderSavedList(); }
 
 /* ══ تنبيه فرص المطر: الإعداد يُخزَّن هنا ويقرؤه «المنظم» عند إقلاعه ══ */
 const ALERT_KEY = "sarawat_rain_alert_v1";
@@ -7325,6 +7375,7 @@ function _snapChart(snaps, cityNames){
     + `<div class="legend">${legend}</div>`;
 }
 
+applyComfortPref();
 load();
 <\/script>
 </body>
