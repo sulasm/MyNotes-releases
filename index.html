@@ -5,7 +5,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
   <meta name="theme-color" content="#667eea">
-  <meta name="app-version" content="1.21.0">
+  <meta name="app-version" content="1.22.0">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <title>المنظم</title>
@@ -2394,6 +2394,15 @@
     </div>
   </div>
 
+  <!-- إطار المكوّنات: Preact + HTM موردة محلياً (src/vendor/) -->
+  <script>!function(n){"function"==typeof define&&define.amd?define(n):n()}(function(){var n,l,t,u,i,o,e,r,f,c,s,a,h,p=65536,v=1<<17,d={},y=[],w=/acit|ex(?:s|g|n|p|$)|rph|grid|ows|mnc|ntw|ine[ch]|zoo|^ord|itera/i,_=Array.isArray;function g(n,l){for(var t in l)n[t]=l[t];return n}function m(n){n&&n.parentNode&&n.parentNode.removeChild(n)}function b(l,t,u){var i,o,e,r={};for(e in t)"key"==e?i=t[e]:"ref"==e?o=t[e]:r[e]=t[e];if(arguments.length>2&&(r.children=arguments.length>3?n.call(arguments,2):u),"function"==typeof l&&null!=l.defaultProps)for(e in l.defaultProps)void 0===r[e]&&(r[e]=l.defaultProps[e]);return k(l,r,i,o,null)}function k(n,u,i,o,e){var r={type:n,props:u,key:i,ref:o,__k:null,__:null,__b:0,__e:null,__d:void 0,__c:null,constructor:void 0,__v:null==e?++t:e,__i:-1,__u:0};return null==e&&null!=l.vnode&&l.vnode(r),r}function C(n){return n.children}function x(n,l){this.props=n,this.context=l}function S(n,l){if(null==l)return n.__?S(n.__,n.__i+1):null;for(var t;l<n.__k.length;l++)if(null!=(t=n.__k[l])&&null!=t.__e)return t.__e;return"function"==typeof n.type?S(n):null}function M(n){var l,t;if(null!=(n=n.__)&&null!=n.__c){for(n.__e=n.__c.base=null,l=0;l<n.__k.length;l++)if(null!=(t=n.__k[l])&&null!=t.__e){n.__e=n.__c.base=t.__e;break}return M(n)}}function P(n){(!n.__d&&(n.__d=!0)&&i.push(n)&&!$.__r++||o!==l.debounceRendering)&&((o=l.debounceRendering)||e)($)}function $(){var n,t,u,o,e,f,c,s;for(i.sort(r);n=i.shift();)n.__d&&(t=i.length,o=void 0,f=(e=(u=n).__v).__e,c=[],s=[],u.__P&&((o=g({},e)).__v=e.__v+1,l.vnode&&l.vnode(o),O(u.__P,o,e,u.__n,u.__P.namespaceURI,32&e.__u?[f]:null,c,null==f?S(e):f,!!(32&e.__u),s),o.__v=e.__v,o.__.__k[o.__i]=o,V(c,o,s),o.__e!=f&&M(o)),i.length>t&&i.sort(r));$.__r=0}function I(n,l,t,u,i,o,e,r,f,c,s){var a,h,v,w,_,g=u&&u.__k||y,m=l.length;for(t.__d=f,A(t,l,g),f=t.__d,a=0;a<m;a++)null!=(v=t.__k[a])&&(h=-1===v.__i?d:g[v.__i]||d,v.__i=a,O(n,v,h,i,o,e,r,f,c,s),w=v.__e,v.ref&&h.ref!=v.ref&&(h.ref&&z(h.ref,null,v),s.push(v.ref,v.__c||w,v)),null==_&&null!=w&&(_=w),v.__u&p||h.__k===v.__k?f=E(v,f,n):"function"==typeof v.type&&void 0!==v.__d?f=v.__d:w&&(f=w.nextSibling),v.__d=void 0,v.__u&=-196609);t.__d=f,t.__e=_}function A(n,l,t){var u,i,o,e,r,f=l.length,c=t.length,s=c,a=0;for(n.__k=[],u=0;u<f;u++)null!=(i=l[u])&&"boolean"!=typeof i&&"function"!=typeof i?(e=u+a,(i=n.__k[u]="string"==typeof i||"number"==typeof i||"bigint"==typeof i||i.constructor==String?k(null,i,null,null,null):_(i)?k(C,{children:i},null,null,null):void 0===i.constructor&&i.__b>0?k(i.type,i.props,i.key,i.ref?i.ref:null,i.__v):i).__=n,i.__b=n.__b+1,o=null,-1!==(r=i.__i=F(i,t,e,s))&&(s--,(o=t[r])&&(o.__u|=v)),null==o||null===o.__v?(-1==r&&a--,"function"!=typeof i.type&&(i.__u|=p)):r!==e&&(r==e-1?a--:r==e+1?a++:(r>e?a--:a++,i.__u|=p))):i=n.__k[u]=null;if(s)for(u=0;u<c;u++)null!=(o=t[u])&&0==(o.__u&v)&&(o.__e==n.__d&&(n.__d=S(o)),N(o,o))}function E(n,l,t){var u,i;if("function"==typeof n.type){for(u=n.__k,i=0;u&&i<u.length;i++)u[i]&&(u[i].__=n,l=E(u[i],l,t));return l}n.__e!=l&&(l&&n.type&&!t.contains(l)&&(l=S(n)),t.insertBefore(n.__e,l||null),l=n.__e);do{l=l&&l.nextSibling}while(null!=l&&8===l.nodeType);return l}function F(n,l,t,u){var i=n.key,o=n.type,e=t-1,r=t+1,f=l[t];if(null===f||f&&i==f.key&&o===f.type&&0==(f.__u&v))return t;if(u>(null!=f&&0==(f.__u&v)?1:0))for(;e>=0||r<l.length;){if(e>=0){if((f=l[e])&&0==(f.__u&v)&&i==f.key&&o===f.type)return e;e--}if(r<l.length){if((f=l[r])&&0==(f.__u&v)&&i==f.key&&o===f.type)return r;r++}}return-1}function H(n,l,t){"-"===l[0]?n.setProperty(l,null==t?"":t):n[l]=null==t?"":"number"!=typeof t||w.test(l)?t:t+"px"}function L(n,l,t,u,i){var o;n:if("style"===l)if("string"==typeof t)n.style.cssText=t;else{if("string"==typeof u&&(n.style.cssText=u=""),u)for(l in u)t&&l in t||H(n.style,l,"");if(t)for(l in t)u&&t[l]===u[l]||H(n.style,l,t[l])}else if("o"===l[0]&&"n"===l[1])o=l!==(l=l.replace(/(PointerCapture)$|Capture$/i,"$1")),l=l.toLowerCase()in n||"onFocusOut"===l||"onFocusIn"===l?l.toLowerCase().slice(2):l.slice(2),n.l||(n.l={}),n.l[l+o]=t,t?u?t.t=u.t:(t.t=f,n.addEventListener(l,o?s:c,o)):n.removeEventListener(l,o?s:c,o);else{if("http://www.w3.org/2000/svg"==i)l=l.replace(/xlink(H|:h)/,"h").replace(/sName$/,"s");else if("width"!=l&&"height"!=l&&"href"!=l&&"list"!=l&&"form"!=l&&"tabIndex"!=l&&"download"!=l&&"rowSpan"!=l&&"colSpan"!=l&&"role"!=l&&"popover"!=l&&l in n)try{n[l]=null==t?"":t;break n}catch(n){}"function"==typeof t||(null==t||!1===t&&"-"!==l[4]?n.removeAttribute(l):n.setAttribute(l,"popover"==l&&1==t?"":t))}}function T(n){return function(t){if(this.l){var u=this.l[t.type+n];if(null==t.u)t.u=f++;else if(t.u<u.t)return;return u(l.event?l.event(t):t)}}}function O(n,t,u,i,o,e,r,f,c,s){var a,h,p,v,d,y,w,m,b,k,S,M,P,$,A,E,F=t.type;if(void 0!==t.constructor)return null;128&u.__u&&(c=!!(32&u.__u),e=[f=t.__e=u.__e]),(a=l.__b)&&a(t);n:if("function"==typeof F)try{if(m=t.props,b="prototype"in F&&F.prototype.render,k=(a=F.contextType)&&i[a.__c],S=a?k?k.props.value:a.__:i,u.__c?w=(h=t.__c=u.__c).__=h.__E:(b?t.__c=h=new F(m,S):(t.__c=h=new x(m,S),h.constructor=F,h.render=R),k&&k.sub(h),h.props=m,h.state||(h.state={}),h.context=S,h.__n=i,p=h.__d=!0,h.__h=[],h._sb=[]),b&&null==h.__s&&(h.__s=h.state),b&&null!=F.getDerivedStateFromProps&&(h.__s==h.state&&(h.__s=g({},h.__s)),g(h.__s,F.getDerivedStateFromProps(m,h.__s))),v=h.props,d=h.state,h.__v=t,p)b&&null==F.getDerivedStateFromProps&&null!=h.componentWillMount&&h.componentWillMount(),b&&null!=h.componentDidMount&&h.__h.push(h.componentDidMount);else{if(b&&null==F.getDerivedStateFromProps&&m!==v&&null!=h.componentWillReceiveProps&&h.componentWillReceiveProps(m,S),!h.__e&&(null!=h.shouldComponentUpdate&&!1===h.shouldComponentUpdate(m,h.__s,S)||t.__v===u.__v)){for(t.__v!==u.__v&&(h.props=m,h.state=h.__s,h.__d=!1),t.__e=u.__e,t.__k=u.__k,t.__k.some(function(n){n&&(n.__=t)}),M=0;M<h._sb.length;M++)h.__h.push(h._sb[M]);h._sb=[],h.__h.length&&r.push(h);break n}null!=h.componentWillUpdate&&h.componentWillUpdate(m,h.__s,S),b&&null!=h.componentDidUpdate&&h.__h.push(function(){h.componentDidUpdate(v,d,y)})}if(h.context=S,h.props=m,h.__P=n,h.__e=!1,P=l.__r,$=0,b){for(h.state=h.__s,h.__d=!1,P&&P(t),a=h.render(h.props,h.state,h.context),A=0;A<h._sb.length;A++)h.__h.push(h._sb[A]);h._sb=[]}else do{h.__d=!1,P&&P(t),a=h.render(h.props,h.state,h.context),h.state=h.__s}while(h.__d&&++$<25);h.state=h.__s,null!=h.getChildContext&&(i=g(g({},i),h.getChildContext())),b&&!p&&null!=h.getSnapshotBeforeUpdate&&(y=h.getSnapshotBeforeUpdate(v,d)),I(n,_(E=null!=a&&a.type===C&&null==a.key?a.props.children:a)?E:[E],t,u,i,o,e,r,f,c,s),h.base=t.__e,t.__u&=-161,h.__h.length&&r.push(h),w&&(h.__E=h.__=null)}catch(n){if(t.__v=null,c||null!=e){for(t.__u|=c?160:128;f&&8===f.nodeType&&f.nextSibling;)f=f.nextSibling;e[e.indexOf(f)]=null,t.__e=f}else t.__e=u.__e,t.__k=u.__k;l.__e(n,t,u)}else null==e&&t.__v===u.__v?(t.__k=u.__k,t.__e=u.__e):t.__e=j(u.__e,t,u,i,o,e,r,c,s);(a=l.diffed)&&a(t)}function V(n,t,u){t.__d=void 0;for(var i=0;i<u.length;i++)z(u[i],u[++i],u[++i]);l.__c&&l.__c(t,n),n.some(function(t){try{n=t.__h,t.__h=[],n.some(function(n){n.call(t)})}catch(n){l.__e(n,t.__v)}})}function j(t,u,i,o,e,r,f,c,s){var a,h,p,v,y,w,g,b=i.props,k=u.props,C=u.type;if("svg"===C?e="http://www.w3.org/2000/svg":"math"===C?e="http://www.w3.org/1998/Math/MathML":e||(e="http://www.w3.org/1999/xhtml"),null!=r)for(a=0;a<r.length;a++)if((y=r[a])&&"setAttribute"in y==!!C&&(C?y.localName===C:3===y.nodeType)){t=y,r[a]=null;break}if(null==t){if(null===C)return document.createTextNode(k);t=document.createElementNS(e,C,k.is&&k),c&&(l.__m&&l.__m(u,r),c=!1),r=null}if(null===C)b===k||c&&t.data===k||(t.data=k);else{if(r=r&&n.call(t.childNodes),b=i.props||d,!c&&null!=r)for(b={},a=0;a<t.attributes.length;a++)b[(y=t.attributes[a]).name]=y.value;for(a in b)if(y=b[a],"children"==a);else if("dangerouslySetInnerHTML"==a)p=y;else if(!(a in k)){if("value"==a&&"defaultValue"in k||"checked"==a&&"defaultChecked"in k)continue;L(t,a,null,y,e)}for(a in k)y=k[a],"children"==a?v=y:"dangerouslySetInnerHTML"==a?h=y:"value"==a?w=y:"checked"==a?g=y:c&&"function"!=typeof y||b[a]===y||L(t,a,y,b[a],e);if(h)c||p&&(h.__html===p.__html||h.__html===t.innerHTML)||(t.innerHTML=h.__html),u.__k=[];else if(p&&(t.innerHTML=""),I(t,_(v)?v:[v],u,i,o,"foreignObject"===C?"http://www.w3.org/1999/xhtml":e,r,f,r?r[0]:i.__k&&S(i,0),c,s),null!=r)for(a=r.length;a--;)m(r[a]);c||(a="value","progress"===C&&null==w?t.removeAttribute("value"):void 0!==w&&(w!==t[a]||"progress"===C&&!w||"option"===C&&w!==b[a])&&L(t,a,w,b[a],e),a="checked",void 0!==g&&g!==t[a]&&L(t,a,g,b[a],e))}return t}function z(n,t,u){try{if("function"==typeof n){var i="function"==typeof n.__u;i&&n.__u(),i&&null==t||(n.__u=n(t))}else n.current=t}catch(n){l.__e(n,u)}}function N(n,t,u){var i,o;if(l.unmount&&l.unmount(n),(i=n.ref)&&(i.current&&i.current!==n.__e||z(i,null,t)),null!=(i=n.__c)){if(i.componentWillUnmount)try{i.componentWillUnmount()}catch(n){l.__e(n,t)}i.base=i.__P=null}if(i=n.__k)for(o=0;o<i.length;o++)i[o]&&N(i[o],t,u||"function"!=typeof n.type);u||m(n.__e),n.__c=n.__=n.__e=n.__d=void 0}function R(n,l,t){return this.constructor(n,t)}function q(t,u,i){var o,e,r,f;l.__&&l.__(t,u),e=(o="function"==typeof i)?null:i&&i.__k||u.__k,r=[],f=[],O(u,t=(!o&&i||u).__k=b(C,null,[t]),e||d,d,u.namespaceURI,!o&&i?[i]:e?null:u.firstChild?n.call(u.childNodes):null,r,!o&&i?i:e?e.__e:u.firstChild,o,f),V(r,t,f)}n=y.slice,l={__e:function(n,l,t,u){for(var i,o,e;l=l.__;)if((i=l.__c)&&!i.__)try{if((o=i.constructor)&&null!=o.getDerivedStateFromError&&(i.setState(o.getDerivedStateFromError(n)),e=i.__d),null!=i.componentDidCatch&&(i.componentDidCatch(n,u||{}),e=i.__d),e)return i.__E=i}catch(l){n=l}throw n}},t=0,u=function(n){return null!=n&&null==n.constructor},x.prototype.setState=function(n,l){var t;t=null!=this.__s&&this.__s!==this.state?this.__s:this.__s=g({},this.state),"function"==typeof n&&(n=n(g({},t),this.props)),n&&g(t,n),null!=n&&this.__v&&(l&&this._sb.push(l),P(this))},x.prototype.forceUpdate=function(n){this.__v&&(this.__e=!0,n&&this.__h.push(n),P(this))},x.prototype.render=C,i=[],e="function"==typeof Promise?Promise.prototype.then.bind(Promise.resolve()):setTimeout,r=function(n,l){return n.__v.__b-l.__v.__b},$.__r=0,f=0,c=T(!1),s=T(!0),a=0,h={__proto__:null,render:q,hydrate:function n(l,t){q(l,t,n)},createElement:b,h:b,Fragment:C,createRef:function(){return{current:null}},isValidElement:u,Component:x,cloneElement:function(l,t,u){var i,o,e,r,f=g({},l.props);for(e in l.type&&l.type.defaultProps&&(r=l.type.defaultProps),t)"key"==e?i=t[e]:"ref"==e?o=t[e]:f[e]=void 0===t[e]&&void 0!==r?r[e]:t[e];return arguments.length>2&&(f.children=arguments.length>3?n.call(arguments,2):u),k(l.type,f,i||l.key,o||l.ref,null)},createContext:function(n,l){var t={__c:l="__cC"+a++,__:n,Consumer:function(n,l){return n.children(l)},Provider:function(n){var t,u;return this.getChildContext||(t=new Set,(u={})[l]=this,this.getChildContext=function(){return u},this.componentWillUnmount=function(){t=null},this.shouldComponentUpdate=function(n){this.props.value!==n.value&&t.forEach(function(n){n.__e=!0,P(n)})},this.sub=function(n){t.add(n);var l=n.componentWillUnmount;n.componentWillUnmount=function(){t&&t.delete(n),l&&l.call(n)}}),n.children}};return t.Provider.__=t.Consumer.contextType=t},toChildArray:function n(l,t){return t=t||[],null==l||"boolean"==typeof l||(_(l)?l.some(function(l){n(l,t)}):t.push(l)),t},options:l},typeof module<"u"?module.exports=h:self.preact=h});
+//# sourceMappingURL=preact.min.umd.js.map
+</script>
+  <script>!function(n,t){"object"==typeof exports&&"undefined"!=typeof module?t(exports,require("preact")):"function"==typeof define&&define.amd?define(["exports","preact"],t):t((n||self).preactHooks={},n.preact)}(this,function(n,t){var u,r,i,o,f=0,c=[],e=t.options,a=e.__b,v=e.__r,l=e.diffed,d=e.__c,s=e.unmount,p=e.__;function h(n,t){e.__h&&e.__h(r,n,f||t),f=0;var u=r.__H||(r.__H={__:[],__h:[]});return n>=u.__.length&&u.__.push({}),u.__[n]}function y(n){return f=1,m(j,n)}function m(n,t,i){var o=h(u++,2);if(o.t=n,!o.__c&&(o.__=[i?i(t):j(void 0,t),function(n){var t=o.__N?o.__N[0]:o.__[0],u=o.t(t,n);t!==u&&(o.__N=[u,o.__[1]],o.__c.setState({}))}],o.__c=r,!r.u)){var f=function(n,t,u){if(!o.__c.__H)return!0;var r=o.__c.__H.__.filter(function(n){return!!n.__c});if(r.every(function(n){return!n.__N}))return!c||c.call(this,n,t,u);var i=!1;return r.forEach(function(n){if(n.__N){var t=n.__[0];n.__=n.__N,n.__N=void 0,t!==n.__[0]&&(i=!0)}}),!(!i&&o.__c.props===n)&&(!c||c.call(this,n,t,u))};r.u=!0;var c=r.shouldComponentUpdate,e=r.componentWillUpdate;r.componentWillUpdate=function(n,t,u){if(this.__e){var r=c;c=void 0,f(n,t,u),c=r}e&&e.call(this,n,t,u)},r.shouldComponentUpdate=f}return o.__N||o.__}function T(n,t){var i=h(u++,4);!e.__s&&g(i.__H,t)&&(i.__=n,i.i=t,r.__h.push(i))}function _(n,t){var r=h(u++,7);return g(r.__H,t)&&(r.__=n(),r.__H=t,r.__h=n),r.__}function b(){for(var n;n=c.shift();)if(n.__P&&n.__H)try{n.__H.__h.forEach(A),n.__H.__h.forEach(F),n.__H.__h=[]}catch(t){n.__H.__h=[],e.__e(t,n.__v)}}e.__b=function(n){r=null,a&&a(n)},e.__=function(n,t){n&&t.__k&&t.__k.__m&&(n.__m=t.__k.__m),p&&p(n,t)},e.__r=function(n){v&&v(n),u=0;var t=(r=n.__c).__H;t&&(i===r?(t.__h=[],r.__h=[],t.__.forEach(function(n){n.__N&&(n.__=n.__N),n.i=n.__N=void 0})):(t.__h.forEach(A),t.__h.forEach(F),t.__h=[],u=0)),i=r},e.diffed=function(n){l&&l(n);var t=n.__c;t&&t.__H&&(t.__H.__h.length&&(1!==c.push(t)&&o===e.requestAnimationFrame||((o=e.requestAnimationFrame)||x)(b)),t.__H.__.forEach(function(n){n.i&&(n.__H=n.i),n.i=void 0})),i=r=null},e.__c=function(n,t){t.some(function(n){try{n.__h.forEach(A),n.__h=n.__h.filter(function(n){return!n.__||F(n)})}catch(u){t.some(function(n){n.__h&&(n.__h=[])}),t=[],e.__e(u,n.__v)}}),d&&d(n,t)},e.unmount=function(n){s&&s(n);var t,u=n.__c;u&&u.__H&&(u.__H.__.forEach(function(n){try{A(n)}catch(n){t=n}}),u.__H=void 0,t&&e.__e(t,u.__v))};var q="function"==typeof requestAnimationFrame;function x(n){var t,u=function(){clearTimeout(r),q&&cancelAnimationFrame(t),setTimeout(n)},r=setTimeout(u,100);q&&(t=requestAnimationFrame(u))}function A(n){var t=r,u=n.__c;"function"==typeof u&&(n.__c=void 0,u()),r=t}function F(n){var t=r;n.__c=n.__(),r=t}function g(n,t){return!n||n.length!==t.length||t.some(function(t,u){return t!==n[u]})}function j(n,t){return"function"==typeof t?t(n):t}n.useCallback=function(n,t){return f=8,_(function(){return n},t)},n.useContext=function(n){var t=r.context[n.__c],i=h(u++,9);return i.c=n,t?(null==i.__&&(i.__=!0,t.sub(r)),t.props.value):n.__},n.useDebugValue=function(n,t){e.useDebugValue&&e.useDebugValue(t?t(n):n)},n.useEffect=function(n,t){var i=h(u++,3);!e.__s&&g(i.__H,t)&&(i.__=n,i.i=t,r.__H.__h.push(i))},n.useErrorBoundary=function(n){var t=h(u++,10),i=y();return t.__=n,r.componentDidCatch||(r.componentDidCatch=function(n,u){t.__&&t.__(n,u),i[1](n)}),[i[0],function(){i[1](void 0)}]},n.useId=function(){var n=h(u++,11);if(!n.__){for(var t=r.__v;null!==t&&!t.__m&&null!==t.__;)t=t.__;var i=t.__m||(t.__m=[0,0]);n.__="P"+i[0]+"-"+i[1]++}return n.__},n.useImperativeHandle=function(n,t,u){f=6,T(function(){return"function"==typeof n?(n(t()),function(){return n(null)}):n?(n.current=t(),function(){return n.current=null}):void 0},null==u?u:u.concat(n))},n.useLayoutEffect=T,n.useMemo=_,n.useReducer=m,n.useRef=function(n){return f=5,_(function(){return{current:n}},[])},n.useState=y});
+//# sourceMappingURL=hooks.umd.js.map
+</script>
+  <script>!function(n,e){"object"==typeof exports&&"undefined"!=typeof module?module.exports=e():"function"==typeof define&&define.amd?define(e):n.htm=e()}(this,function(){var n=function(e,t,u,s){var r;t[0]=0;for(var p=1;p<t.length;p++){var h=t[p++],o=t[p]?(t[0]|=h?1:2,u[t[p++]]):t[++p];3===h?s[0]=o:4===h?s[1]=Object.assign(s[1]||{},o):5===h?(s[1]=s[1]||{})[t[++p]]=o:6===h?s[1][t[++p]]+=o+"":h?(r=e.apply(o,n(e,o,u,["",null])),s.push(r),o[0]?t[0]|=2:(t[p-2]=0,t[p]=r)):s.push(o)}return s},e=new Map;return function(t){var u=e.get(this);return u||(u=new Map,e.set(this,u)),(u=n(this,u.get(t)||(u.set(t,u=function(n){for(var e,t,u=1,s="",r="",p=[0],h=function(n){1===u&&(n||(s=s.replace(/^\s*\n\s*|\s*\n\s*$/g,"")))?p.push(0,n,s):3===u&&(n||s)?(p.push(3,n,s),u=2):2===u&&"..."===s&&n?p.push(4,n,0):2===u&&s&&!n?p.push(5,0,!0,s):u>=5&&((s||!n&&5===u)&&(p.push(u,0,s,t),u=6),n&&(p.push(u,n,0,t),u=6)),s=""},o=0;o<n.length;o++){o&&(1===u&&h(),h(o));for(var f=0;f<n[o].length;f++)e=n[o][f],1===u?"<"===e?(h(),p=[p],u=3):s+=e:4===u?"--"===s&&">"===e?(u=1,s=""):s=e+s[0]:r?e===r?r="":s+=e:'"'===e||"'"===e?r=e:">"===e?(h(),u=1):u&&("="===e?(u=5,t=s,s=""):"/"===e&&(u<5||">"===n[o][f+1])?(h(),3===u&&(p=p[0]),u=p,(p=p[0]).push(2,0,u),u=0):" "===e||"\t"===e||"\n"===e||"\r"===e?(h(),u=2):s+=e),3===u&&"!--"===s&&(u=4,p=p[0])}return h(),p}(t)),u),arguments,[])).length>1?u:u[0]}});
+</script>
   <script>
     /* ╔══════════════════════════════════════════════════════════════════╗
        ║  فهرس أقسام الكود (المنظِّم — ملف واحد)                              ║
@@ -2438,6 +2447,15 @@
        ╚══════════════════════════════════════════════════════════════════╝ */
 
     var _dpCb = null, _dpItems = [], _dpHover = null;
+
+    /* ══════════════════════════════════════
+       إطار المكوّنات: Preact + HTM (موردة محلياً في src/vendor/ — نفس نمط
+       الحاسبة والأمطار): المحرك يحسب البيانات، والمكوّنات تصفها بقوالب html``
+    ══════════════════════════════════════ */
+    const { h: vh, render: vrender } = preact;
+    const html = htm.bind(vh);
+    const useState = preactHooks.useState;
+
     /* ══════════════════════════════════════
        الفئات (من الفئات.md)
     ══════════════════════════════════════ */
@@ -2577,98 +2595,60 @@
       }
 
       const cList = document.getElementById('cfg-cats-list');
-      cList.innerHTML = '';
       const allNotes = DB.get();
+      vrender(html`${Object.keys(CATS).map(k =>
+        html`<${CatMain} key=${k} k=${k} cat=${CATS[k]} allNotes=${allNotes}/>`)}`, cList);
+    }
 
-      for (const k of Object.keys(CATS)) {
-        const cat = CATS[k];
-        const subs = cat.sub || {};
-        const subKeys = Object.keys(subs);
-        const mainCount = allNotes.filter(n => n.main === k).length;
-
-        /* ── الغلاف الكامل للفئة الرئيسية ── */
-        const mainWrap = document.createElement('div');
-        mainWrap.style.cssText = 'margin-bottom:10px;border-radius:14px;overflow:hidden;border:1px solid rgba(var(--ov),0.1);';
-
-        /* ── رأس الفئة الرئيسية (قابل للضغط) ── */
-        const mainHead = document.createElement('div');
-        mainHead.style.cssText = 'display:flex;align-items:center;gap:8px;padding:11px 14px;background:rgba(var(--ov),0.07);cursor:pointer;user-select:none;-webkit-tap-highlight-color:transparent;';
-        mainHead.innerHTML = `
-          <span style="font-size:22px;line-height:1">${esc(cat.ic || '📂')}</span>
-          <span style="flex:1;font-weight:700;color:#fca5a5;font-size:14px">${esc(k)}</span>
+    /* ── مكوّنات قائمة الفئات (أكورديون رئيسي ← فرعي ← تفاصيل) ── */
+    function CatDetRow({ det, k, sk, i }) {
+      return html`<div style="display:flex;align-items:center;gap:6px;padding:6px 32px;">
+        <span style="flex:1;font-size:12px;color:rgba(var(--ov),0.6)">${det}</span>
+        <button class="sm-btn danger del-det-btn"
+          style="font-size:10px;padding:2px 6px;background:transparent;border:1px solid rgba(239,68,68,0.45)"
+          onClick=${ev => { ev.stopPropagation(); delCat(k, sk, i); }}>حذف</button>
+      </div>`;
+    }
+    function CatSub({ k, sk, sub, count }) {
+      const [open, setOpen] = useState(false);
+      const dets = sub.det || [];
+      return html`<div style="border-bottom:1px solid rgba(var(--ov),0.05);">
+        <div style="display:flex;align-items:center;gap:6px;padding:8px 18px;cursor:pointer;user-select:none;-webkit-tap-highlight-color:transparent;"
+          onClick=${() => { if (!dets.length) return; setOpen(!open); }}>
+          <span style="font-size:17px;line-height:1">${sub.ic || '📌'}</span>
+          <span style="flex:1;color:#fdba74;font-size:13px;font-weight:600">${sk}</span>
+          <span style="font-size:10px;color:rgba(var(--ov),0.35)">${dets.length} تفصيل</span>
+          ${count > 0 ? html`<span style="font-size:10px;background:rgba(34,197,94,0.25);color:#86efac;border-radius:6px;padding:1px 6px">${count}</span>` : null}
+          <span class="sub-arrow" style=${'font-size:12px;color:rgba(var(--ov),0.35);transition:transform .18s;margin-left:5px;' + (open ? 'transform:rotate(90deg);' : '')}>›</span>
+          <button class="sm-btn danger del-sub-btn" style="font-size:10px;padding:2px 7px"
+            onClick=${ev => { ev.stopPropagation(); delCat(k, sk); }}>حذف</button>
+        </div>
+        <div style=${'background:rgba(0,0,0,0.12);padding:2px 0;display:' + (open ? 'block' : 'none')}>
+          ${dets.map((det, i) => html`<${CatDetRow} det=${det} k=${k} sk=${sk} i=${i}/>`)}
+        </div>
+      </div>`;
+    }
+    function CatMain({ k, cat, allNotes }) {
+      const [open, setOpen] = useState(false);
+      const subs = cat.sub || {};
+      const subKeys = Object.keys(subs);
+      const mainCount = allNotes.filter(n => n.main === k).length;
+      return html`<div style="margin-bottom:10px;border-radius:14px;overflow:hidden;border:1px solid rgba(var(--ov),0.1);">
+        <div style="display:flex;align-items:center;gap:8px;padding:11px 14px;background:rgba(var(--ov),0.07);cursor:pointer;user-select:none;-webkit-tap-highlight-color:transparent;"
+          onClick=${() => setOpen(!open)}>
+          <span style="font-size:22px;line-height:1">${cat.ic || '📂'}</span>
+          <span style="flex:1;font-weight:700;color:#fca5a5;font-size:14px">${k}</span>
           <span style="font-size:11px;color:rgba(var(--ov),0.4);margin-left:4px">${subKeys.length} فئة</span>
-          ${mainCount > 0 ? `<span style="font-size:11px;background:rgba(102,126,234,0.4);color:#c7d2fe;border-radius:8px;padding:1px 7px;margin-left:2px">${mainCount}</span>` : ''}
-          <span class="acc-arrow" style="font-size:13px;color:rgba(var(--ov),0.45);transition:transform .22s;margin-left:6px">▼</span>
-          <button class="sm-btn danger del-main-btn" style="font-size:10px;padding:3px 9px;margin-right:4px">حذف</button>
-        `;
-        mainHead.querySelector('.del-main-btn').addEventListener('click', ev => { ev.stopPropagation(); delCat(k); });
-
-        /* ── حاوية الفئات الفرعية (مخفية افتراضياً) ── */
-        const subsWrap = document.createElement('div');
-        subsWrap.style.cssText = 'display:none;background:rgba(0,0,0,0.18);';
-
-        /* تبديل الطي */
-        let mainOpen = false;
-        mainHead.addEventListener('click', () => {
-          mainOpen = !mainOpen;
-          subsWrap.style.display = mainOpen ? 'block' : 'none';
-          mainHead.querySelector('.acc-arrow').style.transform = mainOpen ? 'rotate(180deg)' : '';
-        });
-
-        /* ── الفئات الفرعية ── */
-        for (const sk of subKeys) {
-          const sub = subs[sk];
-          const dets = sub.det || [];
-
-          const subWrap = document.createElement('div');
-          subWrap.style.cssText = 'border-bottom:1px solid rgba(var(--ov),0.05);';
-
-          const subCount = allNotes.filter(n => n.main === k && n.sub === sk).length;
-          const subHead = document.createElement('div');
-          subHead.style.cssText = 'display:flex;align-items:center;gap:6px;padding:8px 18px;cursor:pointer;user-select:none;-webkit-tap-highlight-color:transparent;';
-          subHead.innerHTML = `
-            <span style="font-size:17px;line-height:1">${esc(sub.ic || '📌')}</span>
-            <span style="flex:1;color:#fdba74;font-size:13px;font-weight:600">${esc(sk)}</span>
-            <span style="font-size:10px;color:rgba(var(--ov),0.35)">${dets.length} تفصيل</span>
-            ${subCount > 0 ? `<span style="font-size:10px;background:rgba(34,197,94,0.25);color:#86efac;border-radius:6px;padding:1px 6px">${subCount}</span>` : ''}
-            <span class="sub-arrow" style="font-size:12px;color:rgba(var(--ov),0.35);transition:transform .18s;margin-left:5px">›</span>
-            <button class="sm-btn danger del-sub-btn" style="font-size:10px;padding:2px 7px">حذف</button>
-          `;
-          subHead.querySelector('.del-sub-btn').addEventListener('click', ev => { ev.stopPropagation(); delCat(k, sk); });
-
-          const detsWrap = document.createElement('div');
-          detsWrap.style.cssText = 'display:none;background:rgba(0,0,0,0.12);padding:2px 0;';
-
-          let subOpen = false;
-          subHead.addEventListener('click', () => {
-            if (!dets.length) return;
-            subOpen = !subOpen;
-            detsWrap.style.display = subOpen ? 'block' : 'none';
-            subHead.querySelector('.sub-arrow').style.transform = subOpen ? 'rotate(90deg)' : '';
-          });
-
-          /* ── التفاصيل ── */
-          dets.forEach((det, i) => {
-            const detRow = document.createElement('div');
-            detRow.style.cssText = 'display:flex;align-items:center;gap:6px;padding:6px 32px;';
-            detRow.innerHTML = `
-              <span style="flex:1;font-size:12px;color:rgba(var(--ov),0.6)">${esc(det)}</span>
-              <button class="sm-btn danger del-det-btn"
-                style="font-size:10px;padding:2px 6px;background:transparent;border:1px solid rgba(239,68,68,0.45)">حذف</button>
-            `;
-            detRow.querySelector('.del-det-btn').addEventListener('click', ev => { ev.stopPropagation(); delCat(k, sk, i); });
-            detsWrap.appendChild(detRow);
-          });
-
-          subWrap.appendChild(subHead);
-          subWrap.appendChild(detsWrap);
-          subsWrap.appendChild(subWrap);
-        }
-
-        mainWrap.appendChild(mainHead);
-        mainWrap.appendChild(subsWrap);
-        cList.appendChild(mainWrap);
-      }
+          ${mainCount > 0 ? html`<span style="font-size:11px;background:rgba(102,126,234,0.4);color:#c7d2fe;border-radius:8px;padding:1px 7px;margin-left:2px">${mainCount}</span>` : null}
+          <span class="acc-arrow" style=${'font-size:13px;color:rgba(var(--ov),0.45);transition:transform .22s;margin-left:6px;' + (open ? 'transform:rotate(180deg);' : '')}>▼</span>
+          <button class="sm-btn danger del-main-btn" style="font-size:10px;padding:3px 9px;margin-right:4px"
+            onClick=${ev => { ev.stopPropagation(); delCat(k); }}>حذف</button>
+        </div>
+        <div style=${'background:rgba(0,0,0,0.18);display:' + (open ? 'block' : 'none')}>
+          ${subKeys.map(sk => html`<${CatSub} key=${sk} k=${k} sk=${sk} sub=${subs[sk]}
+            count=${allNotes.filter(n => n.main === k && n.sub === sk).length}/>`)}
+        </div>
+      </div>`;
     }
 
     /* ══════════════════════════════════════
@@ -3465,37 +3445,29 @@
       renderTrash();
       showFb('🗑️ أُفرغت السلة');
     }
+    function TrashRow({ n }) {
+      const mainIc = (n.main && CATS[n.main]?.ic) || '📝';
+      const cat = [n.main, n.sub].filter(Boolean).join(' › ');
+      const label = (n.text || cat || 'ملاحظة').slice(0, 40);
+      const days = n._delAt ? Math.max(0, 30 - Math.floor((Date.now() - n._delAt) / 86400000)) : 30;
+      return html`<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:10px;background:rgba(var(--ov),0.06);border:1px solid rgba(var(--ov),0.1);">
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:12px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${mainIc} ${label}</div>
+          <div style="font-size:10px;color:var(--text-m);">يُمسح نهائياً بعد ${days} يوم${n.file ? ' · 📎' : ''}</div>
+        </div>
+        <button class="sm-btn" title="استعادة" style="font-size:13px;padding:4px 9px;flex-shrink:0;"
+          onClick=${() => restoreFromTrash(n.id)}>♻️</button>
+        <button class="sm-btn danger" title="حذف نهائي" style="font-size:13px;padding:4px 9px;flex-shrink:0;"
+          onClick=${() => purgeTrashItem(n.id)}>🗑️</button>
+      </div>`;
+    }
     function renderTrash() {
       const box = document.getElementById('cfg-trash-list');
       if (!box) return;
       _purgeOldTrash();   /* امسح المنتهية عند فتح السلة أيضاً لا عند الإقلاع فقط */
-      box.innerHTML = '';
-      if (!_trashCache.length) {
-        box.innerHTML = '<div style="text-align:center;color:var(--text-m);font-size:12px;padding:10px;">السلة فارغة</div>';
-        return;
-      }
-      _trashCache.forEach(n => {
-        const row = document.createElement('div');
-        row.style.cssText = 'display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:10px;background:rgba(var(--ov),0.06);border:1px solid rgba(var(--ov),0.1);';
-        const mainIc = (n.main && CATS[n.main]?.ic) || '📝';
-        const cat = [n.main, n.sub].filter(Boolean).join(' › ');
-        const label = (n.text || cat || 'ملاحظة').slice(0, 40);
-        const days = n._delAt ? Math.max(0, 30 - Math.floor((Date.now() - n._delAt) / 86400000)) : 30;
-        const info = document.createElement('div');
-        info.style.cssText = 'flex:1;min-width:0;';
-        info.innerHTML = `<div style="font-size:12px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(mainIc)} ${esc(label)}</div>`
-          + `<div style="font-size:10px;color:var(--text-m);">يُمسح نهائياً بعد ${days} يوم${n.file ? ' · 📎' : ''}</div>`;
-        const rBtn = document.createElement('button');
-        rBtn.className = 'sm-btn'; rBtn.textContent = '♻️'; rBtn.title = 'استعادة';
-        rBtn.style.cssText = 'font-size:13px;padding:4px 9px;flex-shrink:0;';
-        rBtn.onclick = () => restoreFromTrash(n.id);
-        const dBtn = document.createElement('button');
-        dBtn.className = 'sm-btn danger'; dBtn.textContent = '🗑️'; dBtn.title = 'حذف نهائي';
-        dBtn.style.cssText = 'font-size:13px;padding:4px 9px;flex-shrink:0;';
-        dBtn.onclick = () => purgeTrashItem(n.id);
-        row.appendChild(info); row.appendChild(rBtn); row.appendChild(dBtn);
-        box.appendChild(row);
-      });
+      vrender(_trashCache.length
+        ? html`${_trashCache.map(n => html`<${TrashRow} key=${String(n.id)} n=${n}/>`)}`
+        : html`<div style="text-align:center;color:var(--text-m);font-size:12px;padding:10px;">السلة فارغة</div>`, box);
     }
 
     /* عدّاد داخلي محجوز — لا يُعرض حالياً (شريط الترتيب القديم أُزيل)؛ نُبقيه دالةً
@@ -3912,20 +3884,12 @@
       var box = document.getElementById('wx-metric-checks');
       if (!sel || !box) return;
       var cfg = _wxCfg();
-      sel.innerHTML = WX_CITIES.map(function (ct) {
-        return '<option value="' + ct.name + '"' + (ct.name === cfg.city ? ' selected' : '') + '>' + ct.name + '</option>';
-      }).join('');
-      box.innerHTML = '';
-      WX_METRICS.forEach(function (m) {
-        var lab = document.createElement('label');
-        lab.style.cssText = 'display:inline-flex;align-items:center;gap:6px;background:rgba(var(--ov),.06);border:1px solid rgba(var(--ov),.15);border-radius:999px;padding:5px 12px;font-size:12px;color:var(--tw);cursor:pointer;user-select:none;-webkit-tap-highlight-color:transparent;';
-        var cb = document.createElement('input');
-        cb.type = 'checkbox'; cb.checked = cfg.metrics.indexOf(m.k) >= 0;
-        cb.addEventListener('change', function () { toggleWxMetric(m.k, cb.checked); });
-        lab.appendChild(cb);
-        lab.appendChild(document.createTextNode(m.ic + ' ' + m.n));
-        box.appendChild(lab);
-      });
+      vrender(html`${WX_CITIES.map(ct =>
+        html`<option value=${ct.name} selected=${ct.name === cfg.city}>${ct.name}</option>`)}`, sel);
+      vrender(html`${WX_METRICS.map(m => html`<label
+          style="display:inline-flex;align-items:center;gap:6px;background:rgba(var(--ov),.06);border:1px solid rgba(var(--ov),.15);border-radius:999px;padding:5px 12px;font-size:12px;color:var(--tw);cursor:pointer;user-select:none;-webkit-tap-highlight-color:transparent;">
+        <input type="checkbox" checked=${cfg.metrics.indexOf(m.k) >= 0}
+          onChange=${ev => toggleWxMetric(m.k, ev.target.checked)}/>${m.ic + ' ' + m.n}</label>`)}`, box);
     }
     function setWxCity(name) {
       var c = _wxCfg(); c.city = name; _storeWxCfg(c);
@@ -3979,7 +3943,7 @@
     function _fetchUmlujFull() {
       var body = document.getElementById('umluj-body');
       if (body && _umlujOvOpen() && !_umlujFull)
-        body.innerHTML = '<div style="text-align:center;padding:30px;color:var(--text-m);">…جارٍ جلب بيانات ' + _wxCity().name + '</div>';
+        vrender(html`<div style="text-align:center;padding:30px;color:var(--text-m);">…جارٍ جلب بيانات ${_wxCity().name}</div>`, body);
       fetch(_wxFullUrl(), { cache: 'no-store' })
         .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
         .then(function (j) {
@@ -3996,75 +3960,73 @@
         })
         .catch(function (e) {
           /* المؤشر يفشل بصمت؛ رسالة الخطأ تظهر فقط داخل النافذة المفتوحة وبلا بيانات سابقة */
-          if (body && _umlujOvOpen() && !_umlujFull) body.innerHTML =
-            '<div style="text-align:center;padding:30px;color:var(--text-m);">تعذّر جلب البيانات — تأكد من الاتصال<br><br>'
-            + '<button onclick="_fetchUmlujFull()" style="background:var(--grad);color:#fff;border:none;border-radius:10px;padding:9px 20px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;">🔄 إعادة المحاولة</button></div>';
+          if (body && _umlujOvOpen() && !_umlujFull) vrender(
+            html`<div style="text-align:center;padding:30px;color:var(--text-m);">تعذّر جلب البيانات — تأكد من الاتصال<br/><br/>
+              <button onClick=${_fetchUmlujFull}
+                style="background:var(--grad);color:#fff;border:none;border-radius:10px;padding:9px 20px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;">🔄 إعادة المحاولة</button></div>`, body);
         });
     }
 
-    function _renderUmluj() {
-      var body = document.getElementById('umluj-body');
-      if (!body || !_umlujFull) return;
+    function UmlujBody() {
       var cur = _umlujFull.current || {};
       var d = _umlujFull.daily;
       var todayIso = new Date(Date.now() + 3 * 3600e3).toISOString().slice(0, 10);
       var rnd = function (v) { return (v === null || v === undefined || isNaN(v)) ? '—' : Math.round(v); };
-
-      /* عنوان النافذة يتبع المدينة المختارة */
-      var _tt = document.getElementById('umluj-title');
-      if (_tt) _tt.textContent = '🌊 ' + _wxCity().name + ' — المحسوسة ونقطة الندى';
-
-      /* بطاقة الآن */
-      var html = '<div style="background:rgba(var(--ov),0.07);border:1px solid rgba(var(--ov),0.12);border-radius:14px;padding:12px 14px;margin-bottom:12px;">'
-        + '<div style="font-size:13px;font-weight:700;color:var(--text-m);margin-bottom:8px;">الآن في ' + _wxCity().name + '</div>'
-        + '<div style="display:flex;flex-wrap:wrap;gap:14px;font-size:14px;font-weight:700;color:var(--tw);">'
-        + '<span>🌡️ المحسوسة ' + rnd(cur.apparent_temperature) + '°</span>'
-        + '<span>💧 الندى ' + rnd(cur.dew_point_2m) + '°</span>'
-        + '<span>🌍 الفعلية ' + rnd(cur.temperature_2m) + '°</span>'
-        + '<span>💦 الرطوبة ' + rnd(cur.relative_humidity_2m) + '%</span>'
-        + '<span>🍃 الرياح ' + rnd(cur.wind_speed_10m) + ' كم/س</span>'
-        + '</div></div>';
-
-      /* جدول الأيام: الماضية ثم القادمة */
-      html += '<div style="overflow-x:auto;-webkit-overflow-scrolling:touch;">'
-        + '<table style="width:100%;border-collapse:collapse;font-size:12px;text-align:center;min-width:560px;">'
-        + '<thead><tr style="color:var(--text-m);font-size:11px;">'
-        + '<th style="padding:6px 4px;text-align:right;">التاريخ</th>'
-        + '<th style="padding:6px 4px;">🌡️ المحسوسة<br>ع/ص</th>'
-        + '<th style="padding:6px 4px;">💧 الندى<br>ع/ص</th>'
-        + '<th style="padding:6px 4px;">الحرارة<br>ع/ص</th>'
-        + '<th style="padding:6px 4px;">💦 الرطوبة</th>'
-        + '<th style="padding:6px 4px;">🍃 الرياح</th>'
-        + '<th style="padding:6px 4px;">🌧️ المطر</th>'
-        + '<th style="padding:6px 4px;">☁️</th>'
-        + '</tr></thead><tbody>';
       var g = function (k, i) { return (d[k] && d[k][i] !== null && d[k][i] !== undefined) ? d[k][i] : null; };
-      for (var i = 0; i < d.time.length; i++) {
-        var iso = d.time[i];
+      var rows = d.time.map(function (iso, i) {
         var isPast = iso < todayIso, isToday = iso === todayIso;
         var rowStyle = 'border-top:1px solid rgba(var(--ov),0.08);color:var(--tw);'
           + (isPast ? 'opacity:.55;' : '')
           + (isToday ? 'background:rgba(var(--ov),0.10);font-weight:700;' : '');
         var mm = g('precipitation_sum', i);
-        html += '<tr style="' + rowStyle + '">'
-          + '<td style="padding:5px 4px;text-align:right;white-space:nowrap;">' + _umlujWmoIcon(g('weathercode', i)) + ' '
-          + (isToday ? 'اليوم' : _umlujFmtDate(iso)) + (isPast && !isToday ? '' : '') + '</td>'
-          + '<td style="padding:5px 4px;">' + rnd(g('apparent_temperature_max', i)) + ' / ' + rnd(g('apparent_temperature_min', i)) + '</td>'
-          + '<td style="padding:5px 4px;">' + ((g('dew_point_2m_max', i) !== null || g('dew_point_2m_min', i) !== null)
+        return html`<tr style=${rowStyle}>
+          <td style="padding:5px 4px;text-align:right;white-space:nowrap;">${_umlujWmoIcon(g('weathercode', i))} ${isToday ? 'اليوم' : _umlujFmtDate(iso)}</td>
+          <td style="padding:5px 4px;">${rnd(g('apparent_temperature_max', i))} / ${rnd(g('apparent_temperature_min', i))}</td>
+          <td style="padding:5px 4px;">${(g('dew_point_2m_max', i) !== null || g('dew_point_2m_min', i) !== null)
             ? rnd(g('dew_point_2m_max', i)) + ' / ' + rnd(g('dew_point_2m_min', i))
-            : rnd(g('dew_point_2m_mean', i)) + '°') + '</td>'
-          + '<td style="padding:5px 4px;">' + rnd(g('temperature_2m_max', i)) + ' / ' + rnd(g('temperature_2m_min', i)) + '</td>'
-          + '<td style="padding:5px 4px;">' + rnd(g('relative_humidity_2m_mean', i)) + '%</td>'
-          + '<td style="padding:5px 4px;">' + rnd(g('wind_speed_10m_max', i)) + '</td>'
-          + '<td style="padding:5px 4px;">' + ((mm !== null && mm >= 0.1) ? mm.toFixed(1) : '—') + '</td>'
-          + '<td style="padding:5px 4px;">' + rnd(g('cloud_cover_mean', i)) + '%</td>'
-          + '</tr>';
-      }
-      html += '</tbody></table></div>'
-        + '<div style="font-size:11px;color:var(--text-m);padding:10px 2px;">الأيام الباهتة = ماضية (قياسات/إعادة تحليل) · الرياح كم/س (أقصى اليوم) · '
-        + '<b>الندى في الجدول أعلى/أدنى اليوم، والرطوبة والغطاء متوسط اليوم كاملاً بليله</b> — لذا قد تختلف قيم سطر «اليوم» عن قيمة «الآن» اللحظية أعلاه · المصدر: Open-Meteo · آخر جلب: '
-        + new Date(_umlujFullAt).toLocaleTimeString('ar-SA') + '</div>';
-      body.innerHTML = html;
+            : rnd(g('dew_point_2m_mean', i)) + '°'}</td>
+          <td style="padding:5px 4px;">${rnd(g('temperature_2m_max', i))} / ${rnd(g('temperature_2m_min', i))}</td>
+          <td style="padding:5px 4px;">${rnd(g('relative_humidity_2m_mean', i))}%</td>
+          <td style="padding:5px 4px;">${rnd(g('wind_speed_10m_max', i))}</td>
+          <td style="padding:5px 4px;">${(mm !== null && mm >= 0.1) ? mm.toFixed(1) : '—'}</td>
+          <td style="padding:5px 4px;">${rnd(g('cloud_cover_mean', i))}%</td>
+        </tr>`;
+      });
+      return html`
+        <div style="background:rgba(var(--ov),0.07);border:1px solid rgba(var(--ov),0.12);border-radius:14px;padding:12px 14px;margin-bottom:12px;">
+          <div style="font-size:13px;font-weight:700;color:var(--text-m);margin-bottom:8px;">الآن في ${_wxCity().name}</div>
+          <div style="display:flex;flex-wrap:wrap;gap:14px;font-size:14px;font-weight:700;color:var(--tw);">
+            <span>🌡️ المحسوسة ${rnd(cur.apparent_temperature)}°</span>
+            <span>💧 الندى ${rnd(cur.dew_point_2m)}°</span>
+            <span>🌍 الفعلية ${rnd(cur.temperature_2m)}°</span>
+            <span>💦 الرطوبة ${rnd(cur.relative_humidity_2m)}%</span>
+            <span>🍃 الرياح ${rnd(cur.wind_speed_10m)} كم/س</span>
+          </div>
+        </div>
+        <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
+          <table style="width:100%;border-collapse:collapse;font-size:12px;text-align:center;min-width:560px;">
+            <thead><tr style="color:var(--text-m);font-size:11px;">
+              <th style="padding:6px 4px;text-align:right;">التاريخ</th>
+              <th style="padding:6px 4px;">🌡️ المحسوسة<br/>ع/ص</th>
+              <th style="padding:6px 4px;">💧 الندى<br/>ع/ص</th>
+              <th style="padding:6px 4px;">الحرارة<br/>ع/ص</th>
+              <th style="padding:6px 4px;">💦 الرطوبة</th>
+              <th style="padding:6px 4px;">🍃 الرياح</th>
+              <th style="padding:6px 4px;">🌧️ المطر</th>
+              <th style="padding:6px 4px;">☁️</th>
+            </tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+        <div style="font-size:11px;color:var(--text-m);padding:10px 2px;">الأيام الباهتة = ماضية (قياسات/إعادة تحليل) · الرياح كم/س (أقصى اليوم) · <b>الندى في الجدول أعلى/أدنى اليوم، والرطوبة والغطاء متوسط اليوم كاملاً بليله</b> — لذا قد تختلف قيم سطر «اليوم» عن قيمة «الآن» اللحظية أعلاه · المصدر: Open-Meteo · آخر جلب: ${new Date(_umlujFullAt).toLocaleTimeString('ar-SA')}</div>`;
+    }
+    function _renderUmluj() {
+      var body = document.getElementById('umluj-body');
+      if (!body || !_umlujFull) return;
+      /* عنوان النافذة يتبع المدينة المختارة */
+      var _tt = document.getElementById('umluj-title');
+      if (_tt) _tt.textContent = '🌊 ' + _wxCity().name + ' — المحسوسة ونقطة الندى';
+      vrender(html`<${UmlujBody}/>`, body);
     }
 
 
@@ -4366,45 +4328,46 @@
       const { y, m } = calView, days = H.md(y, m - 1), fg = H.toG({ y, m, d: 1 });
       document.getElementById('cal-th').textContent = `${H.mn[m - 1]} ${y}`;
       document.getElementById('cal-tg').textContent = `${H.gn[fg.getMonth()]} ${fg.getFullYear()} م`;
-      const g = document.getElementById('cal-grid'); g.innerHTML = '';
-      for (let i = 0; i < fg.getDay(); i++) { const e = document.createElement('div'); e.className = 'cal-day empty'; g.appendChild(e); }
       const th = H.today();
       // التاريخ المحدد حسب الهدف (يشمل هدف التعديل حتى يُظلَّل التاريخ المحفوظ)
       let selH = '';
       if (calTarget === 'quick') selH = S.q.dH;
       else if (calTarget === 'filter') selH = S.fDate.h;
       else if (calTarget === 'edit') selH = _editDH;
+      const cells = [];
+      for (let i = 0; i < fg.getDay(); i++) cells.push(html`<div class="cal-day empty"/>`);
       for (let d = 1; d <= days; d++) {
         const gd = H.toG({ y, m, d });
-        const c = document.createElement('div'); c.className = 'cal-day';
-        if (th.y === y && th.m === m && th.d === d) c.classList.add('today');
-        if (selH === H.fmtH({ y, m, d })) c.classList.add('selected');
-        c.innerHTML = `<span class="dh">${toArabic(d)}</span><span class="dg">${toArabic(gd.getDate())}</span>`;
+        const isToday = th.y === y && th.m === m && th.d === d;
+        const isSel = selH === H.fmtH({ y, m, d });
         const _y = y, _m = m, _d = d, _gd = new Date(gd);
-        c.onclick = () => {
-          const dh = H.fmtH({ y: _y, m: _m, d: _d }), dg = H.fmtG(_gd);
-          if (calTarget === 'quick') { S.q.dH = dh; S.q.dG = dg; setDateDisp('quick', dh, dg); }
-          else if (calTarget === 'edit') {
-            _editDH = dh; _editDG = dg;
-            const dtx = document.getElementById('edit-date-tx');
-            if (dtx) { dtx.textContent = dh + ' | ' + dg; dtx.style.color = 'var(--tw)'; }
-          }
-          else if (calTarget === 'filter') {
-            S.fDate = { g: dg, h: dh };
-            document.getElementById('f-date-ph').style.display = 'none';
-            const _fdc = document.getElementById('f-date-cell'); if (_fdc) _fdc.classList.add('active');
-            const fdh = document.getElementById('f-dh');
-            const fdg = document.getElementById('f-dg');
-            fdh.textContent = toArabic(dh); fdh.style.display = 'inline';
-            const dgParts = dg.split('/'); // dd/mm/yyyy
-            const dgRTL = dgParts[2] + '/' + dgParts[1] + '/' + dgParts[0]; // yyyy/mm/dd
-            fdg.textContent = toArabic(dgRTL); fdg.style.display = 'inline';
-            renderNotes();
-          }
-          closeCal(); renderCal();
-        };
-        g.appendChild(c);
+        cells.push(html`<div class=${'cal-day' + (isToday ? ' today' : '') + (isSel ? ' selected' : '')}
+          onClick=${() => {
+            const dh = H.fmtH({ y: _y, m: _m, d: _d }), dg = H.fmtG(_gd);
+            if (calTarget === 'quick') { S.q.dH = dh; S.q.dG = dg; setDateDisp('quick', dh, dg); }
+            else if (calTarget === 'edit') {
+              _editDH = dh; _editDG = dg;
+              const dtx = document.getElementById('edit-date-tx');
+              if (dtx) { dtx.textContent = dh + ' | ' + dg; dtx.style.color = 'var(--tw)'; }
+            }
+            else if (calTarget === 'filter') {
+              S.fDate = { g: dg, h: dh };
+              document.getElementById('f-date-ph').style.display = 'none';
+              const _fdc = document.getElementById('f-date-cell'); if (_fdc) _fdc.classList.add('active');
+              const fdh = document.getElementById('f-dh');
+              const fdg = document.getElementById('f-dg');
+              fdh.textContent = toArabic(dh); fdh.style.display = 'inline';
+              const dgParts = dg.split('/'); // dd/mm/yyyy
+              const dgRTL = dgParts[2] + '/' + dgParts[1] + '/' + dgParts[0]; // yyyy/mm/dd
+              fdg.textContent = toArabic(dgRTL); fdg.style.display = 'inline';
+              renderNotes();
+            }
+            closeCal(); renderCal();
+          }}>
+          <span class="dh">${toArabic(d)}</span><span class="dg">${toArabic(gd.getDate())}</span>
+        </div>`);
       }
+      vrender(html`${cells}`, document.getElementById('cal-grid'));
     }
     /* تمدد تلقائي لحقل النص مع الكتابة (حتى max-height ثم تمرير داخلي) */
     function _autoGrow(el) {
@@ -4815,17 +4778,14 @@
           const totalFmt = total % 1 === 0 ? total.toLocaleString('ar-SA') : total.toFixed(2);
           statsHtml += ` &nbsp;·&nbsp; <span style="color:#86efac;font-weight:700;">Σ ${totalFmt}</span>`;
         }
-        statsEl.innerHTML = statsHtml;
-        /* إعادة statsEl.textContent لمنع إعادة استخدام innerHTML لاحقاً */
-        return (resEl.innerHTML = '', !notes.length
-          ? (resEl.innerHTML = '<div class="orgtbl-empty">لا توجد نتائج</div>', undefined)
-          : (fV === 'cards' ? renderCards(notes, resEl) : renderTable(notes, resEl)));
+        statsEl.innerHTML = statsHtml;   /* أرقام فقط — لا محتوى مستخدم */
       }
 
-      resEl.innerHTML = '';
-      if (!notes.length) { resEl.innerHTML = '<div class="orgtbl-empty">لا توجد نتائج</div>'; return; }
-      if (fV === 'cards') renderCards(notes, resEl);
-      else renderTable(notes, resEl);
+      /* كل مسارات النتائج تمر عبر vrender كي يبقى تتبع Preact للحاوية سليماً */
+      vrender(!notes.length
+        ? html`<div class="orgtbl-empty">لا توجد نتائج</div>`
+        : (fV === 'cards' ? html`<${NotesCards} ns=${notes}/>` : html`<${NotesTable} ns=${notes}/>`),
+        resEl);
     }
 
     function parseG(s) {
@@ -4852,84 +4812,92 @@
     function badgeCls(s) { return SMAP[s]?.cls || 'badge-def'; }
     function esc(s) { return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
 
-    /* تمييز نص البحث المطابق داخل النص (يُهرَّب كل جزء ثم يُغلَّف المطابق بـ mark) */
-    function _hlText(raw, q) {
+    /* تمييز نص البحث المطابق: يعيد أجزاء نصية مع <mark> حول المطابقات —
+       المكوّن يعرض نصاً حقيقياً فلا حاجة للتهريب اليدوي */
+    function Hl({ raw, q }) {
       const s = String(raw || '');
-      if (!q) return esc(s);
+      if (!q) return s;
       const low = s.toLowerCase();
-      let out = '', pos = 0, i;
+      const out = []; let pos = 0, i;
       while ((i = low.indexOf(q, pos)) !== -1) {
-        out += esc(s.slice(pos, i)) + '<mark class="srch-hl">' + esc(s.slice(i, i + q.length)) + '</mark>';
+        out.push(s.slice(pos, i), html`<mark class="srch-hl">${s.slice(i, i + q.length)}</mark>`);
         pos = i + q.length;
       }
-      return out + esc(s.slice(pos));
-    }
-    /* نص خلية مع تمييز البحث النشط — يستخدم innerHTML فقط عند وجود بحث */
-    function _setCellText(el, raw, q) {
-      if (q) el.innerHTML = _hlText(raw, q);
-      else el.textContent = raw;
+      out.push(s.slice(pos));
+      return out;
     }
     /* رقائق الوسوم لبطاقة/صف — النقر على وسم يبحث به */
-    function _tagChips(n) {
+    function TagChips({ n }) {
       if (!Array.isArray(n.tags) || !n.tags.length) return null;
-      const tg = document.createElement('div');
-      tg.style.cssText = 'display:flex;flex-wrap:wrap;gap:4px;margin-top:3px;';
-      n.tags.slice(0, 10).forEach(t => {
-        const chip = document.createElement('span');
-        chip.textContent = '#' + t;
-        chip.style.cssText = 'font-size:10px;color:#93c5fd;background:rgba(147,197,253,.13);border-radius:999px;padding:1px 8px;cursor:pointer;';
-        chip.onclick = ev => {
-          ev.stopPropagation();
-          const ft = document.getElementById('f-text');
-          if (ft) { ft.value = t; renderNotes(); }
-        };
-        tg.appendChild(chip);
-      });
-      return tg;
+      return html`<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:3px;">
+        ${n.tags.slice(0, 10).map(t => html`<span
+          style="font-size:10px;color:#93c5fd;background:rgba(147,197,253,.13);border-radius:999px;padding:1px 8px;cursor:pointer;"
+          onClick=${ev => {
+            ev.stopPropagation();
+            const ft = document.getElementById('f-text');
+            if (ft) { ft.value = t; renderNotes(); }
+          }}>#${t}</span>`)}
+      </div>`;
     }
 
-    function renderTable(ns, con) {
+    function NotesTable({ ns }) {
       const _q = (document.getElementById('f-text')?.value || '').toLowerCase().trim();
-      const t = document.createElement('table'); t.className = 'orgtbl-table';
-      const hr = t.createTHead().insertRow();
-      ['📝 النص', '🔢 الرقم', '🔸 الثانوية', '📊 الحالة', '📅 التاريخ', '📎'].forEach(h => { const th = document.createElement('th'); th.textContent = h; hr.appendChild(th); });
-      const tb = t.createTBody();
-      ns.forEach(n => {
-        const tr = tb.insertRow();
-        const stCls = _stClass(n.status);
-        if (stCls) tr.classList.add(stCls);
-        tr.onclick = () => openNote(n.id);
-        const td1 = tr.insertCell(); td1.className = 'td-text';
-        _setCellText(td1, String(n.text || '—').slice(0, 80) + (n.text?.length > 80 ? '…' : ''), _q);
-        const td2 = tr.insertCell(); td2.className = 'td-c'; td2.textContent = n.num || '—';
-        const td3 = tr.insertCell(); td3.className = 'td-c'; td3.textContent = cleanTxt(n.sec) || '—';
-        const td4 = tr.insertCell(); td4.className = 'td-c';
-        const b = document.createElement('span'); b.className = 'org-badge ' + badgeCls(n.status);
-        b.textContent = `${SMAP[n.status]?.ic || ''} ${n.status || '—'}`; td4.appendChild(b);
-        const td5 = tr.insertCell(); td5.className = 'td-date';
-        const hDate = n.dH ? `<span style="color:rgba(var(--ov),.85);font-weight:600">${esc(n.dH)}</span>` : '—';
-        const gDate = n.dG ? `<span style="color:rgba(var(--ov),.45);font-size:11px">${esc(fmtGDisp(n.dG))}</span>` : '';
-        td5.innerHTML = hDate + (gDate ? '<br>' + gDate : '');
-        /* عمود المرفق */
-        const td6 = tr.insertCell(); td6.className = 'td-c';
-        if (n.file) {
-          const fIc = document.createElement('span');
-          fIc.textContent = _fileIcon(n.file);
-          fIc.style.cssText = 'cursor:pointer;font-size:17px';
-          fIc.title = typeof n.file === 'object' ? n.file.name : n.file;
-          fIc.onclick = ev => { ev.stopPropagation(); openAttOv(n.id); };
-          td6.appendChild(fIc);
-        }
-      });
-      con.appendChild(t);
+      return html`<table class="orgtbl-table">
+        <thead><tr>${['📝 النص', '🔢 الرقم', '🔸 الثانوية', '📊 الحالة', '📅 التاريخ', '📎']
+          .map(h => html`<th>${h}</th>`)}</tr></thead>
+        <tbody>${ns.map(n => html`<tr class=${_stClass(n.status) || null} onClick=${() => openNote(n.id)}>
+          <td class="td-text"><${Hl} raw=${String(n.text || '—').slice(0, 80) + (n.text?.length > 80 ? '…' : '')} q=${_q}/></td>
+          <td class="td-c">${n.num || '—'}</td>
+          <td class="td-c">${cleanTxt(n.sec) || '—'}</td>
+          <td class="td-c"><span class=${'org-badge ' + badgeCls(n.status)}>${(SMAP[n.status]?.ic || '') + ' ' + (n.status || '—')}</span></td>
+          <td class="td-date">${n.dH ? html`<span style="color:rgba(var(--ov),.85);font-weight:600">${n.dH}</span>` : '—'}${
+            n.dG ? html`<br/><span style="color:rgba(var(--ov),.45);font-size:11px">${fmtGDisp(n.dG)}</span>` : null}</td>
+          <td class="td-c">${n.file ? html`<span style="cursor:pointer;font-size:17px"
+            title=${typeof n.file === 'object' ? n.file.name : n.file}
+            onClick=${ev => { ev.stopPropagation(); openAttOv(n.id); }}>${_fileIcon(n.file)}</span>` : null}</td>
+        </tr>`)}</tbody>
+      </table>`;
     }
-    function renderCards(ns, con) {
+
+    /* أيقونة مرفق البطاقة: ضغطة تفتح الملف، وضغطة طويلة تفتح نافذة الإدارة */
+    function CardAttIcon({ n }) {
+      const lp = { fired: false, t: /** @type {any} */ (0) };
+      const fName = typeof n.file === 'object' ? n.file.name : n.file;
+      return html`<span style="font-size:16px;cursor:pointer;margin-right:4px" title=${fName}
+        onClick=${ev => {
+          ev.stopPropagation();
+          if (lp.fired) { lp.fired = false; return; }   /* تجاهل النقرة الاصطناعية بعد الضغط الطويل */
+          _attNoteId = n.id; openAttFile();
+        }}
+        onTouchStart=${() => { lp.fired = false; lp.t = setTimeout(() => { lp.fired = true; openAttOv(n.id); }, 600); }}
+        onTouchEnd=${() => clearTimeout(lp.t)}
+        onTouchMove=${() => clearTimeout(lp.t)}
+        onContextMenu=${ev => { ev.preventDefault(); ev.stopPropagation(); openAttOv(n.id); }}>${_fileIcon(n.file)}</span>`;
+    }
+    function NoteCard({ n, q, linkCount }) {
+      const mainIc = (n.main && CATS[n.main]?.ic) || '';
+      const subIc = (n.main && n.sub && CATS[n.main]?.sub?.[n.sub]?.ic) || '';
+      return html`<div class=${'orgtbl-card ' + _stClass(n.status)} onClick=${() => openNote(n.id)}>
+        ${(n.main || n.sub) ? html`<div style="font-size:10px;color:rgba(var(--ov),0.45);margin-bottom:4px;display:flex;align-items:center;gap:4px;flex-wrap:wrap;">
+          ${n.main ? html`<span>${mainIc} ${n.main}</span>` : null}
+          ${n.sub ? html`<span style="opacity:.7">›</span><span style="color:rgba(var(--ov),0.6)">${subIc} ${n.sub}</span>` : null}
+        </div>` : null}
+        ${n.text ? html`<div class="orgtbl-card-text"><${Hl} raw=${String(n.text).slice(0, 100) + (n.text.length > 100 ? '…' : '')} q=${q}/></div>` : null}
+        ${n.sec ? html`<small style="color:#a78bfa;font-size:10px">${cleanTxt(n.sec)}</small>` : null}
+        <${TagChips} n=${n}/>
+        ${linkCount > 0 ? html`<div style="font-size:10px;color:#a78bfa;margin-top:3px;display:flex;align-items:center;gap:3px;">🔗 ${linkCount} مرتبطة</div>` : null}
+        <div class="orgtbl-card-footer">
+          ${n.file ? html`<${CardAttIcon} n=${n}/>` : null}
+          <span class=${'org-badge ' + badgeCls(n.status)}>${(SMAP[n.status]?.ic || '') + ' ' + (n.status || '—')}</span>
+          <span>${n.dH ? html`<span style="font-size:10px">${n.dH}</span>` : (fmtGDisp(n.dG) || '—')}</span>
+        </div>
+      </div>`;
+    }
+    function NotesCards({ ns }) {
       const _q = (document.getElementById('f-text')?.value || '').toLowerCase().trim();
-      const g = document.createElement('div'); g.className = 'orgtbl-cards';
       /* E3: حساب الروابط الواردة مرة واحدة لكل تمريرة عرض بدل O(n²) */
-      const _allNotes = DB.get();
       const _inbound = new Map();   /* String(id) → Set(معرّفات الملاحظات التي تربط إليه) */
-      _allNotes.forEach(x => {
+      DB.get().forEach(x => {
         if (!Array.isArray(x.links)) return;
         x.links.forEach(l => {
           const k = String(l);
@@ -4937,76 +4905,14 @@
           _inbound.get(k).add(String(x.id));
         });
       });
-      ns.forEach(n => {
-        const c = document.createElement('div');
-        c.className = 'orgtbl-card ' + _stClass(n.status);
-        c.onclick = () => openNote(n.id);
-
-        /* شريط التصنيف */
-        if (n.main || n.sub) {
-          const catLine = document.createElement('div');
-          catLine.style.cssText = 'font-size:10px;color:rgba(var(--ov),0.45);margin-bottom:4px;display:flex;align-items:center;gap:4px;flex-wrap:wrap;';
-          const mainIc = (n.main && CATS[n.main]?.ic) || '';
-          const subIc  = (n.main && n.sub && CATS[n.main]?.sub?.[n.sub]?.ic) || '';
-          let catHtml = '';
-          if (n.main) catHtml += `<span>${esc(mainIc)} ${esc(n.main)}</span>`;
-          if (n.sub)  catHtml += `<span style="opacity:.7">›</span><span style="color:rgba(var(--ov),0.6)">${esc(subIc)} ${esc(n.sub)}</span>`;
-          catLine.innerHTML = catHtml;
-          c.appendChild(catLine);
-        }
-        if (n.text) {
-          const t = document.createElement('div'); t.className = 'orgtbl-card-text';
-          _setCellText(t, String(n.text).slice(0, 100) + (n.text.length > 100 ? '…' : ''), _q);
-          c.appendChild(t);
-        }
-        if (n.sec) { const s = document.createElement('small'); s.textContent = cleanTxt(n.sec); s.style.cssText = 'color:#a78bfa;font-size:10px'; c.appendChild(s); }
-        const _tgc = _tagChips(n); if (_tgc) c.appendChild(_tgc);
-
-        /* مؤشر الروابط — من الخريطة المحسوبة مسبقاً */
+      return html`<div class="orgtbl-cards">${ns.map(n => {
         const _own = Array.isArray(n.links) ? n.links : [];
         const _ownSet = new Set(_own.map(String));
         let _linkCount = _own.length;
         const _inSet = _inbound.get(String(n.id));
         if (_inSet) _inSet.forEach(xid => { if (!_ownSet.has(xid)) _linkCount++; });
-        if (_linkCount > 0) {
-          const lk = document.createElement('div');
-          lk.style.cssText = 'font-size:10px;color:#a78bfa;margin-top:3px;display:flex;align-items:center;gap:3px;';
-          lk.innerHTML = `🔗 ${_linkCount} مرتبطة`;
-          c.appendChild(lk);
-        }
-
-        const f = document.createElement('div'); f.className = 'orgtbl-card-footer';
-        const b = document.createElement('span'); b.className = 'org-badge ' + badgeCls(n.status);
-        b.textContent = `${SMAP[n.status]?.ic || ''} ${n.status || '—'}`;
-        const d = document.createElement('span');
-        d.innerHTML = n.dH ? `<span style="font-size:10px">${esc(n.dH)}</span>` : (esc(fmtGDisp(n.dG)) || '—');
-
-        /* أيقونة المرفق الديناميكية */
-        if (n.file) {
-          const fIc = document.createElement('span');
-          fIc.textContent = _fileIcon(n.file);
-          fIc.style.cssText = 'font-size:16px;cursor:pointer;margin-right:4px';
-          const fName = typeof n.file === 'object' ? n.file.name : n.file;
-          fIc.title = fName;
-          /* ضغطة عادية: فتح الملف — مع تجاهل النقرة الاصطناعية التي تعقب الضغط الطويل */
-          fIc.addEventListener('click', ev => {
-            ev.stopPropagation();
-            if (fIc._lpFired) { fIc._lpFired = false; return; }
-            _attNoteId = n.id; openAttFile();
-          });
-          /* ضغطة طويلة: نافذة الإدارة */
-          let _lpt;
-          fIc.addEventListener('touchstart', () => { fIc._lpFired = false; _lpt = setTimeout(() => { fIc._lpFired = true; openAttOv(n.id); }, 600); }, { passive: true });
-          fIc.addEventListener('touchend', () => clearTimeout(_lpt), { passive: true });
-          fIc.addEventListener('touchmove', () => clearTimeout(_lpt), { passive: true });
-          fIc.addEventListener('contextmenu', ev => { ev.preventDefault(); ev.stopPropagation(); openAttOv(n.id); });
-          f.appendChild(fIc);
-        }
-
-        f.appendChild(b); f.appendChild(d); c.appendChild(f);
-        g.appendChild(c);
-      });
-      con.appendChild(g);
+        return html`<${NoteCard} key=${String(n.id)} n=${n} q=${_q} linkCount=${_linkCount}/>`;
+      })}</div>`;
     }
     function clearFilters() {
       FP.main = ''; FP.sub = ''; FP.sec = ''; FP.status = ''; S.fFile = null;
@@ -5058,7 +4964,7 @@
       const links = S.q.links || [];
       if (!links.length) {
         wrap.style.display = 'none';
-        wrap.innerHTML = '';
+        vrender(null, wrap);
         tx.textContent = 'ربط بملاحظة سابقة (اختياري)';
         tx.className = 'org-ct ph';
         return;
@@ -5067,21 +4973,21 @@
       tx.className = 'org-ct';
       wrap.style.display = 'flex';
       const all = DB.get();
-      wrap.innerHTML = '';
-      links.forEach(lid => {
+      vrender(html`${links.map(lid => {
         const n = all.find(x => _sameId(x.id, lid));
-        if (!n) return;
-        const chip = document.createElement('span');
-        chip.style.cssText = 'background:rgba(102,126,234,.35);border:1px solid rgba(167,139,250,.5);border-radius:10px;padding:4px 8px;font-size:11px;color:var(--tw);display:inline-flex;align-items:center;gap:5px;max-width:160px;';
+        if (!n) return null;
         const label = (n.text || [n.main, n.sub].filter(Boolean).join(' ') || 'ملاحظة').slice(0, 22);
-        chip.innerHTML = `<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(label)}</span><span style="cursor:pointer;font-weight:700;opacity:.8;">✕</span>`;
-        chip.querySelector('span:last-child').onclick = (e) => {
-          e.stopPropagation();
-          S.q.links = S.q.links.filter(x => !_sameId(x, lid));
-          _renderQLinkChips();
-        };
-        wrap.appendChild(chip);
-      });
+        return html`<span key=${String(lid)}
+          style="background:rgba(102,126,234,.35);border:1px solid rgba(167,139,250,.5);border-radius:10px;padding:4px 8px;font-size:11px;color:var(--tw);display:inline-flex;align-items:center;gap:5px;max-width:160px;">
+          <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${label}</span><span
+            style="cursor:pointer;font-weight:700;opacity:.8;"
+            onClick=${e => {
+              e.stopPropagation();
+              S.q.links = S.q.links.filter(x => !_sameId(x, lid));
+              _renderQLinkChips();
+            }}>✕</span>
+        </span>`;
+      })}`, wrap);
     }
 
     function openLinkPicker() {
@@ -5101,33 +5007,30 @@
       let notes = DB.get();
       if (q) notes = notes.filter(n => JSON.stringify([n.text, n.main, n.sub, n.sec, n.num]).toLowerCase().includes(q));
       notes = notes.slice(0, 40);
-      box.innerHTML = '';
-      if (!notes.length) {
-        box.innerHTML = '<div style="text-align:center;color:rgba(var(--ov),.4);font-size:13px;padding:20px;">لا توجد نتائج</div>';
-        return;
-      }
       const sel = S.q.links || [];
-      notes.forEach(n => {
-        const on = sel.some(x => _sameId(x, n.id));
-        const row = document.createElement('div');
-        row.style.cssText = `display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;cursor:pointer;border:2px solid ${on ? 'rgba(167,139,250,.8)' : 'transparent'};background:${on ? 'rgba(102,126,234,.35)' : 'rgba(var(--ov),.06)'};transition:all .12s;`;
-        const mainIc = (n.main && CATS[n.main]?.ic) || '📝';
-        const cat = [n.main, n.sub].filter(Boolean).join(' › ');
-        const label = (n.text || cat || 'ملاحظة').slice(0, 60);
-        row.innerHTML = `
-          <span style="font-size:18px;flex-shrink:0;">${on ? '✅' : esc(mainIc)}</span>
-          <div style="flex:1;min-width:0;">
-            <div style="font-size:13px;color:var(--tw);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(label)}</div>
-            ${cat ? `<div style="font-size:10px;color:rgba(var(--ov),.5);">${esc(cat)}${n.num ? ' · ' + esc(n.num) : ''}</div>` : (n.num ? `<div style="font-size:10px;color:rgba(var(--ov),.5);">${esc(n.num)}</div>` : '')}
-          </div>`;
-        row.onclick = () => {
-          if (!Array.isArray(S.q.links)) S.q.links = [];
-          if (S.q.links.some(x => _sameId(x, n.id))) S.q.links = S.q.links.filter(x => !_sameId(x, n.id));
-          else S.q.links.push(n.id);
-          renderLinkResults();
-        };
-        box.appendChild(row);
-      });
+      vrender(!notes.length
+        ? html`<div style="text-align:center;color:rgba(var(--ov),.4);font-size:13px;padding:20px;">لا توجد نتائج</div>`
+        : html`${notes.map(n => {
+            const on = sel.some(x => _sameId(x, n.id));
+            const mainIc = (n.main && CATS[n.main]?.ic) || '📝';
+            const cat = [n.main, n.sub].filter(Boolean).join(' › ');
+            const label = (n.text || cat || 'ملاحظة').slice(0, 60);
+            return html`<div key=${String(n.id)}
+              style=${`display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;cursor:pointer;border:2px solid ${on ? 'rgba(167,139,250,.8)' : 'transparent'};background:${on ? 'rgba(102,126,234,.35)' : 'rgba(var(--ov),.06)'};transition:all .12s;`}
+              onClick=${() => {
+                if (!Array.isArray(S.q.links)) S.q.links = [];
+                if (S.q.links.some(x => _sameId(x, n.id))) S.q.links = S.q.links.filter(x => !_sameId(x, n.id));
+                else S.q.links.push(n.id);
+                renderLinkResults();
+              }}>
+              <span style="font-size:18px;flex-shrink:0;">${on ? '✅' : mainIc}</span>
+              <div style="flex:1;min-width:0;">
+                <div style="font-size:13px;color:var(--tw);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${label}</div>
+                ${cat ? html`<div style="font-size:10px;color:rgba(var(--ov),.5);">${cat}${n.num ? ' · ' + n.num : ''}</div>`
+                  : (n.num ? html`<div style="font-size:10px;color:rgba(var(--ov),.5);">${n.num}</div>` : null)}
+              </div>
+            </div>`;
+          })}`, box);
     }
     function closeQuick(skipSave) {
       const ov = document.getElementById('q-ov');
@@ -5271,14 +5174,8 @@
       /* تحديث المحتوى مع animation خفيفة بدل إغلاق وفتح */
       list.style.opacity = '0';
       list.style.transform = 'translateY(8px)';
-      list.innerHTML = '';
-      items.forEach((it, i) => {
-        const el = document.createElement('div');
-        el.className = 'dp-item' + (it.v === curVal ? ' sel' : '');
-        el.dataset.idx = i;
-        el.innerHTML = `<span class="dp-ic">${esc(it.i)}</span><span class="dp-tx">${esc(it.n)}</span>`;
-        list.appendChild(el);
-      });
+      vrender(html`${items.map((it, i) => html`<div class=${'dp-item' + (it.v === curVal ? ' sel' : '')} data-idx=${i}>
+        <span class="dp-ic">${it.i}</span><span class="dp-tx">${it.n}</span></div>`)}`, list);
       /* scroll للأعلى */
       list.scrollTop = 0;
       /* animation ظهور */
@@ -5863,30 +5760,16 @@
       const ids = new Set((Array.isArray(n.links) ? n.links : []).map(String));
       all.forEach(x => { if (Array.isArray(x.links) && x.links.some(l => _sameId(l, n.id))) ids.add(String(x.id)); });
       const linked = [...ids].map(id => all.find(x => _sameId(x.id, id))).filter(Boolean);
-      if (!linked.length) { sec.style.display = 'none'; list.innerHTML = ''; return; }
+      if (!linked.length) { sec.style.display = 'none'; vrender(null, list); return; }
       sec.style.display = 'block';
-      list.innerHTML = '';
-      linked.forEach(ln => {
-        const row = document.createElement('div');
-        row.style.cssText = 'display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:10px;background:rgba(102,126,234,.18);border:1px solid rgba(167,139,250,.35);cursor:pointer;';
+      vrender(html`${linked.map(ln => {
         const mainIc = (ln.main && CATS[ln.main]?.ic) || '📝';
         const cat = [ln.main, ln.sub].filter(Boolean).join(' › ');
         const label = (ln.text || cat || 'ملاحظة').slice(0, 50);
         const stIc = SMAP[ln.status]?.ic || '';
-        row.innerHTML = `
-          <span style="font-size:16px;flex-shrink:0;">${esc(mainIc)}</span>
-          <div style="flex:1;min-width:0;">
-            <div style="font-size:12px;color:var(--tw);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(label)}</div>
-            ${cat ? `<div style="font-size:10px;color:rgba(var(--ov),.5);">${esc(cat)}${ln.num ? ' · ' + esc(ln.num) : ''} ${stIc}</div>` : (ln.num || stIc ? `<div style="font-size:10px;color:rgba(var(--ov),.5);">${esc(ln.num || '')} ${stIc}</div>` : '')}
-          </div>
-          <span class="edit-link-unlink" style="cursor:pointer;color:#fca5a5;font-size:14px;padding:2px 4px;" title="فك الربط">🔗✕</span>
-          <span style="color:rgba(var(--ov),.4);font-size:13px;">›</span>`;
-        /* فتح الملاحظة المرتبطة */
-        row.onclick = () => { closeEdit(); setTimeout(() => openNote(ln.id), 120); };
-        /* فك الربط من الاتجاهين */
-        row.querySelector('.edit-link-unlink').onclick = (e) => {
+        const unlink = e => {
           e.stopPropagation();
-          if (!confirm('فك الربط بين الملاحظتين؟')) return;
+          if (!confirm('فك الربط بين الملاحظتين؟')) return;   /* فك الربط من الاتجاهين */
           const data = DB.get();
           const a = data.find(x => _sameId(x.id, _editId));
           const b = data.find(x => _sameId(x.id, ln.id));
@@ -5897,8 +5780,20 @@
           if (cur) _renderEditLinks(cur);
           showFb('🔗 تم فك الربط');
         };
-        list.appendChild(row);
-      });
+        return html`<div key=${String(ln.id)}
+          style="display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:10px;background:rgba(102,126,234,.18);border:1px solid rgba(167,139,250,.35);cursor:pointer;"
+          onClick=${() => { closeEdit(); setTimeout(() => openNote(ln.id), 120); }}>
+          <span style="font-size:16px;flex-shrink:0;">${mainIc}</span>
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:12px;color:var(--tw);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${label}</div>
+            ${cat ? html`<div style="font-size:10px;color:rgba(var(--ov),.5);">${cat}${ln.num ? ' · ' + ln.num : ''} ${stIc}</div>`
+              : ((ln.num || stIc) ? html`<div style="font-size:10px;color:rgba(var(--ov),.5);">${ln.num || ''} ${stIc}</div>` : null)}
+          </div>
+          <span class="edit-link-unlink" style="cursor:pointer;color:#fca5a5;font-size:14px;padding:2px 4px;" title="فك الربط"
+            onClick=${unlink}>🔗✕</span>
+          <span style="color:rgba(var(--ov),.4);font-size:13px;">›</span>
+        </div>`;
+      })}`, list);
     }
 
     function _refreshEditCat() {
@@ -6694,6 +6589,15 @@
     <div class="ver">Open-Meteo (Forecast + Ensemble APIs) · MET Norway API · الإصدار 3.4.0</div>
   </div>
 
+<!-- إطار المكوّنات: Preact + HTM موردة محلياً (src/vendor/) -->
+<script>!function(n){"function"==typeof define&&define.amd?define(n):n()}(function(){var n,l,t,u,i,o,e,r,f,c,s,a,h,p=65536,v=1<<17,d={},y=[],w=/acit|ex(?:s|g|n|p|$)|rph|grid|ows|mnc|ntw|ine[ch]|zoo|^ord|itera/i,_=Array.isArray;function g(n,l){for(var t in l)n[t]=l[t];return n}function m(n){n&&n.parentNode&&n.parentNode.removeChild(n)}function b(l,t,u){var i,o,e,r={};for(e in t)"key"==e?i=t[e]:"ref"==e?o=t[e]:r[e]=t[e];if(arguments.length>2&&(r.children=arguments.length>3?n.call(arguments,2):u),"function"==typeof l&&null!=l.defaultProps)for(e in l.defaultProps)void 0===r[e]&&(r[e]=l.defaultProps[e]);return k(l,r,i,o,null)}function k(n,u,i,o,e){var r={type:n,props:u,key:i,ref:o,__k:null,__:null,__b:0,__e:null,__d:void 0,__c:null,constructor:void 0,__v:null==e?++t:e,__i:-1,__u:0};return null==e&&null!=l.vnode&&l.vnode(r),r}function C(n){return n.children}function x(n,l){this.props=n,this.context=l}function S(n,l){if(null==l)return n.__?S(n.__,n.__i+1):null;for(var t;l<n.__k.length;l++)if(null!=(t=n.__k[l])&&null!=t.__e)return t.__e;return"function"==typeof n.type?S(n):null}function M(n){var l,t;if(null!=(n=n.__)&&null!=n.__c){for(n.__e=n.__c.base=null,l=0;l<n.__k.length;l++)if(null!=(t=n.__k[l])&&null!=t.__e){n.__e=n.__c.base=t.__e;break}return M(n)}}function P(n){(!n.__d&&(n.__d=!0)&&i.push(n)&&!$.__r++||o!==l.debounceRendering)&&((o=l.debounceRendering)||e)($)}function $(){var n,t,u,o,e,f,c,s;for(i.sort(r);n=i.shift();)n.__d&&(t=i.length,o=void 0,f=(e=(u=n).__v).__e,c=[],s=[],u.__P&&((o=g({},e)).__v=e.__v+1,l.vnode&&l.vnode(o),O(u.__P,o,e,u.__n,u.__P.namespaceURI,32&e.__u?[f]:null,c,null==f?S(e):f,!!(32&e.__u),s),o.__v=e.__v,o.__.__k[o.__i]=o,V(c,o,s),o.__e!=f&&M(o)),i.length>t&&i.sort(r));$.__r=0}function I(n,l,t,u,i,o,e,r,f,c,s){var a,h,v,w,_,g=u&&u.__k||y,m=l.length;for(t.__d=f,A(t,l,g),f=t.__d,a=0;a<m;a++)null!=(v=t.__k[a])&&(h=-1===v.__i?d:g[v.__i]||d,v.__i=a,O(n,v,h,i,o,e,r,f,c,s),w=v.__e,v.ref&&h.ref!=v.ref&&(h.ref&&z(h.ref,null,v),s.push(v.ref,v.__c||w,v)),null==_&&null!=w&&(_=w),v.__u&p||h.__k===v.__k?f=E(v,f,n):"function"==typeof v.type&&void 0!==v.__d?f=v.__d:w&&(f=w.nextSibling),v.__d=void 0,v.__u&=-196609);t.__d=f,t.__e=_}function A(n,l,t){var u,i,o,e,r,f=l.length,c=t.length,s=c,a=0;for(n.__k=[],u=0;u<f;u++)null!=(i=l[u])&&"boolean"!=typeof i&&"function"!=typeof i?(e=u+a,(i=n.__k[u]="string"==typeof i||"number"==typeof i||"bigint"==typeof i||i.constructor==String?k(null,i,null,null,null):_(i)?k(C,{children:i},null,null,null):void 0===i.constructor&&i.__b>0?k(i.type,i.props,i.key,i.ref?i.ref:null,i.__v):i).__=n,i.__b=n.__b+1,o=null,-1!==(r=i.__i=F(i,t,e,s))&&(s--,(o=t[r])&&(o.__u|=v)),null==o||null===o.__v?(-1==r&&a--,"function"!=typeof i.type&&(i.__u|=p)):r!==e&&(r==e-1?a--:r==e+1?a++:(r>e?a--:a++,i.__u|=p))):i=n.__k[u]=null;if(s)for(u=0;u<c;u++)null!=(o=t[u])&&0==(o.__u&v)&&(o.__e==n.__d&&(n.__d=S(o)),N(o,o))}function E(n,l,t){var u,i;if("function"==typeof n.type){for(u=n.__k,i=0;u&&i<u.length;i++)u[i]&&(u[i].__=n,l=E(u[i],l,t));return l}n.__e!=l&&(l&&n.type&&!t.contains(l)&&(l=S(n)),t.insertBefore(n.__e,l||null),l=n.__e);do{l=l&&l.nextSibling}while(null!=l&&8===l.nodeType);return l}function F(n,l,t,u){var i=n.key,o=n.type,e=t-1,r=t+1,f=l[t];if(null===f||f&&i==f.key&&o===f.type&&0==(f.__u&v))return t;if(u>(null!=f&&0==(f.__u&v)?1:0))for(;e>=0||r<l.length;){if(e>=0){if((f=l[e])&&0==(f.__u&v)&&i==f.key&&o===f.type)return e;e--}if(r<l.length){if((f=l[r])&&0==(f.__u&v)&&i==f.key&&o===f.type)return r;r++}}return-1}function H(n,l,t){"-"===l[0]?n.setProperty(l,null==t?"":t):n[l]=null==t?"":"number"!=typeof t||w.test(l)?t:t+"px"}function L(n,l,t,u,i){var o;n:if("style"===l)if("string"==typeof t)n.style.cssText=t;else{if("string"==typeof u&&(n.style.cssText=u=""),u)for(l in u)t&&l in t||H(n.style,l,"");if(t)for(l in t)u&&t[l]===u[l]||H(n.style,l,t[l])}else if("o"===l[0]&&"n"===l[1])o=l!==(l=l.replace(/(PointerCapture)$|Capture$/i,"$1")),l=l.toLowerCase()in n||"onFocusOut"===l||"onFocusIn"===l?l.toLowerCase().slice(2):l.slice(2),n.l||(n.l={}),n.l[l+o]=t,t?u?t.t=u.t:(t.t=f,n.addEventListener(l,o?s:c,o)):n.removeEventListener(l,o?s:c,o);else{if("http://www.w3.org/2000/svg"==i)l=l.replace(/xlink(H|:h)/,"h").replace(/sName$/,"s");else if("width"!=l&&"height"!=l&&"href"!=l&&"list"!=l&&"form"!=l&&"tabIndex"!=l&&"download"!=l&&"rowSpan"!=l&&"colSpan"!=l&&"role"!=l&&"popover"!=l&&l in n)try{n[l]=null==t?"":t;break n}catch(n){}"function"==typeof t||(null==t||!1===t&&"-"!==l[4]?n.removeAttribute(l):n.setAttribute(l,"popover"==l&&1==t?"":t))}}function T(n){return function(t){if(this.l){var u=this.l[t.type+n];if(null==t.u)t.u=f++;else if(t.u<u.t)return;return u(l.event?l.event(t):t)}}}function O(n,t,u,i,o,e,r,f,c,s){var a,h,p,v,d,y,w,m,b,k,S,M,P,$,A,E,F=t.type;if(void 0!==t.constructor)return null;128&u.__u&&(c=!!(32&u.__u),e=[f=t.__e=u.__e]),(a=l.__b)&&a(t);n:if("function"==typeof F)try{if(m=t.props,b="prototype"in F&&F.prototype.render,k=(a=F.contextType)&&i[a.__c],S=a?k?k.props.value:a.__:i,u.__c?w=(h=t.__c=u.__c).__=h.__E:(b?t.__c=h=new F(m,S):(t.__c=h=new x(m,S),h.constructor=F,h.render=R),k&&k.sub(h),h.props=m,h.state||(h.state={}),h.context=S,h.__n=i,p=h.__d=!0,h.__h=[],h._sb=[]),b&&null==h.__s&&(h.__s=h.state),b&&null!=F.getDerivedStateFromProps&&(h.__s==h.state&&(h.__s=g({},h.__s)),g(h.__s,F.getDerivedStateFromProps(m,h.__s))),v=h.props,d=h.state,h.__v=t,p)b&&null==F.getDerivedStateFromProps&&null!=h.componentWillMount&&h.componentWillMount(),b&&null!=h.componentDidMount&&h.__h.push(h.componentDidMount);else{if(b&&null==F.getDerivedStateFromProps&&m!==v&&null!=h.componentWillReceiveProps&&h.componentWillReceiveProps(m,S),!h.__e&&(null!=h.shouldComponentUpdate&&!1===h.shouldComponentUpdate(m,h.__s,S)||t.__v===u.__v)){for(t.__v!==u.__v&&(h.props=m,h.state=h.__s,h.__d=!1),t.__e=u.__e,t.__k=u.__k,t.__k.some(function(n){n&&(n.__=t)}),M=0;M<h._sb.length;M++)h.__h.push(h._sb[M]);h._sb=[],h.__h.length&&r.push(h);break n}null!=h.componentWillUpdate&&h.componentWillUpdate(m,h.__s,S),b&&null!=h.componentDidUpdate&&h.__h.push(function(){h.componentDidUpdate(v,d,y)})}if(h.context=S,h.props=m,h.__P=n,h.__e=!1,P=l.__r,$=0,b){for(h.state=h.__s,h.__d=!1,P&&P(t),a=h.render(h.props,h.state,h.context),A=0;A<h._sb.length;A++)h.__h.push(h._sb[A]);h._sb=[]}else do{h.__d=!1,P&&P(t),a=h.render(h.props,h.state,h.context),h.state=h.__s}while(h.__d&&++$<25);h.state=h.__s,null!=h.getChildContext&&(i=g(g({},i),h.getChildContext())),b&&!p&&null!=h.getSnapshotBeforeUpdate&&(y=h.getSnapshotBeforeUpdate(v,d)),I(n,_(E=null!=a&&a.type===C&&null==a.key?a.props.children:a)?E:[E],t,u,i,o,e,r,f,c,s),h.base=t.__e,t.__u&=-161,h.__h.length&&r.push(h),w&&(h.__E=h.__=null)}catch(n){if(t.__v=null,c||null!=e){for(t.__u|=c?160:128;f&&8===f.nodeType&&f.nextSibling;)f=f.nextSibling;e[e.indexOf(f)]=null,t.__e=f}else t.__e=u.__e,t.__k=u.__k;l.__e(n,t,u)}else null==e&&t.__v===u.__v?(t.__k=u.__k,t.__e=u.__e):t.__e=j(u.__e,t,u,i,o,e,r,c,s);(a=l.diffed)&&a(t)}function V(n,t,u){t.__d=void 0;for(var i=0;i<u.length;i++)z(u[i],u[++i],u[++i]);l.__c&&l.__c(t,n),n.some(function(t){try{n=t.__h,t.__h=[],n.some(function(n){n.call(t)})}catch(n){l.__e(n,t.__v)}})}function j(t,u,i,o,e,r,f,c,s){var a,h,p,v,y,w,g,b=i.props,k=u.props,C=u.type;if("svg"===C?e="http://www.w3.org/2000/svg":"math"===C?e="http://www.w3.org/1998/Math/MathML":e||(e="http://www.w3.org/1999/xhtml"),null!=r)for(a=0;a<r.length;a++)if((y=r[a])&&"setAttribute"in y==!!C&&(C?y.localName===C:3===y.nodeType)){t=y,r[a]=null;break}if(null==t){if(null===C)return document.createTextNode(k);t=document.createElementNS(e,C,k.is&&k),c&&(l.__m&&l.__m(u,r),c=!1),r=null}if(null===C)b===k||c&&t.data===k||(t.data=k);else{if(r=r&&n.call(t.childNodes),b=i.props||d,!c&&null!=r)for(b={},a=0;a<t.attributes.length;a++)b[(y=t.attributes[a]).name]=y.value;for(a in b)if(y=b[a],"children"==a);else if("dangerouslySetInnerHTML"==a)p=y;else if(!(a in k)){if("value"==a&&"defaultValue"in k||"checked"==a&&"defaultChecked"in k)continue;L(t,a,null,y,e)}for(a in k)y=k[a],"children"==a?v=y:"dangerouslySetInnerHTML"==a?h=y:"value"==a?w=y:"checked"==a?g=y:c&&"function"!=typeof y||b[a]===y||L(t,a,y,b[a],e);if(h)c||p&&(h.__html===p.__html||h.__html===t.innerHTML)||(t.innerHTML=h.__html),u.__k=[];else if(p&&(t.innerHTML=""),I(t,_(v)?v:[v],u,i,o,"foreignObject"===C?"http://www.w3.org/1999/xhtml":e,r,f,r?r[0]:i.__k&&S(i,0),c,s),null!=r)for(a=r.length;a--;)m(r[a]);c||(a="value","progress"===C&&null==w?t.removeAttribute("value"):void 0!==w&&(w!==t[a]||"progress"===C&&!w||"option"===C&&w!==b[a])&&L(t,a,w,b[a],e),a="checked",void 0!==g&&g!==t[a]&&L(t,a,g,b[a],e))}return t}function z(n,t,u){try{if("function"==typeof n){var i="function"==typeof n.__u;i&&n.__u(),i&&null==t||(n.__u=n(t))}else n.current=t}catch(n){l.__e(n,u)}}function N(n,t,u){var i,o;if(l.unmount&&l.unmount(n),(i=n.ref)&&(i.current&&i.current!==n.__e||z(i,null,t)),null!=(i=n.__c)){if(i.componentWillUnmount)try{i.componentWillUnmount()}catch(n){l.__e(n,t)}i.base=i.__P=null}if(i=n.__k)for(o=0;o<i.length;o++)i[o]&&N(i[o],t,u||"function"!=typeof n.type);u||m(n.__e),n.__c=n.__=n.__e=n.__d=void 0}function R(n,l,t){return this.constructor(n,t)}function q(t,u,i){var o,e,r,f;l.__&&l.__(t,u),e=(o="function"==typeof i)?null:i&&i.__k||u.__k,r=[],f=[],O(u,t=(!o&&i||u).__k=b(C,null,[t]),e||d,d,u.namespaceURI,!o&&i?[i]:e?null:u.firstChild?n.call(u.childNodes):null,r,!o&&i?i:e?e.__e:u.firstChild,o,f),V(r,t,f)}n=y.slice,l={__e:function(n,l,t,u){for(var i,o,e;l=l.__;)if((i=l.__c)&&!i.__)try{if((o=i.constructor)&&null!=o.getDerivedStateFromError&&(i.setState(o.getDerivedStateFromError(n)),e=i.__d),null!=i.componentDidCatch&&(i.componentDidCatch(n,u||{}),e=i.__d),e)return i.__E=i}catch(l){n=l}throw n}},t=0,u=function(n){return null!=n&&null==n.constructor},x.prototype.setState=function(n,l){var t;t=null!=this.__s&&this.__s!==this.state?this.__s:this.__s=g({},this.state),"function"==typeof n&&(n=n(g({},t),this.props)),n&&g(t,n),null!=n&&this.__v&&(l&&this._sb.push(l),P(this))},x.prototype.forceUpdate=function(n){this.__v&&(this.__e=!0,n&&this.__h.push(n),P(this))},x.prototype.render=C,i=[],e="function"==typeof Promise?Promise.prototype.then.bind(Promise.resolve()):setTimeout,r=function(n,l){return n.__v.__b-l.__v.__b},$.__r=0,f=0,c=T(!1),s=T(!0),a=0,h={__proto__:null,render:q,hydrate:function n(l,t){q(l,t,n)},createElement:b,h:b,Fragment:C,createRef:function(){return{current:null}},isValidElement:u,Component:x,cloneElement:function(l,t,u){var i,o,e,r,f=g({},l.props);for(e in l.type&&l.type.defaultProps&&(r=l.type.defaultProps),t)"key"==e?i=t[e]:"ref"==e?o=t[e]:f[e]=void 0===t[e]&&void 0!==r?r[e]:t[e];return arguments.length>2&&(f.children=arguments.length>3?n.call(arguments,2):u),k(l.type,f,i||l.key,o||l.ref,null)},createContext:function(n,l){var t={__c:l="__cC"+a++,__:n,Consumer:function(n,l){return n.children(l)},Provider:function(n){var t,u;return this.getChildContext||(t=new Set,(u={})[l]=this,this.getChildContext=function(){return u},this.componentWillUnmount=function(){t=null},this.shouldComponentUpdate=function(n){this.props.value!==n.value&&t.forEach(function(n){n.__e=!0,P(n)})},this.sub=function(n){t.add(n);var l=n.componentWillUnmount;n.componentWillUnmount=function(){t&&t.delete(n),l&&l.call(n)}}),n.children}};return t.Provider.__=t.Consumer.contextType=t},toChildArray:function n(l,t){return t=t||[],null==l||"boolean"==typeof l||(_(l)?l.some(function(l){n(l,t)}):t.push(l)),t},options:l},typeof module<"u"?module.exports=h:self.preact=h});
+//# sourceMappingURL=preact.min.umd.js.map
+<\/script>
+<script>!function(n,t){"object"==typeof exports&&"undefined"!=typeof module?t(exports,require("preact")):"function"==typeof define&&define.amd?define(["exports","preact"],t):t((n||self).preactHooks={},n.preact)}(this,function(n,t){var u,r,i,o,f=0,c=[],e=t.options,a=e.__b,v=e.__r,l=e.diffed,d=e.__c,s=e.unmount,p=e.__;function h(n,t){e.__h&&e.__h(r,n,f||t),f=0;var u=r.__H||(r.__H={__:[],__h:[]});return n>=u.__.length&&u.__.push({}),u.__[n]}function y(n){return f=1,m(j,n)}function m(n,t,i){var o=h(u++,2);if(o.t=n,!o.__c&&(o.__=[i?i(t):j(void 0,t),function(n){var t=o.__N?o.__N[0]:o.__[0],u=o.t(t,n);t!==u&&(o.__N=[u,o.__[1]],o.__c.setState({}))}],o.__c=r,!r.u)){var f=function(n,t,u){if(!o.__c.__H)return!0;var r=o.__c.__H.__.filter(function(n){return!!n.__c});if(r.every(function(n){return!n.__N}))return!c||c.call(this,n,t,u);var i=!1;return r.forEach(function(n){if(n.__N){var t=n.__[0];n.__=n.__N,n.__N=void 0,t!==n.__[0]&&(i=!0)}}),!(!i&&o.__c.props===n)&&(!c||c.call(this,n,t,u))};r.u=!0;var c=r.shouldComponentUpdate,e=r.componentWillUpdate;r.componentWillUpdate=function(n,t,u){if(this.__e){var r=c;c=void 0,f(n,t,u),c=r}e&&e.call(this,n,t,u)},r.shouldComponentUpdate=f}return o.__N||o.__}function T(n,t){var i=h(u++,4);!e.__s&&g(i.__H,t)&&(i.__=n,i.i=t,r.__h.push(i))}function _(n,t){var r=h(u++,7);return g(r.__H,t)&&(r.__=n(),r.__H=t,r.__h=n),r.__}function b(){for(var n;n=c.shift();)if(n.__P&&n.__H)try{n.__H.__h.forEach(A),n.__H.__h.forEach(F),n.__H.__h=[]}catch(t){n.__H.__h=[],e.__e(t,n.__v)}}e.__b=function(n){r=null,a&&a(n)},e.__=function(n,t){n&&t.__k&&t.__k.__m&&(n.__m=t.__k.__m),p&&p(n,t)},e.__r=function(n){v&&v(n),u=0;var t=(r=n.__c).__H;t&&(i===r?(t.__h=[],r.__h=[],t.__.forEach(function(n){n.__N&&(n.__=n.__N),n.i=n.__N=void 0})):(t.__h.forEach(A),t.__h.forEach(F),t.__h=[],u=0)),i=r},e.diffed=function(n){l&&l(n);var t=n.__c;t&&t.__H&&(t.__H.__h.length&&(1!==c.push(t)&&o===e.requestAnimationFrame||((o=e.requestAnimationFrame)||x)(b)),t.__H.__.forEach(function(n){n.i&&(n.__H=n.i),n.i=void 0})),i=r=null},e.__c=function(n,t){t.some(function(n){try{n.__h.forEach(A),n.__h=n.__h.filter(function(n){return!n.__||F(n)})}catch(u){t.some(function(n){n.__h&&(n.__h=[])}),t=[],e.__e(u,n.__v)}}),d&&d(n,t)},e.unmount=function(n){s&&s(n);var t,u=n.__c;u&&u.__H&&(u.__H.__.forEach(function(n){try{A(n)}catch(n){t=n}}),u.__H=void 0,t&&e.__e(t,u.__v))};var q="function"==typeof requestAnimationFrame;function x(n){var t,u=function(){clearTimeout(r),q&&cancelAnimationFrame(t),setTimeout(n)},r=setTimeout(u,100);q&&(t=requestAnimationFrame(u))}function A(n){var t=r,u=n.__c;"function"==typeof u&&(n.__c=void 0,u()),r=t}function F(n){var t=r;n.__c=n.__(),r=t}function g(n,t){return!n||n.length!==t.length||t.some(function(t,u){return t!==n[u]})}function j(n,t){return"function"==typeof t?t(n):t}n.useCallback=function(n,t){return f=8,_(function(){return n},t)},n.useContext=function(n){var t=r.context[n.__c],i=h(u++,9);return i.c=n,t?(null==i.__&&(i.__=!0,t.sub(r)),t.props.value):n.__},n.useDebugValue=function(n,t){e.useDebugValue&&e.useDebugValue(t?t(n):n)},n.useEffect=function(n,t){var i=h(u++,3);!e.__s&&g(i.__H,t)&&(i.__=n,i.i=t,r.__H.__h.push(i))},n.useErrorBoundary=function(n){var t=h(u++,10),i=y();return t.__=n,r.componentDidCatch||(r.componentDidCatch=function(n,u){t.__&&t.__(n,u),i[1](n)}),[i[0],function(){i[1](void 0)}]},n.useId=function(){var n=h(u++,11);if(!n.__){for(var t=r.__v;null!==t&&!t.__m&&null!==t.__;)t=t.__;var i=t.__m||(t.__m=[0,0]);n.__="P"+i[0]+"-"+i[1]++}return n.__},n.useImperativeHandle=function(n,t,u){f=6,T(function(){return"function"==typeof n?(n(t()),function(){return n(null)}):n?(n.current=t(),function(){return n.current=null}):void 0},null==u?u:u.concat(n))},n.useLayoutEffect=T,n.useMemo=_,n.useReducer=m,n.useRef=function(n){return f=5,_(function(){return{current:n}},[])},n.useState=y});
+//# sourceMappingURL=hooks.umd.js.map
+<\/script>
+<script>!function(n,e){"object"==typeof exports&&"undefined"!=typeof module?module.exports=e():"function"==typeof define&&define.amd?define(e):n.htm=e()}(this,function(){var n=function(e,t,u,s){var r;t[0]=0;for(var p=1;p<t.length;p++){var h=t[p++],o=t[p]?(t[0]|=h?1:2,u[t[p++]]):t[++p];3===h?s[0]=o:4===h?s[1]=Object.assign(s[1]||{},o):5===h?(s[1]=s[1]||{})[t[++p]]=o:6===h?s[1][t[++p]]+=o+"":h?(r=e.apply(o,n(e,o,u,["",null])),s.push(r),o[0]?t[0]|=2:(t[p-2]=0,t[p]=r)):s.push(o)}return s},e=new Map;return function(t){var u=e.get(this);return u||(u=new Map,e.set(this,u)),(u=n(this,u.get(t)||(u.set(t,u=function(n){for(var e,t,u=1,s="",r="",p=[0],h=function(n){1===u&&(n||(s=s.replace(/^\s*\n\s*|\s*\n\s*$/g,"")))?p.push(0,n,s):3===u&&(n||s)?(p.push(3,n,s),u=2):2===u&&"..."===s&&n?p.push(4,n,0):2===u&&s&&!n?p.push(5,0,!0,s):u>=5&&((s||!n&&5===u)&&(p.push(u,0,s,t),u=6),n&&(p.push(u,n,0,t),u=6)),s=""},o=0;o<n.length;o++){o&&(1===u&&h(),h(o));for(var f=0;f<n[o].length;f++)e=n[o][f],1===u?"<"===e?(h(),p=[p],u=3):s+=e:4===u?"--"===s&&">"===e?(u=1,s=""):s=e+s[0]:r?e===r?r="":s+=e:'"'===e||"'"===e?r=e:">"===e?(h(),u=1):u&&("="===e?(u=5,t=s,s=""):"/"===e&&(u<5||">"===n[o][f+1])?(h(),3===u&&(p=p[0]),u=p,(p=p[0]).push(2,0,u),u=0):" "===e||"\t"===e||"\n"===e||"\r"===e?(h(),u=2):s+=e),3===u&&"!--"===s&&(u=4,p=p[0])}return h(),p}(t)),u),arguments,[])).length>1?u:u[0]}});
+<\/script>
 <script>
 "use strict";
 const TZ = "Asia/Riyadh", TZ_OFFSET_H = 3;
@@ -6861,14 +6765,15 @@ function saveTrend(cur){
       localStorage.setItem(TREND_KEY, JSON.stringify(cur));
   }catch(e){}
 }
+/* يعيد vnode سهم التغيّر (أو null) — يُعرض داخل خلية الاحتمال */
 function trendArrow(old, name, iso, p){
-  if(old===null || p===null) return "";
+  if(old===null || p===null) return null;
   const prev = old.p?.[name]?.[iso];
-  if(prev===undefined || prev===null) return "";
+  if(prev===undefined || prev===null) return null;
   const d = p - prev;
-  if(d >= TREND_DELTA) return ` <span class="tr-up" title="ارتفع من ${prev}%">↑</span>`;
-  if(d <= -TREND_DELTA) return ` <span class="tr-dn" title="انخفض من ${prev}%">↓</span>`;
-  return "";
+  if(d >= TREND_DELTA) return html` <span class="tr-up" title=${"ارتفع من "+prev+"%"}>↑</span>`;
+  if(d <= -TREND_DELTA) return html` <span class="tr-dn" title=${"انخفض من "+prev+"%"}>↓</span>`;
+  return null;
 }
 
 // الغطاء السحابي النهاري (6ص–6م) من البيانات الساعية إن غطت اليوم، وإلا null
@@ -6888,98 +6793,97 @@ async function fetchJSON(url, opt){
   if(!res.ok) throw new Error("HTTP "+res.status);
   return res.json();
 }
-const chip = (name, ok, extra) =>
-  `<span class="chip">${name}: <span class="${ok?'st-ok':'st-bad'}">${ok?"✓":"✗"}</span>${extra?` ${extra}`:""}</span>`;
+/* ═════ إطار المكوّنات: Preact + HTM (موردة محلياً — نفس نمط الحاسبة) ═════
+   المحرك يحسب البيانات، والمكوّنات تصفها بقوالب html`` (إغلاق المكوّن <//>) */
+const {h:vh, render:vrender} = preact;
+const html = htm.bind(vh);
+const useState = preactHooks.useState;
 
-function detailTable(iso, i, om, met, ens, hr, cmf){
-  // صفوف = النماذج، أعمدة = المواقع (ملم)
-  let head = "<tr><th>النموذج (ملم)</th>" + LOCS.map(l=>`<th>${l.short}</th>`).join("") + "</tr>";
-  const rowNames = [...OM_MODELS.map(m=>m.name), "MET Norway (نرويجي)"];
-  const cells = LOCS.map((l,li)=> detDay(om?om[li]:null, met[li], iso, i).models);
-  let rows = rowNames.map((nm,mi)=>{
-    const tds = cells.map(ms=>{
-      const m = ms[mi];
-      return `<td>${m.mm!==null ? m.mm.toFixed(1)+(m.partial?"*":"") : "—"}</td>`;
-    }).join("");
-    return `<tr><td class="mname">${nm}</td>${tds}</tr>`;
-  }).join("");
-  // صف الجماعية: وسيط | أقصى
-  const ensTds = LOCS.map((l,li)=>{
-    const e = ensembleDay(ens?ens[li]:null, i);
-    return `<td>${e.med!==null ? e.med.toFixed(1)+" | "+e.max.toFixed(1) : "—"}</td>`;
-  }).join("");
-  rows += `<tr><td class="mname">الجماعية: وسيط | أقصى عضو</td>${ensTds}</tr>`;
-  const clTds = LOCS.map((l,li)=>{
-    const dd = detDay(om?om[li]:null, met[li], iso, i);
-    const cd = cloudDaytime(hr ? hr[li] : null, iso);
-    const c = cd!==null ? cd : dd.cloud;
-    return `<td>${c!==null ? Math.round(c)+"%" : "—"}</td>`;
-  }).join("");
-  rows += `<tr><td class="mname">☁️ الغطاء السحابي</td>${clTds}</tr>`;
-  /* الراحة الحرارية: المحسوسة عظمى/صغرى + نقطة الندى (التكثف) */
-  const gCmf = (li,v) => { const c = cmf?cmf[li]:null; return num(c && c.daily && c.daily[v] ? c.daily[v][i] : null); };
-  const apTds = LOCS.map((l,li)=>{
-    const ax = gCmf(li,"apparent_temperature_max"), an = gCmf(li,"apparent_temperature_min");
-    return `<td>${(ax!==null&&an!==null) ? Math.round(ax)+" / "+Math.round(an) : "—"}</td>`;
-  }).join("");
-  rows += `<tr><td class="mname">🌡️ المحسوسة عظمى/صغرى (°م)</td>${apTds}</tr>`;
-  const dwTds = LOCS.map((l,li)=>{
-    const v = gCmf(li,"dew_point_2m_mean");
-    return `<td>${v!==null ? Math.round(v)+"°" : "—"}</td>`;
-  }).join("");
-  rows += `<tr><td class="mname">💧 نقطة الندى — التكثف (°م)</td>${dwTds}</tr>`;
-  const partial = cells.some(ms=>ms.some(m=>m.partial))
-    ? '<div class="note">* تغطية جزئية لليوم من MET Norway.</div>' : "";
-  return `<div class="dwrap"><table class="mini"><thead>${head}</thead><tbody>${rows}</tbody></table>${partial}</div>`;
+function Chip({name, ok, extra}){
+  return html`<span class="chip">${name}: <span class=${ok?'st-ok':'st-bad'}>${ok?"✓":"✗"}</span>${extra?` ${extra}`:""}</span>`;
 }
 
-function buildHourly(hr){
-  const grid = document.getElementById("hgrid");
-  grid.innerHTML = "";
-  if(!hr){ document.getElementById("hourlyCard").style.display="none"; return; }
+function DetailTable({iso, i, om, met, ens, hr, cmf}){
+  // صفوف = النماذج، أعمدة = المواقع (ملم)
+  const rowNames = [...OM_MODELS.map(m=>m.name), "MET Norway (نرويجي)"];
+  const cells = LOCS.map((l,li)=> detDay(om?om[li]:null, met[li], iso, i).models);
+  const gCmf = (li,v) => { const c = cmf?cmf[li]:null; return num(c && c.daily && c.daily[v] ? c.daily[v][i] : null); };
+  const anyPartial = cells.some(ms=>ms.some(m=>m.partial));
+  return html`<div class="dwrap"><table class="mini">
+    <thead><tr><th>النموذج (ملم)</th>${LOCS.map(l=>html`<th>${l.short}</th>`)}</tr></thead>
+    <tbody>
+      ${rowNames.map((nm,mi)=>html`<tr><td class="mname">${nm}</td>
+        ${cells.map(ms=>{
+          const m = ms[mi];
+          return html`<td>${m.mm!==null ? m.mm.toFixed(1)+(m.partial?"*":"") : "—"}</td>`;
+        })}</tr>`)}
+      <tr><td class="mname">الجماعية: وسيط | أقصى عضو</td>
+        ${LOCS.map((l,li)=>{
+          const e = ensembleDay(ens?ens[li]:null, i);
+          return html`<td>${e.med!==null ? e.med.toFixed(1)+" | "+e.max.toFixed(1) : "—"}</td>`;
+        })}</tr>
+      <tr><td class="mname">☁️ الغطاء السحابي</td>
+        ${LOCS.map((l,li)=>{
+          const dd = detDay(om?om[li]:null, met[li], iso, i);
+          const cd = cloudDaytime(hr ? hr[li] : null, iso);
+          const c = cd!==null ? cd : dd.cloud;
+          return html`<td>${c!==null ? Math.round(c)+"%" : "—"}</td>`;
+        })}</tr>
+      <tr><td class="mname">🌡️ المحسوسة عظمى/صغرى (°م)</td>
+        ${LOCS.map((l,li)=>{
+          const ax = gCmf(li,"apparent_temperature_max"), an = gCmf(li,"apparent_temperature_min");
+          return html`<td>${(ax!==null&&an!==null) ? Math.round(ax)+" / "+Math.round(an) : "—"}</td>`;
+        })}</tr>
+      <tr><td class="mname">💧 نقطة الندى — التكثف (°م)</td>
+        ${LOCS.map((l,li)=>{
+          const v = gCmf(li,"dew_point_2m_mean");
+          return html`<td>${v!==null ? Math.round(v)+"°" : "—"}</td>`;
+        })}</tr>
+    </tbody>
+  </table>${anyPartial?html`<div class="note">* تغطية جزئية لليوم من MET Norway.</div>`:null}</div>`;
+}
+
+function HourlyGrid({hr}){
   // صف عناوين الساعات (كل 6 ساعات) من الموقع الأول
   const times = hr[0].hourly.time;
-  const lbl = document.createElement("div"); lbl.className="hname"; lbl.textContent="";
-  const lbls = document.createElement("div"); lbls.className="hlabels";
+  const labels = [];
   for(let i=0;i<times.length;i+=6){
     const t = times[i].slice(5,16).replace("T"," ");
-    lbls.innerHTML += `<span>${t.slice(6)}٬${t.slice(3,5)}/${t.slice(0,2)}</span>`;
+    labels.push(html`<span>${t.slice(6)}٬${t.slice(3,5)}/${t.slice(0,2)}</span>`);
   }
-  grid.appendChild(lbl); grid.appendChild(lbls);
-  LOCS.forEach((l,li)=>{
-    const h = hr[li].hourly;
-    const nameEl = document.createElement("div");
-    nameEl.className="hname"; nameEl.textContent = l.short;
-    const strip = document.createElement("div"); strip.className="strip";
-    h.time.forEach((t,i)=>{
-      const p = num(h.precipitation_probability[i]) ?? 0;
-      const mm = num(h.precipitation[i]) ?? 0;
-      const cape = num(h.cape[i]) ?? 0;
-      const c = document.createElement("span");
-      c.className = "hc" + (p>=60?" h3":p>=40?" h2":p>=20?" h1":"") + (cape>=CAPE_ZAP && p>=20 ? " zap":"");
-      const dw = h.dew_point_2m ? num(h.dew_point_2m[i]) : null;
-      const ap = h.apparent_temperature ? num(h.apparent_temperature[i]) : null;
-      const cmfLine = (dw!==null || ap!==null)
-        ? "\n" + [ap!==null ? "محسوسة: "+Math.round(ap)+"°" : "", dw!==null ? "نقطة الندى: "+Math.round(dw)+"°" : ""]
-            .filter(Boolean).join(" · ")
-        : "";
-      c.title = `${l.short} — ${t.replace("T"," ")}\nاحتمال: ${p}% · كمية: ${mm.toFixed(1)} ملم · CAPE: ${Math.round(cape)}` + cmfLine;
-      strip.appendChild(c);
-    });
-    grid.appendChild(nameEl); grid.appendChild(strip);
-    // شريط الغطاء السحابي
-    const cName = document.createElement("div");
-    cName.className="hname cloud"; cName.textContent="☁️";
-    const cStrip = document.createElement("div"); cStrip.className="strip";
-    h.time.forEach((t,i)=>{
-      const cv = num(h.cloud_cover[i]) ?? 0;
-      const c = document.createElement("span");
-      c.className = "cc" + (cv>=80?" c4":cv>=60?" c3":cv>=40?" c2":cv>=20?" c1":"");
-      c.title = `${l.short} — ${t.replace("T"," ")}\nغطاء سحابي: ${cv}%`;
-      cStrip.appendChild(c);
-    });
-    grid.appendChild(cName); grid.appendChild(cStrip);
-  });
+  return html`
+    <div class="hname"></div><div class="hlabels">${labels}</div>
+    ${LOCS.map((l,li)=>{
+      const h = hr[li].hourly;
+      return html`
+        <div class="hname">${l.short}</div>
+        <div class="strip">${h.time.map((t,i)=>{
+          const p = num(h.precipitation_probability[i]) ?? 0;
+          const mm = num(h.precipitation[i]) ?? 0;
+          const cape = num(h.cape[i]) ?? 0;
+          const dw = h.dew_point_2m ? num(h.dew_point_2m[i]) : null;
+          const ap = h.apparent_temperature ? num(h.apparent_temperature[i]) : null;
+          const cmfLine = (dw!==null || ap!==null)
+            ? "\n" + [ap!==null ? "محسوسة: "+Math.round(ap)+"°" : "", dw!==null ? "نقطة الندى: "+Math.round(dw)+"°" : ""]
+                .filter(Boolean).join(" · ")
+            : "";
+          return html`<span
+            class=${"hc" + (p>=60?" h3":p>=40?" h2":p>=20?" h1":"") + (cape>=CAPE_ZAP && p>=20 ? " zap":"")}
+            title=${`${l.short} — ${t.replace("T"," ")}\nاحتمال: ${p}% · كمية: ${mm.toFixed(1)} ملم · CAPE: ${Math.round(cape)}` + cmfLine}/>`;
+        })}</div>
+        <div class="hname cloud">☁️</div>
+        <div class="strip">${h.time.map((t,i)=>{
+          const cv = num(h.cloud_cover[i]) ?? 0;
+          return html`<span
+            class=${"cc" + (cv>=80?" c4":cv>=60?" c3":cv>=40?" c2":cv>=20?" c1":"")}
+            title=${`${l.short} — ${t.replace("T"," ")}\nغطاء سحابي: ${cv}%`}/>`;
+        })}</div>`;
+    })}`;
+}
+function buildHourly(hr){
+  const grid = document.getElementById("hgrid");
+  if(!hr){ vrender(null, grid); document.getElementById("hourlyCard").style.display="none"; return; }
+  vrender(html`<${HourlyGrid} hr=${hr}/>`, grid);
   document.getElementById("hourlyCard").style.display="block";
 }
 
@@ -7005,12 +6909,13 @@ async function load(){
   const met = metR.map(r => r.status==="fulfilled" ? r.value : null);
   const metOkN = met.filter(Boolean).length;
 
-  document.getElementById("srcChips").innerHTML =
-    chip("الجماعية (133 عضواً)", !!ens, ens?"":"· "+(ensR.reason&&ensR.reason.message)) +
-    chip("النماذج الحتمية (6)", !!om, om?"":"· "+(omR.reason&&omR.reason.message)) +
-    chip("MET Norway", metOkN>0, "· "+metOkN+"/"+LOCS.length+" مواقع") +
-    chip("الساعي + CAPE", !!hr, "") +
-    chip("المحسوسة ونقطة الندى", !!cmf, "");
+  vrender(html`
+    <${Chip} name="الجماعية (133 عضواً)" ok=${!!ens} extra=${ens?"":"· "+(ensR.reason&&ensR.reason.message)}/>
+    <${Chip} name="النماذج الحتمية (6)" ok=${!!om} extra=${om?"":"· "+(omR.reason&&omR.reason.message)}/>
+    <${Chip} name="MET Norway" ok=${metOkN>0} extra=${"· "+metOkN+"/"+LOCS.length+" مواقع"}/>
+    <${Chip} name="الساعي + CAPE" ok=${!!hr} extra=""/>
+    <${Chip} name="المحسوسة ونقطة الندى" ok=${!!cmf} extra=""/>`,
+    document.getElementById("srcChips"));
   document.getElementById("srcCard").style.display="block";
 
   if(!om && !ens){
@@ -7020,21 +6925,18 @@ async function load(){
   }
 
   // رأس الجدول: عمود لكل موقع
-  document.getElementById("thRow").innerHTML =
-    "<th>التاريخ</th>" + LOCS.map(l=>`<th class="loc">${l.name}<small>${l.elev}</small></th>`).join("");
+  vrender(html`<th>التاريخ</th>${LOCS.map(l=>html`<th class="loc">${l.name}<small>${l.elev}</small></th>`)}`,
+    document.getElementById("thRow"));
 
   const dates = om ? om[0].daily.time : ens[0].daily.time;
   const oldTrend = loadTrend();
   const curTrend = {t: Date.now(), p: {}};
   LOCS.forEach(l => curTrend.p[l.name] = {});
-  const tb = document.querySelector("#tbl tbody");
-  tb.innerHTML = "";
   const hiList = [];
 
-  dates.forEach((iso,i)=>{
-    const tr = document.createElement("tr");
-    let cellsHtml = `<td class="day">${fmtDate(iso)}</td>`;
-    LOCS.forEach((l,li)=>{
+  /* المحرك يحسب بيانات كل صف/خلية، والمكوّنات أدناه تصفها فقط */
+  const rowsData = dates.map((iso,i)=>{
+    const cells = LOCS.map((l,li)=>{
       const e = ensembleDay(ens?ens[li]:null, i);
       const dd = detDay(om?om[li]:null, met[li], iso, i);
       curTrend.p[l.name][iso] = e.p;
@@ -7048,28 +6950,31 @@ async function load(){
       const cd = cloudDaytime(hr?hr[li]:null, iso);
       const cloud = cd!==null ? cd : dd.cloud;
       const clTxt = cloud!==null ? "☁️"+Math.round(cloud)+"%" : "";
-      const mid = [mmTxt, clTxt].filter(Boolean).join(" · ");
-      cellsHtml += `<td class="cell${strong?' strong':''}">`
-        + `<span class="ep ${eClass(e.p)}">${pTxt}${trendArrow(oldTrend, l.name, iso, e.p)}</span>`
-        + (mid ? `<span class="mmc">${mmTxt}${mmTxt&&clTxt?" · ":""}<span class="cl">${clTxt}</span></span>` : "")
-        + `<span class="${consCls}">${dd.avail ? "إجماع "+dd.wet+"/"+dd.avail : "&nbsp;"}</span>`
-        + comfortCell(cmf, li, i)
-        + `</td>`;
+      return {name:l.name, e, dd, strong, pTxt, consCls, mmTxt, clTxt,
+        cmfHtml: comfortCell(cmf, li, i)};
     });
-    tr.innerHTML = cellsHtml;
-    tb.appendChild(tr);
-
-    const trD = document.createElement("tr");
-    trD.className="detail"; trD.style.display="none";
-    trD.innerHTML = `<td colspan="${1+LOCS.length}">${detailTable(iso,i,om,met,ens,hr,cmf)}</td>`;
-    tb.appendChild(trD);
-    tr.querySelector("td.day").addEventListener("click", ()=>{
-      const open = trD.style.display!=="none";
-      trD.style.display = open ? "none" : "";
-      tr.classList.toggle("open", !open);
-    });
+    return {iso, i, cells};
   });
   saveTrend(curTrend);
+
+  function DayRow({row}){
+    const [open, setOpen] = useState(false);
+    return html`
+      <tr class=${open?"open":""}>
+        <td class="day" onClick=${()=>setOpen(!open)}>${fmtDate(row.iso)}</td>
+        ${row.cells.map(c=>html`<td class=${"cell"+(c.strong?" strong":"")}>
+          <span class=${"ep "+eClass(c.e.p)}>${c.pTxt}${trendArrow(oldTrend, c.name, row.iso, c.e.p)}</span>
+          ${(c.mmTxt||c.clTxt)?html`<span class="mmc">${c.mmTxt}${c.mmTxt&&c.clTxt?" · ":""}<span class="cl">${c.clTxt}</span></span>`:null}
+          <span class=${c.consCls}>${c.dd.avail ? "إجماع "+c.dd.wet+"/"+c.dd.avail : " "}</span>
+          ${c.cmfHtml ? html`<span style="display:contents" dangerouslySetInnerHTML=${{__html: c.cmfHtml}}/>` : null}
+        </td>`)}
+      </tr>
+      <tr class="detail" style=${open?"":"display:none"}>
+        <td colSpan=${1+LOCS.length}><${DetailTable} iso=${row.iso} i=${row.i} om=${om} met=${met} ens=${ens} hr=${hr} cmf=${cmf}/></td>
+      </tr>`;
+  }
+  vrender(html`${rowsData.map(r=>html`<${DayRow} key=${r.iso} row=${r}/>`)}`,
+    document.querySelector("#tbl tbody"));
 
   // الخلاصة: أعلى (موقع، يوم) خلال الأسبوع
   const sum = document.getElementById("summary");
@@ -7081,17 +6986,17 @@ async function load(){
     });
   });
   wk.sort((a,b)=>b.p-a.p);
-  let html = "<b>الخلاصة:</b> ";
   const top = wk.filter(x=>x.p>=20).slice(0,4)
     .map(x=>`${x.loc} ${fmtDate(x.iso)} (${x.p}%)`).join("، ");
-  html += top ? `أعلى الفرص خلال الأسبوع: ${top}.`
-              : "لا فرص هطول تُذكر خلال الأسبوع القادم في المواقع المختارة.";
-  html += hiList.length
-    ? ` خلايا الفرصة القوية (مظللة): ${hiList.length}.`
-    : " لا توجد خلايا فرصة قوية حالياً.";
-  if(oldTrend===null && !loadTrend())
-    html += ' <span class="note">(أسهم التغيّر ↑↓ ستظهر بدءاً من التحديث القادم بعد حفظ مرجع أول)</span>';
-  sum.innerHTML = html;
+  vrender(html`<b>الخلاصة:</b> ${
+      top ? `أعلى الفرص خلال الأسبوع: ${top}.`
+          : "لا فرص هطول تُذكر خلال الأسبوع القادم في المواقع المختارة."}${
+      hiList.length
+        ? ` خلايا الفرصة القوية (مظللة): ${hiList.length}.`
+        : " لا توجد خلايا فرصة قوية حالياً."}${
+      (oldTrend===null && !loadTrend())
+        ? html` <span class="note">(أسهم التغيّر ↑↓ ستظهر بدءاً من التحديث القادم بعد حفظ مرجع أول)</span>`
+        : null}`, sum);
   sum.style.display="block";
 
   buildHourly(hr);
@@ -7181,33 +7086,30 @@ function setRainAlert(){
   try{ window.parent._pushWxNativeCfg?.(); }catch(e){}
 }
 
-function renderCityChecks(){
-  const box = document.getElementById("cityChecks");
-  box.innerHTML = "";
-  ALL_LOCS.forEach(l=>{
+function CityChecks(){
+  const onChange = l => ev => {
+    const cb = ev.target;
+    if(!cb.checked && activeLocs().length <= 1){
+      cb.checked = true;
+      const w = document.getElementById("cityWarn");
+      w.style.display = "block";
+      setTimeout(()=>{ w.style.display="none"; }, 2500);
+      return;
+    }
+    const p = cityPrefs(); p[l.name] = cb.checked; storeJSON(CITY_KEY, p);
+    try{ window.parent._pushWxNativeCfg?.(); }catch(e){}   /* مدن التنبيه الخلفي تتبع المفعّلة */
+    LOCS = activeLocs();
+    renderCityChecks();
+    load();
+  };
+  return html`${ALL_LOCS.map(l=>{
     const on = cityEnabled(l);
-    const lab = document.createElement("label");
-    lab.className = "chk" + (on ? " on" : "");
-    const cb = document.createElement("input");
-    cb.type = "checkbox"; cb.checked = on;
-    cb.addEventListener("change", ()=>{
-      if(!cb.checked && activeLocs().length <= 1){
-        cb.checked = true;
-        const w = document.getElementById("cityWarn");
-        w.style.display = "block";
-        setTimeout(()=>{ w.style.display="none"; }, 2500);
-        return;
-      }
-      const p = cityPrefs(); p[l.name] = cb.checked; storeJSON(CITY_KEY, p);
-      try{ window.parent._pushWxNativeCfg?.(); }catch(e){}   /* مدن التنبيه الخلفي تتبع المفعّلة */
-      LOCS = activeLocs();
-      renderCityChecks();
-      load();
-    });
-    lab.appendChild(cb);
-    lab.appendChild(document.createTextNode(l.name + " (" + l.elev + ")"));
-    box.appendChild(lab);
-  });
+    return html`<label class=${"chk"+(on?" on":"")}>
+      <input type="checkbox" checked=${on} onChange=${onChange(l)}/>${l.name+" ("+l.elev+")"}</label>`;
+  })}`;
+}
+function renderCityChecks(){
+  vrender(html`<${CityChecks}/>`, document.getElementById("cityChecks"));
 }
 
 /* ══════════ الإعدادات: أيام الحفظ المحلي ══════════ */
@@ -7215,30 +7117,28 @@ const riyadhISO = (offDays) => new Date(Date.now() + (TZ_OFFSET_H*3600e3) + (off
   .toISOString().slice(0,10);
 function savedDays(){ const a = loadJSON(SAVED_DAYS_KEY, []); return Array.isArray(a) ? a.filter(x=>typeof x==="string") : []; }
 
+function DayChecks({sel}){
+  const onChange = iso => ev => {
+    const cur = new Set(savedDays());
+    if(ev.target.checked) cur.add(iso); else cur.delete(iso);
+    storeJSON(SAVED_DAYS_KEY, [...cur].sort());
+    renderDayChecks();
+  };
+  const items = [];
+  for(let i=0;i<16;i++){
+    const iso = riyadhISO(i);
+    const on = sel.has(iso);
+    items.push(html`<label class=${"chk"+(on?" on":"")}>
+      <input type="checkbox" checked=${on} onChange=${onChange(iso)}/>${fmtDate(iso)}</label>`);
+  }
+  return html`${items}`;
+}
 function renderDayChecks(){
-  const box = document.getElementById("dayChecks");
-  box.innerHTML = "";
   const today = riyadhISO(0);
   /* ننظّف الاختيارات المنقضية (بيانات الأيام الماضية تبقى محفوظة حتى يحذفها المستخدم) */
   const sel = new Set(savedDays().filter(x => x >= today));
   storeJSON(SAVED_DAYS_KEY, [...sel]);
-  for(let i=0;i<16;i++){
-    const iso = riyadhISO(i);
-    const on = sel.has(iso);
-    const lab = document.createElement("label");
-    lab.className = "chk" + (on ? " on" : "");
-    const cb = document.createElement("input");
-    cb.type = "checkbox"; cb.checked = on;
-    cb.addEventListener("change", ()=>{
-      const cur = new Set(savedDays());
-      if(cb.checked) cur.add(iso); else cur.delete(iso);
-      storeJSON(SAVED_DAYS_KEY, [...cur].sort());
-      lab.className = "chk" + (cb.checked ? " on" : "");
-    });
-    lab.appendChild(cb);
-    lab.appendChild(document.createTextNode(fmtDate(iso)));
-    box.appendChild(lab);
-  }
+  vrender(html`<${DayChecks} sel=${sel}/>`, document.getElementById("dayChecks"));
 }
 
 /* لقطة بيانات للأيام المختارة — تُستدعى بعد كل جلب ناجح */
@@ -7282,64 +7182,50 @@ function captureSaved(dates, om, ens, hr, met, cmf){
 }
 
 /* ══════════ مراجعة البيانات المحفوظة ══════════ */
+function SnapCell({c}){
+  if(!c) return html`<td>—</td>`;
+  const p = c.p!==null && c.p!==undefined ? c.p+"%" : "—";
+  const mm = c.mm!==null && c.mm!==undefined && c.mm>=0.1 ? "≈"+c.mm.toFixed(1)+"ملم" : "";
+  const t = (c.tmax!==null && c.tmax!==undefined && c.tmin!==null && c.tmin!==undefined)
+    ? "🌡️"+Math.round(c.tmax)+"/"+Math.round(c.tmin) : "";
+  const cl = c.cloud!==null && c.cloud!==undefined ? "☁️"+c.cloud+"%" : "";
+  const cons = c.avail ? "إجماع "+c.wet+"/"+c.avail : "";
+  const feels = (c.fmax!==null && c.fmax!==undefined && c.fmin!==null && c.fmin!==undefined)
+    ? "محسوسة "+Math.round(c.fmax)+"/"+Math.round(c.fmin) : "";
+  const dew = (c.dew!==null && c.dew!==undefined) ? "💧ندى "+Math.round(c.dew)+"°" : "";
+  return html`<td><span class=${"ep "+eClass(c.p)} style="font-size:.8rem">${p}</span>
+    <span class="mmc">${[mm,cl].filter(Boolean).join(" · ")||" "}</span>
+    <span class="cons">${[t,cons].filter(Boolean).join(" · ")||" "}</span>
+    ${(feels||dew) ? html`<span class="cons">${[feels,dew].filter(Boolean).join(" · ")}</span>` : null}</td>`;
+}
+function SavedDay({iso, snaps, onDel}){
+  const cityNames = [...new Set(snaps.flatMap(s=>Object.keys(s.cities||{})))];
+  return html`<details class="sv">
+    <summary>📅 ${fmtDate(iso)} <span class="note">(${snaps.length} لقطة)</span></summary>
+    <div dangerouslySetInnerHTML=${{__html:_snapChart(snaps, cityNames)}}/>
+    <div class="wrap" style="margin-top:6px"><table class="mini">
+      <thead><tr><th>وقت اللقطة</th>${cityNames.map(n=>html`<th>${n}</th>`)}</tr></thead>
+      <tbody>${snaps.map(s=>html`<tr>
+        <td class="mname">${new Date(s.t).toLocaleString("ar-SA",{dateStyle:"short",timeStyle:"short"})}</td>
+        ${cityNames.map(n=>html`<${SnapCell} c=${(s.cities||{})[n]}/>`)}</tr>`)}</tbody>
+    </table></div>
+    <div style="margin-top:6px"><button class="sm danger" data-del=${iso} onClick=${onDel}>🗑️ حذف بيانات هذا اليوم</button></div>
+  </details>`;
+}
 function renderSavedList(){
   const box = document.getElementById("savedList");
   const data = loadJSON(SAVED_DATA_KEY, {});
   const store = (data && typeof data==="object" && !Array.isArray(data)) ? data : {};
   const isos = Object.keys(store).filter(k=>Array.isArray(store[k]) && store[k].length).sort();
   if(!isos.length){
-    box.innerHTML = '<div class="note">لا بيانات محفوظة بعد — اختر أياماً أعلاه وستُحفظ لقطاتها تلقائياً مع كل تحديث.</div>';
+    vrender(html`<div class="note">لا بيانات محفوظة بعد — اختر أياماً أعلاه وستُحفظ لقطاتها تلقائياً مع كل تحديث.</div>`, box);
     return;
   }
-  box.innerHTML = "";
-  isos.forEach(iso=>{
-    const snaps = store[iso];
-    const det = document.createElement("details");
-    det.className = "sv";
-    const cityNames = [...new Set(snaps.flatMap(s=>Object.keys(s.cities||{})))];
-    const head = "<tr><th>وقت اللقطة</th>" + cityNames.map(n=>`<th>${n}</th>`).join("") + "</tr>";
-    const rows = snaps.map(s=>{
-      const tds = cityNames.map(n=>{
-        const c = (s.cities||{})[n];
-        if(!c) return "<td>—</td>";
-        const p = c.p!==null && c.p!==undefined ? c.p+"%" : "—";
-        const mm = c.mm!==null && c.mm!==undefined && c.mm>=0.1 ? "≈"+c.mm.toFixed(1)+"ملم" : "";
-        const t = (c.tmax!==null && c.tmax!==undefined && c.tmin!==null && c.tmin!==undefined)
-          ? "🌡️"+Math.round(c.tmax)+"/"+Math.round(c.tmin) : "";
-        const cl = c.cloud!==null && c.cloud!==undefined ? "☁️"+c.cloud+"%" : "";
-        const cons = c.avail ? "إجماع "+c.wet+"/"+c.avail : "";
-        const feels = (c.fmax!==null && c.fmax!==undefined && c.fmin!==null && c.fmin!==undefined)
-          ? "محسوسة "+Math.round(c.fmax)+"/"+Math.round(c.fmin) : "";
-        const dew = (c.dew!==null && c.dew!==undefined) ? "💧ندى "+Math.round(c.dew)+"°" : "";
-        return `<td><span class="ep ${eClass(c.p)}" style="font-size:.8rem">${p}</span>`
-          + `<span class="mmc">${[mm,cl].filter(Boolean).join(" · ")||"&nbsp;"}</span>`
-          + `<span class="cons">${[t,cons].filter(Boolean).join(" · ")||"&nbsp;"}</span>`
-          + ((feels||dew) ? `<span class="cons">${[feels,dew].filter(Boolean).join(" · ")}</span>` : "")
-          + `</td>`;
-      }).join("");
-      return `<tr><td class="mname">${new Date(s.t).toLocaleString("ar-SA",{dateStyle:"short",timeStyle:"short"})}</td>${tds}</tr>`;
-    }).join("");
-    det.innerHTML =
-      `<summary>📅 ${fmtDate(iso)} <span class="note">(${snaps.length} لقطة)</span></summary>`
-      + _snapChart(snaps, cityNames)
-      + `<div class="wrap" style="margin-top:6px"><table class="mini"><thead>${head}</thead><tbody>${rows}</tbody></table></div>`
-      + `<div style="margin-top:6px"><button class="sm danger" data-del="${iso}">🗑️ حذف بيانات هذا اليوم</button></div>`;
-    det.querySelector("[data-del]").addEventListener("click", ()=>{
-      delete store[iso];
-      storeJSON(SAVED_DATA_KEY, store);
-      renderSavedList();
-    });
-    box.appendChild(det);
-  });
-  const clr = document.createElement("button");
-  clr.className = "sm danger";
-  clr.style.marginTop = "6px";
-  clr.textContent = "🗑️ حذف كل البيانات المحفوظة";
-  clr.addEventListener("click", ()=>{
-    storeJSON(SAVED_DATA_KEY, {});
-    renderSavedList();
-  });
-  box.appendChild(clr);
+  vrender(html`
+    ${isos.map(iso=>html`<${SavedDay} key=${iso} iso=${iso} snaps=${store[iso]}
+      onDel=${()=>{ delete store[iso]; storeJSON(SAVED_DATA_KEY, store); renderSavedList(); }}/>`)}
+    <button class="sm danger" style="margin-top:6px"
+      onClick=${()=>{ storeJSON(SAVED_DATA_KEY, {}); renderSavedList(); }}>🗑️ حذف كل البيانات المحفوظة</button>`, box);
 }
 
 /* رسم SVG خطي: تطور الاحتمال الجماعي عبر اللقطات المحفوظة، خط لكل مدينة */
