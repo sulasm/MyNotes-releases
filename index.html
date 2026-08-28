@@ -5,7 +5,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
   <meta name="theme-color" content="#667eea">
-  <meta name="app-version" content="1.22.0">
+  <meta name="app-version" content="1.22.1">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <title>المنظم</title>
@@ -3163,16 +3163,19 @@
         return;
       }
 
-      /* سطح المكتب: إذا كانت لقطة الطوارئ أحدث من الملف فهي المرجع */
+      /* سطح المكتب: لقطة الطوارئ (كتابة لم تكتمل قبل الإغلاق) تُدمج مع الملف
+         لكل عنصر بالأختام بدل الاستبدال أو الإهمال — الملف قد يكون وصل للتو من
+         جهاز آخر عبر أداة مزامنة (GoodSync وأمثالها) واللقطة تحمل تغييرات
+         محلية غير مكتوبة؛ الدمج يحفظ الطرفين أياً كان الأحدث */
       let needResave = fromBak;
       if (_dirHandle) {
         try {
           const snapRaw = localStorage.getItem(FLUSH_SNAPSHOT_KEY);
           if (snapRaw) {
-            const snap = _deserializeNotes(snapRaw);
-            if ((snap.savedAt || 0) > (parsed.savedAt || 0)) {
-              parsed = snap; needResave = true;
-              showFb('↩️ استُعيدت آخر التغييرات غير المحفوظة');
+            const r = _applyFlushSnapshot(parsed, snapRaw);
+            if (r) {
+              parsed = r.parsed; needResave = true;
+              if (r.restored) showFb('↩️ استُعيدت آخر التغييرات غير المحفوظة');
             }
             localStorage.removeItem(FLUSH_SNAPSHOT_KEY);
           }
@@ -3277,6 +3280,30 @@
         else for (const k of Object.keys(extCats)) if (!(k in cats)) cats[k] = extCats[k];
       }
       return { notes: [...notes.values()], trash: [...trash.values()], cats };
+    }
+
+    /* دمج لقطة الطوارئ (سطح المكتب) مع الملف المُحمَّل — يعيد null إذا كانت
+       اللقطة غير صالحة أو مطابقة للملف (لا حاجة لإعادة كتابة).
+       restored=true عندما تكون اللقطة أحدث من الملف (رسالة الاستعادة القديمة) */
+    function _applyFlushSnapshot(parsed, snapRaw) {
+      let snap;
+      try { snap = _deserializeNotes(String(snapRaw)); } catch (e) { return null; }
+      const snapAt = +snap.savedAt || 0, fileAt = +parsed.savedAt || 0;
+      if (snapAt === fileAt) return null;   /* اللقطة هي الملف نفسه */
+      const merged = _mergeStates(
+        { notes: snap.notes, trash: Array.isArray(snap.trash) ? snap.trash : [], cats: snap.cats },
+        { notes: parsed.notes, trash: Array.isArray(parsed.trash) ? parsed.trash : [], cats: parsed.cats });
+      return {
+        parsed: {
+          v: 3,
+          savedAt: Math.max(snapAt, fileAt),
+          notes: merged.notes,
+          trash: merged.trash,
+          cats: merged.cats || parsed.cats || snap.cats || null,
+          places: parsed.places
+        },
+        restored: snapAt > fileAt
+      };
     }
 
     /* نسخة أمان قبل تطبيق أي دمج — أفضل جهد وبصمت */
