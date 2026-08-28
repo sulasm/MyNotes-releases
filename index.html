@@ -5,7 +5,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
   <meta name="theme-color" content="#667eea">
-  <meta name="app-version" content="1.23.0">
+  <meta name="app-version" content="1.23.1">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <title>المنظم</title>
@@ -2902,12 +2902,14 @@
        forFile=true (الكتابة لملف المجلد): يسجّل savedAt كمرجع لكشف تغيّر الملف
        خارجياً (مزامنة من جهاز آخر) — انظر _syncMergeCheck ── */
     let _lastFileSavedAt = 0;
+    let _lastFileLen = -1;      /* طول آخر محتوى نعرفه للملف — يحسم التصادم النادر في savedAt */
     function _serializeNotes(forFile) {
       const savedAt = Date.now();
-      if (forFile) _lastFileSavedAt = savedAt;
       let places = [];
       try { if (typeof MapBridge !== 'undefined') places = MapBridge.getPlaces(); } catch (e) { }
-      return JSON.stringify({ v: 3, savedAt, notes: _notesCache, trash: _trashCache, cats: CATS, places });
+      const json = JSON.stringify({ v: 3, savedAt, notes: _notesCache, trash: _trashCache, cats: CATS, places });
+      if (forFile) { _lastFileSavedAt = savedAt; _lastFileLen = json.length; }
+      return json;
     }
     function _validCats(c) {
       return (c && typeof c === 'object' && !Array.isArray(c) && Object.keys(c).length) ? c : null;
@@ -3132,17 +3134,20 @@
       let parsed = null;
       let loadedOk = false;
       let fromBak = false;
+      let emptyFile = false;    /* لا ملف أصلاً أو ملف بلا محتوى */
       if (!readFailed) {
         if (raw == null || String(raw).trim() === '') {
-          parsed = { v: 2, savedAt: 0, notes: [] };  /* لا ملف بعد — تشغيل أول */
-          loadedOk = true;
+          emptyFile = true;
         } else {
           try { parsed = _deserializeNotes(String(raw)); loadedOk = true; }
           catch (e) { loadedOk = false; /* الملف موجود لكنه تالف */ }
         }
       }
 
-      /* محاولة الاستعادة من النسخة الاحتياطية إذا فشل الملف الرئيسي */
+      /* محاولة الاستعادة من النسخة الاحتياطية إذا فشل الملف الرئيسي — ويشمل ذلك
+         الملف الفارغ أو المفقود: أداة مزامنة خارجية قد تكون بمنتصف نسخ الملف أو
+         نقلت حذفاً من الطرف الآخر، فاعتباره «تشغيلاً أول» يفتح نافذة حالة فارغة
+         تُكتب فوق البيانات. وجود نسخة احتياطية يعني أن هذا ليس تشغيلاً أول. */
       if (!loadedOk) {
         try {
           const bak = await _readBak();
@@ -3151,6 +3156,12 @@
             loadedOk = true; fromBak = true;
           }
         } catch (e) { }
+      }
+
+      /* لا ملف ولا نسخة احتياطية → تشغيل أول فعلي */
+      if (!loadedOk && emptyFile) {
+        parsed = { v: 2, savedAt: 0, notes: [] };
+        loadedOk = true;
       }
 
       if (!loadedOk) {
@@ -3189,8 +3200,14 @@
         CATS = parsed.cats;
         try { localStorage.setItem('notes_cats', JSON.stringify(CATS)); } catch (e) { }
       }
+      /* أماكن الخريطة محفوظة في نفس الملف لكنها كانت تُقرأ عند الدمج فقط: على جهاز
+         جديد أو بعد إعادة تثبيت كانت أول كتابة تمسح أماكن الملف بقائمة محلية فارغة.
+         تحميلها هنا يجعلها تصل عبر المزامنة كبقية البيانات. */
+      const _pl = _mergePlaces(parsed.places);
+      if (_pl.fileStale) needResave = true;   /* المحلي يحمل أماكن ليست في الملف */
       _notesLoaded = true;
       _lastFileSavedAt = +parsed.savedAt || 0;   /* مرجع كشف التغيّر الخارجي */
+      _lastFileLen = raw == null ? -1 : String(raw).length;
       hideSaveError();
       if (fromBak) showFb('تمت الاستعادة من النسخة الاحتياطية');
       if (needResave) _persistNotes();
@@ -3282,6 +3299,28 @@
       return { notes: [...notes.values()], trash: [...trash.values()], cats };
     }
 
+    /* دمج أماكن الخريطة الواردة في الملف مع المحفوظة محلياً — بالمعرّف والأحدث
+       بختمه ts يفوز. يعيد fileStale=true عندما يحمل المحلي أماكن ليست في الملف،
+       فتلزم إعادة كتابته كي لا تضيع عند أول حفظ. */
+    function _mergePlaces(extPlaces) {
+      const out = { localChanged: false, fileStale: false };
+      try {
+        if (typeof MapBridge === 'undefined') return out;
+        const ext = (Array.isArray(extPlaces) ? extPlaces : [])
+          .filter(p => p && typeof p === 'object' && p.id != null && isFinite(p.lat) && isFinite(p.lng));
+        const pmap = new Map();
+        MapBridge.getPlaces().forEach(p => { if (p && p.id != null) pmap.set(String(p.id), p); });
+        const extKeys = new Set(ext.map(p => String(p.id)));
+        for (const k of pmap.keys()) if (!extKeys.has(k)) out.fileStale = true;
+        ext.forEach(p => {
+          const k = String(p.id), cur = pmap.get(k);
+          if (!cur || String(p.ts || '') > String(cur.ts || '')) { pmap.set(k, p); out.localChanged = true; }
+        });
+        if (out.localChanged) MapBridge.setPlaces([...pmap.values()]);
+      } catch (e) { }
+      return out;
+    }
+
     /* دمج لقطة الطوارئ (سطح المكتب) مع الملف المُحمَّل — يعيد null إذا كانت
        اللقطة غير صالحة أو مطابقة للملف (لا حاجة لإعادة كتابة).
        restored=true عندما تكون اللقطة أحدث من الملف (رسالة الاستعادة القديمة) */
@@ -3331,7 +3370,9 @@
         let ext;
         try { ext = _deserializeNotes(String(raw)); } catch (e) { return false; }  /* تالف: يعالجه مسار التحميل */
         const extAt = +ext.savedAt || 0;
-        if (extAt === _lastFileSavedAt) return false;   /* الملف كما تركناه — لا تغيّر خارجي */
+        /* الملف كما تركناه — لا تغيّر خارجي. الطول يحسم التصادم النادر الذي يكتب
+           فيه الجهازان في الميلي ثانية نفسها فيتطابق savedAt والمحتوى مختلف */
+        if (extAt === _lastFileSavedAt && String(raw).length === _lastFileLen) return false;
 
         _writeConflictBackup(_serializeNotes());
         const merged = _mergeStates({ notes: _notesCache, trash: _trashCache, cats: CATS }, ext);
@@ -3341,21 +3382,10 @@
           CATS = merged.cats;
           try { localStorage.setItem('notes_cats', JSON.stringify(CATS)); } catch (e) { }
         }
-        /* أماكن الخريطة: دمج بالمعرّف والأحدث بختمه ts يفوز */
-        try {
-          if (Array.isArray(ext.places) && ext.places.length && typeof MapBridge !== 'undefined') {
-            const pmap = new Map();
-            MapBridge.getPlaces().forEach(p => pmap.set(String(p.id), p));
-            ext.places.forEach(p => {
-              if (!p || typeof p !== 'object' || !isFinite(p.lat) || !isFinite(p.lng)) return;
-              const cur = pmap.get(String(p.id));
-              if (!cur || String(p.ts || '') > String(cur.ts || '')) pmap.set(String(p.id), p);
-            });
-            MapBridge.setPlaces([...pmap.values()]);
-          }
-        } catch (e) { }
+        _mergePlaces(ext.places);   /* أماكن الخريطة: بالمعرّف والأحدث بختمه ts يفوز */
 
         _persistNotes();   /* اكتب الحالة المدموجة — فيتقارب الجهازان */
+        _sweepPendingAttachments();   /* ملاحظة عادت بالدمج تُلغي حذف مرفقها المؤجّل */
         updCount(); _syncRemindersDebounced();
         if (typeof renderNotes === 'function') renderNotes();
         showFb('🔄 دُمجت تغييرات واصلة من جهاز آخر');
@@ -3368,7 +3398,9 @@
       if (document.visibilityState === 'visible') setTimeout(() => { _syncMergeCheck(); }, 800);
     });
     setInterval(() => { if (!document.hidden) _syncMergeCheck(); }, 90e3);
-    setTimeout(() => { _syncMergeCheck(); }, 6000);
+    /* أول فحص بعد الإقلاع، ثم كنس المرفقات المؤجّلة — بعده لا قبله كي تُلغى
+       جدولة أي مرفق عادت ملاحظته من الجهاز الآخر */
+    setTimeout(() => { _syncMergeCheck().then(() => _sweepPendingAttachments(), () => { }); }, 6000);
 
     /* ══════════════════════════════════════
        سلة المحذوفات + تنظيف المرفقات اليتيمة
@@ -3393,21 +3425,66 @@
         }
       } catch (e) { /* الملف قد لا يوجد أو القناة لا تدعم الحذف — تجاهل */ }
     }
-    /* احذف الملف فقط إن لم تعد أي ملاحظة (حيّة أو في السلة) تشير إليه */
+    /* هل ما زال المرفق مستخدماً في ملاحظة حيّة أو في السلة؟ */
+    function _attInUse(key, exceptNote) {
+      if (!key) return false;
+      return _notesCache.some(x => _attKey(x.file) === key)
+        || _trashCache.some(x => x !== exceptNote && _attKey(x.file) === key);
+    }
+
+    /* ── حذف المرفقات اليتيمة مؤجَّل ──
+       الحذف النهائي محلي ولا يترك شاهداً يُنقل مع المزامنة، فالملاحظة المحذوفة
+       نهائياً هنا قد تعود من الجهاز الآخر عند الدمج التالي. لو حُذف ملف مرفقها
+       فوراً (وحملت أداة المزامنة الحذف للطرفين) لعادت الملاحظة بمرفق مفقود.
+       لذلك يُسجَّل الملف في طابور، ويُحذف فعلياً فقط بعد مهلة يبقى فيها يتيماً —
+       وأي عودة للملاحظة خلالها تُلغي الحذف. */
+    const ATT_PENDING_KEY = 'notes_att_pending_v1';
+    const ATT_PURGE_GRACE_MS = 7 * 24 * 60 * 60 * 1000;   /* مهلة تكفي دورة مزامنة كاملة */
+
+    function _attPendingGet() {
+      try {
+        const a = JSON.parse(localStorage.getItem(ATT_PENDING_KEY) || '[]');
+        return Array.isArray(a) ? a.filter(e => e && e.n) : [];
+      } catch (e) { return []; }
+    }
+    function _attPendingSet(list) {
+      try {
+        if (list.length) localStorage.setItem(ATT_PENDING_KEY, JSON.stringify(list));
+        else localStorage.removeItem(ATT_PENDING_KEY);
+      } catch (e) { }
+    }
+    function _scheduleAttachmentDelete(file) {
+      const name = _attKey(file); if (!name) return;
+      const list = _attPendingGet();
+      if (list.some(e => e.n === name)) return;
+      list.push({ n: name, at: Date.now() });
+      _attPendingSet(list);
+    }
+    /* كنس الطابور: المستخدَم يُلغى من الطابور، والمتجاوز للمهلة وما زال يتيماً يُحذف */
+    function _sweepPendingAttachments() {
+      const list = _attPendingGet();
+      if (!list.length) return;
+      const now = Date.now(), keep = [];
+      for (const e of list) {
+        if (_attInUse(e.n)) continue;                                  /* عادت الملاحظة → أبقِ الملف */
+        if (now - (+e.at || 0) < ATT_PURGE_GRACE_MS) { keep.push(e); continue; }
+        _deleteAttachmentFile(e.n);
+      }
+      _attPendingSet(keep);
+    }
+
+    /* جدولة حذف مرفق ملاحظة حُذفت نهائياً — إن لم تعد أي ملاحظة تشير إليه */
     function _maybeDeleteOrphanAttachment(note) {
       const key = _attKey(note && note.file); if (!key) return;
-      const used = _notesCache.some(x => _attKey(x.file) === key)
-        || _trashCache.some(x => x !== note && _attKey(x.file) === key);
-      if (used) return;
-      _deleteAttachmentFile(note.file);
+      if (_attInUse(key, note)) return;
+      _scheduleAttachmentDelete(key);
     }
-    /* عند استبدال/حذف مرفق من ملاحظة حيّة: احذف الملف القديم من القرص إن لم يعد
+    /* عند استبدال/حذف مرفق من ملاحظة حيّة: جدولة حذف الملف القديم إن لم يعد
        مستخدماً في أي ملاحظة — يمنع تراكم المرفقات اليتيمة للأبد */
     function _cleanupOldAttachment(oldFile) {
       const key = _attKey(oldFile); if (!key) return;
-      const used = _notesCache.some(x => _attKey(x.file) === key)
-        || _trashCache.some(x => _attKey(x.file) === key);
-      if (!used) _deleteAttachmentFile(oldFile);
+      if (_attInUse(key)) return;
+      _scheduleAttachmentDelete(key);
     }
     /* مسح نهائي تلقائي لعناصر السلة الأقدم من مدة الاحتفاظ.
        يمنح العناصر بلا طابع حذف (مستوردة/قديمة) طابعاً الآن كي تبدأ مدة احتفاظها
