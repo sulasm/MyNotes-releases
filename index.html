@@ -5,7 +5,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
   <meta name="theme-color" content="#667eea">
-  <meta name="app-version" content="1.23.1">
+  <meta name="app-version" content="1.24.0">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <title>المنظم</title>
@@ -3052,6 +3052,7 @@
 
     /* كتابة مؤجّلة: تتجمّع تغييرات متتابعة في كتابة واحدة → سرعة مع البيانات الكثيرة */
     function _persistNotes() {
+      _ftStampChanges();   /* اختم ما تغيّر فعلاً — قبل أي تسلسل يقرأ الحالة */
       _persistPending = true;
       if (_persistTimer) clearTimeout(_persistTimer);
       _persistTimer = setTimeout(() => { _persistTimer = null; _writeNotesNow(); }, 700);
@@ -3205,7 +3206,14 @@
          تحميلها هنا يجعلها تصل عبر المزامنة كبقية البيانات. */
       const _pl = _mergePlaces(parsed.places);
       if (_pl.fileStale) needResave = true;   /* المحلي يحمل أماكن ليست في الملف */
+      /* تعبئة أزمنة الحقول لما حُمّل من ملف كتبته نسخة أقدم — مرة واحدة */
+      for (const n of _notesCache) {
+        if (!n || n.id == null || n.ft) continue;
+        const ft = _ftBackfill(n);
+        if (Object.keys(ft).length) { n.ft = ft; needResave = true; }
+      }
       _notesLoaded = true;
+      _ftCapture();   /* المحمَّل مرجعٌ لا تعديل */
       _lastFileSavedAt = +parsed.savedAt || 0;   /* مرجع كشف التغيّر الخارجي */
       _lastFileLen = raw == null ? -1 : String(raw).length;
       hideSaveError();
@@ -3267,6 +3275,108 @@
       return d || _noteStamp(t);
     }
 
+    /* ══ أزمنة الحقول: الدمج بالحقل لا بالسجل ══
+       كان السجل يُؤخذ كاملاً من الأحدث، فمن عدّل نص ملاحظة على ويندوز وأضاف
+       لها مرفقاً على الجوال يخسر أحدهما — لأن الملاحظة تحمل ختماً واحداً (mt)
+       لا يعرف أيّ حقل تغيّر. الآن لكل حقل ختمه في n.ft، والدمج يفصل حقلاً
+       بحقل، فلا يضيع شيء إلا إن عُدّل الحقل نفسه على الجهازين.
+
+       الختم يقع في _persistNotes — أي مع كل طلب حفظ أياً كان مصدره — بمقارنة
+       الحالة بلقطة مرجعية. فيغطّي كل مسارات التعديل (الاستمارة، المرفق،
+       الموقع، الروابط، الاستيراد…) بلا استثناء ولا تعديل في مواضع النداء،
+       ويصلح علّة قائمة: تغيير المرفق أو الموقع لم يكن يرفع mt أصلاً فكانت
+       نسخة الجهاز الآخر تتفوق عليه وتمسحه. */
+    const NOTE_META = { id: 1, mt: 1, ft: 1, _delAt: 1 };
+    let _ftSnap = new Map();   /* id → {f: بصمة كل حقل، j: بصمتها مجتمعة} */
+
+    function _ftVal(v) { return v === undefined ? '\u0000' : JSON.stringify(v); }
+    function _ftFields(n) {
+      const f = {};
+      for (const k in n) {
+        if (!Object.prototype.hasOwnProperty.call(n, k) || NOTE_META[k]) continue;
+        f[k] = _ftVal(n[k]);
+      }
+      return f;
+    }
+    /* يلتقط الحالة مرجعاً للمقارنة — بعد التحميل والدمج، فلا يُختمان كتعديل */
+    function _ftCapture() {
+      const m = new Map();
+      for (const n of _notesCache) {
+        if (!n || n.id == null) continue;
+        const f = _ftFields(n);
+        m.set(String(n.id), { f, j: JSON.stringify(f) });
+      }
+      _ftSnap = m;
+    }
+    /* يختم كل حقل تغيّر فعلاً منذ آخر التقاط (وmt معه)، ثم يلتقط من جديد */
+    function _ftStampChanges() {
+      const now = Date.now();
+      for (const n of _notesCache) {
+        if (!n || n.id == null) continue;
+        const prev = _ftSnap.get(String(n.id));
+        if (!prev) continue;              /* ملاحظة جديدة: تُختم عند الإضافة */
+        const f = _ftFields(n);
+        if (JSON.stringify(f) === prev.j) continue;   /* بلا تغيير — المسار الغالب */
+        if (!n.ft || typeof n.ft !== 'object') n.ft = _ftBackfill(n);
+        let touched = false;
+        for (const k in f) {
+          if (f[k] === prev.f[k]) continue;
+          n.ft[k] = now; touched = true;
+        }
+        for (const k in prev.f) {         /* حقل أُزيل من الملاحظة */
+          if (!(k in f)) { n.ft[k] = now; touched = true; }
+        }
+        if (touched) n.mt = now;
+      }
+      _ftCapture();
+    }
+    /* تعبئة أولى: كل حقل يأخذ ختم سجله. بدونها يتساوى الجهازان في كل حقل لم
+       يُمسّ بعد الترقية، فيغلب ختم السجل الأحدث على ختم حقلٍ أقدم صريح — أي
+       عودةٌ إلى الدمج بالسجل. وبختم السجل يُحسم ما تباعد قبل الترقية كما كان
+       يُحسم تماماً: لا أسوأ. */
+    function _ftBackfill(n) {
+      const t = _noteStamp(n), ft = {};
+      if (!t) return ft;
+      for (const k in n) {
+        if (!Object.prototype.hasOwnProperty.call(n, k) || NOTE_META[k]) continue;
+        ft[k] = t;
+      }
+      return ft;
+    }
+
+    /* ختم حقل بعينه إن وُجد صريحاً (0 يعني: لا ختم لهذا الحقل) */
+    function _fieldTime(n, f) {
+      const t = n && n.ft && +n.ft[f];
+      return t > 0 ? t : 0;
+    }
+
+    /* دمج نسختَي ملاحظة واحدة حقلاً بحقل — الأحدث بختم حقله يفوز.
+       وحيث لا ختم للحقل يُرجع إلى ختم السجل، فيتصرّف كما كان تماماً؛ وإن خلا
+       الطرفان من الأزمنة (نسخة أقدم على الجهاز الآخر) يُحسم بالسجل كاملاً. */
+    function _mergeNote(loc, ext) {
+      if (!(loc && loc.ft) && !(ext && ext.ft)) {
+        return _noteStamp(ext) > _noteStamp(loc) ? ext : loc;
+      }
+      const lm = _noteStamp(loc), em = _noteStamp(ext);
+      const out = { id: loc.id }, ft = {}, keys = {};
+      for (const k in loc) if (!NOTE_META[k]) keys[k] = 1;
+      for (const k in ext) if (!NOTE_META[k]) keys[k] = 1;
+      for (const k in keys) {
+        const lHas = Object.prototype.hasOwnProperty.call(loc, k);
+        const eHas = Object.prototype.hasOwnProperty.call(ext, k);
+        const lt = _fieldTime(loc, k), et = _fieldTime(ext, k);
+        /* الغياب بلا ختم صريح ليس حذفاً: طرفٌ لم يكن يعرف الحقل أصلاً */
+        if (!eHas && !et) { if (lHas) { out[k] = loc[k]; ft[k] = lt || lm; } continue; }
+        if (!lHas && !lt) { if (eHas) { out[k] = ext[k]; ft[k] = et || em; } continue; }
+        const a = lt || lm, b = et || em;
+        if (b > a) { if (eHas) out[k] = ext[k]; ft[k] = b; }
+        else { if (lHas) out[k] = loc[k]; ft[k] = a; }
+      }
+      out.ft = ft;
+      out.mt = Math.max(lm, em);
+      return out;
+    }
+
     /* دمج حالتين (المحلية والخارجية) لكل عنصر: الأحدث بختمه يفوز.
        عنصر في الحيّة والسلة معاً بعد الدمج → الختم الأحدث يحسم مصيره. */
     function _mergeStates(loc, ext) {
@@ -3275,7 +3385,7 @@
       (ext.notes || []).forEach(n => {
         if (!n || n.id == null) return;
         const k = String(n.id), cur = notes.get(k);
-        if (!cur || _noteStamp(n) > _noteStamp(cur)) notes.set(k, n);
+        notes.set(k, cur ? _mergeNote(cur, n) : n);   /* موجودة عند الطرفين → حقلاً بحقل */
       });
       (loc.trash || []).forEach(t => { if (t && t.id != null) trash.set(String(t.id), t); });
       (ext.trash || []).forEach(t => {
@@ -3384,6 +3494,7 @@
         }
         _mergePlaces(ext.places);   /* أماكن الخريطة: بالمعرّف والأحدث بختمه ts يفوز */
 
+        _ftCapture();      /* المدموج مرجعٌ لا تعديل — وإلا خُتمت حقوله بزمن الدمج */
         _persistNotes();   /* اكتب الحالة المدموجة — فيتقارب الجهازان */
         _sweepPendingAttachments();   /* ملاحظة عادت بالدمج تُلغي حذف مرفقها المؤجّل */
         updCount(); _syncRemindersDebounced();
