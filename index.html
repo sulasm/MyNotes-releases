@@ -5,7 +5,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
   <meta name="theme-color" content="#667eea">
-  <meta name="app-version" content="1.24.1">
+  <meta name="app-version" content="1.24.2">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <title>المنظم</title>
@@ -2533,8 +2533,20 @@
       } catch (e) { }
     }
 
+    /* ختم آخر تعديل للفئات: بدونه كان الدمج اتحاداً للمفاتيح العليا والمحلي يفوز،
+       فحذف فئة على جهاز يعود من الجهاز الآخر، وتعديل الفروع لا ينتقل أصلاً.
+       الآن يحمل الملف catsAt، والأحدث ختماً يأخذ الفئات كاملة. */
+    let _catsAt = parseInt(localStorage.getItem('notes_cats_at'), 10) || 0;
+    function _setCats(c, at) {
+      CATS = c;
+      _catsAt = +at || 0;
+      try {
+        localStorage.setItem('notes_cats', JSON.stringify(CATS));
+        localStorage.setItem('notes_cats_at', String(_catsAt));
+      } catch (e) { }
+    }
     function saveCats() {
-      try { localStorage.setItem('notes_cats', JSON.stringify(CATS)); } catch (e) { }
+      _setCats(CATS, Date.now());
       /* الفئات تُحفظ أيضاً داخل ملف الملاحظات (v3) كي تنجو من إعادة التثبيت وتنتقل مع المجلد */
       if (_notesLoaded) _persistNotes();
     }
@@ -2960,21 +2972,30 @@
       const savedAt = Date.now();
       let places = [];
       try { if (typeof MapBridge !== 'undefined') places = MapBridge.getPlaces(); } catch (e) { }
-      const json = JSON.stringify({ v: 3, savedAt, notes: _notesCache, trash: _trashCache, cats: CATS, places });
+      const json = JSON.stringify({ v: 3, savedAt, notes: _notesCache, trash: _trashCache, cats: CATS, catsAt: _catsAt, places, purged: _purgedCache });
       if (forFile) { _lastFileSavedAt = savedAt; _lastFileLen = json.length; }
       return json;
+    }
+    /* شواهد الحذف النهائي: [{id, at}] — الحذف اليدوي من السلة كان لا يترك أثراً
+       يُنقل مع المزامنة، فتعود العناصر من سلة الجهاز الآخر عند الدمج التالي */
+    let _purgedCache = [];
+    function _validPurged(p) {
+      return (Array.isArray(p) ? p : []).filter(e => e && e.id != null && +e.at > 0)
+        .map(e => ({ id: e.id, at: +e.at }));
     }
     function _validCats(c) {
       return (c && typeof c === 'object' && !Array.isArray(c) && Object.keys(c).length) ? c : null;
     }
     function _deserializeNotes(text) {
       const p = JSON.parse(text);
-      if (Array.isArray(p)) return { v: 1, savedAt: 0, notes: p, trash: [], cats: null };
+      if (Array.isArray(p)) return { v: 1, savedAt: 0, notes: p, trash: [], cats: null, catsAt: 0, places: [], purged: [] };
       if (p && Array.isArray(p.notes)) return {
         v: p.v || 2, savedAt: +p.savedAt || 0, notes: p.notes,
         trash: Array.isArray(p.trash) ? p.trash : [],
         cats: _validCats(p.cats),
-        places: Array.isArray(p.places) ? p.places : []
+        catsAt: +p.catsAt || 0,
+        places: Array.isArray(p.places) ? p.places : [],
+        purged: _validPurged(p.purged)
       };
       throw new Error('bad-notes-format');
     }
@@ -3228,11 +3249,11 @@
         return;
       }
 
+      let needResave = fromBak;
       /* سطح المكتب: لقطة الطوارئ (كتابة لم تكتمل قبل الإغلاق) تُدمج مع الملف
          لكل عنصر بالأختام بدل الاستبدال أو الإهمال — الملف قد يكون وصل للتو من
          جهاز آخر عبر أداة مزامنة (GoodSync وأمثالها) واللقطة تحمل تغييرات
          محلية غير مكتوبة؛ الدمج يحفظ الطرفين أياً كان الأحدث */
-      let needResave = fromBak;
       if (_dirHandle) {
         try {
           const snapRaw = localStorage.getItem(FLUSH_SNAPSHOT_KEY);
@@ -3249,10 +3270,14 @@
 
       _notesCache = parsed.notes;
       _trashCache = Array.isArray(parsed.trash) ? parsed.trash : [];
-      /* ملف v3 يحمل الفئات المخصّصة — اعتمادها يجعلها تنجو من إعادة التثبيت وتنتقل مع مزامنة المجلد */
+      _purgedCache = _validPurged(parsed.purged);
+      /* ملف v3 يحمل الفئات المخصّصة — اعتمادها يجعلها تنجو من إعادة التثبيت وتنتقل مع
+         مزامنة المجلد. الأحدث ختماً يفوز: تعديل محلي لم يُكتب بعد لا يمحوه ملف أقدم */
       if (parsed.cats) {
-        CATS = parsed.cats;
-        try { localStorage.setItem('notes_cats', JSON.stringify(CATS)); } catch (e) { }
+        const fa = +parsed.catsAt || 0;
+        if (!fa && !_catsAt) _setCats(parsed.cats, 0);       /* بلا أختام (ملفات أقدم): الملف يفوز كما كان */
+        else if (fa > _catsAt) _setCats(parsed.cats, fa);
+        else if (_catsAt > fa) needResave = true;            /* المحلي أحدث — أعد كتابة الملف به */
       }
       /* أماكن الخريطة محفوظة في نفس الملف لكنها كانت تُقرأ عند الدمج فقط: على جهاز
          جديد أو بعد إعادة تثبيت كانت أول كتابة تمسح أماكن الملف بقائمة محلية فارغة.
@@ -3450,14 +3475,36 @@
         if (_trashStamp(t) >= _noteStamp(n)) notes.delete(k);
         else trash.delete(k);
       }
-      /* الفئات بلا ختم لكل مفتاح: اتحاد المفاتيح والمحلي يفوز عند التعارض */
-      let cats = _validCats(loc.cats) || null;
-      const extCats = _validCats(ext.cats);
-      if (extCats) {
-        if (!cats) cats = extCats;
-        else for (const k of Object.keys(extCats)) if (!(k in cats)) cats[k] = extCats[k];
+      /* شواهد الحذف النهائي: اتحاد الطرفين، ثم كل ما ختمه أقدم من الشاهد يُحذف من
+         الحيّة والسلة معاً — فيتقارب الجهازان في الحذف كما في الإضافة. عنصر عُدّل
+         أو استُعيد بعد لحظة الحذف يبقى (الأحدث يفوز). */
+      const purged = new Map();
+      for (const e of _validPurged(loc.purged).concat(_validPurged(ext.purged))) {
+        const k = String(e.id), cur = purged.get(k);
+        if (!cur || e.at > cur.at) purged.set(k, { id: e.id, at: e.at });
       }
-      return { notes: [...notes.values()], trash: [...trash.values()], cats };
+      for (const [k, e] of purged) {
+        const n = notes.get(k);
+        if (n && _noteStamp(n) <= e.at) notes.delete(k);
+        const t = trash.get(k);
+        if (t && _trashStamp(t) <= e.at) trash.delete(k);
+      }
+      const c = _mergeCats(loc.cats, loc.catsAt, ext.cats, ext.catsAt);
+      return { notes: [...notes.values()], trash: [...trash.values()], cats: c.cats, catsAt: c.at, purged: [...purged.values()] };
+    }
+
+    /* دمج الفئات: الطرف الأحدث ختماً (catsAt) يأخذها كاملة — فينتقل الحذف
+       وتعديل الفروع لا الإضافة فقط. بلا ختم عند الطرفين (ملفات نسخ أقدم) يبقى
+       السلوك القديم: اتحاد المفاتيح العليا والمحلي يفوز. */
+    function _mergeCats(locC, locAt, extC, extAt) {
+      const lc = _validCats(locC), ec = _validCats(extC);
+      const la = +locAt || 0, ea = +extAt || 0;
+      if (!lc) return { cats: ec || null, at: ec ? ea : 0 };
+      if (!ec) return { cats: lc, at: la };
+      if (la || ea) return ea > la ? { cats: ec, at: ea } : { cats: lc, at: la };
+      const cats = lc;
+      for (const k of Object.keys(ec)) if (!(k in cats)) cats[k] = ec[k];
+      return { cats, at: 0 };
     }
 
     /* دمج أماكن الخريطة الواردة في الملف مع المحفوظة محلياً — بالمعرّف والأحدث
@@ -3491,8 +3538,8 @@
       const snapAt = +snap.savedAt || 0, fileAt = +parsed.savedAt || 0;
       if (snapAt === fileAt) return null;   /* اللقطة هي الملف نفسه */
       const merged = _mergeStates(
-        { notes: snap.notes, trash: Array.isArray(snap.trash) ? snap.trash : [], cats: snap.cats },
-        { notes: parsed.notes, trash: Array.isArray(parsed.trash) ? parsed.trash : [], cats: parsed.cats });
+        { notes: snap.notes, trash: Array.isArray(snap.trash) ? snap.trash : [], cats: snap.cats, catsAt: snap.catsAt, purged: snap.purged },
+        { notes: parsed.notes, trash: Array.isArray(parsed.trash) ? parsed.trash : [], cats: parsed.cats, catsAt: parsed.catsAt, purged: parsed.purged });
       return {
         parsed: {
           v: 3,
@@ -3500,7 +3547,9 @@
           notes: merged.notes,
           trash: merged.trash,
           cats: merged.cats || parsed.cats || snap.cats || null,
-          places: parsed.places
+          catsAt: merged.catsAt || 0,
+          places: parsed.places,
+          purged: merged.purged
         },
         restored: snapAt > fileAt
       };
@@ -3536,13 +3585,11 @@
         if (extAt === _lastFileSavedAt && String(raw).length === _lastFileLen) return false;
 
         _writeConflictBackup(_serializeNotes());
-        const merged = _mergeStates({ notes: _notesCache, trash: _trashCache, cats: CATS }, ext);
+        const merged = _mergeStates({ notes: _notesCache, trash: _trashCache, cats: CATS, catsAt: _catsAt, purged: _purgedCache }, ext);
         _notesCache = merged.notes;
         _trashCache = merged.trash;
-        if (merged.cats) {
-          CATS = merged.cats;
-          try { localStorage.setItem('notes_cats', JSON.stringify(CATS)); } catch (e) { }
-        }
+        _purgedCache = merged.purged;
+        if (merged.cats) _setCats(merged.cats, merged.catsAt);
         _mergePlaces(ext.places);   /* أماكن الخريطة: بالمعرّف والأحدث بختمه ts يفوز */
 
         _ftCapture();      /* المدموج مرجعٌ لا تعديل — وإلا خُتمت حقوله بزمن الدمج */
@@ -3651,7 +3698,25 @@
     /* مسح نهائي تلقائي لعناصر السلة الأقدم من مدة الاحتفاظ.
        يمنح العناصر بلا طابع حذف (مستوردة/قديمة) طابعاً الآن كي تبدأ مدة احتفاظها
        بدل بقائها للأبد رغم عرض «يُمسح بعد 30 يوم» في الواجهة. */
+    /* تسجيل شاهد حذف نهائي لكل عنصر (الحذف اليدوي فقط — المسح التلقائي بعد المهلة
+       يقع على الجهازين بالختم نفسه فلا يحتاج شاهداً) */
+    function _addPurged(items) {
+      const now = Date.now();
+      const map = new Map(_purgedCache.map(e => [String(e.id), e]));
+      items.forEach(t => { if (t && t.id != null) map.set(String(t.id), { id: t.id, at: now }); });
+      _purgedCache = [...map.values()];
+    }
+    /* الشواهد تنتهي بعد مدة الاحتفاظ نفسها — بعدها يكون الطرف الآخر قد مسح العنصر تلقائياً */
+    function _expirePurged() {
+      if (!_purgedCache.length) return false;
+      const now = Date.now();
+      const keep = _purgedCache.filter(e => (now - e.at) <= TRASH_RETENTION_MS);
+      if (keep.length === _purgedCache.length) return false;
+      _purgedCache = keep;
+      return true;
+    }
     function _purgeOldTrash() {
+      if (_expirePurged() && _notesLoaded) _persistNotes();
       if (!Array.isArray(_trashCache) || !_trashCache.length) return;
       const now = Date.now();
       let stamped = false;
@@ -3696,6 +3761,7 @@
       if (!confirm('حذف هذه الملاحظة نهائياً؟ لا يمكن التراجع.')) return;
       const note = _trashCache[idx];
       _trashCache.splice(idx, 1);
+      _addPurged([note]);
       _maybeDeleteOrphanAttachment(note);
       _persistNotes();
       renderTrash();
@@ -3706,6 +3772,7 @@
       if (!confirm('إفراغ سلة المحذوفات نهائياً (' + _trashCache.length + ' عنصر)؟ لا يمكن التراجع.')) return;
       const items = _trashCache.slice();
       _trashCache = [];
+      _addPurged(items);
       items.forEach(t => _maybeDeleteOrphanAttachment(t));
       _persistNotes();
       renderTrash();
@@ -5391,6 +5458,10 @@
           incomingTrash.forEach(t => { const k = String(t.id); if (!map.has(k) && !tmap.has(k)) tmap.set(k, t); });
           resultTrash = [...tmap.values()];
           if (parsed.cats) { CATS = Object.assign({}, parsed.cats, CATS); saveCats(); }
+          /* شواهد الحذف من الملف تُضم كي لا تعود عناصر مسحها الطرف الآخر */
+          const pm = new Map(_purgedCache.map(e => [String(e.id), e]));
+          _validPurged(parsed.purged).forEach(e => { const k = String(e.id); if (!pm.has(k) || e.at > pm.get(k).at) pm.set(k, e); });
+          _purgedCache = [...pm.values()];
           /* دمج أماكن الخريطة حسب المعرّف (الأحدث يفوز) */
           if (Array.isArray(parsed.places) && parsed.places.length) {
             const pmap = new Map();
@@ -5410,6 +5481,7 @@
           }
           result = incoming;
           resultTrash = incomingTrash;
+          _purgedCache = _validPurged(parsed.purged);
           if (parsed.cats) { CATS = parsed.cats; saveCats(); }
           if (Array.isArray(parsed.places) && parsed.places.length) MapBridge.setPlaces(parsed.places.filter(p => p && typeof p === 'object' && isFinite(p.lat) && isFinite(p.lng)));
         }
@@ -8076,7 +8148,16 @@ const KEY='finance_calc_v1';
 const PKEY='finance_payment_v1';
 
 /* ============ أدوات حسابية ============ */
-const num=v=>{const x=parseFloat(String(v).replace(/[,٬\s]/g,''));return isFinite(x)?x:0};
+/* يقبل الأرقام العربية-الهندية (٠-٩) والفارسية (۰-۹) والفاصلة العشرية العربية (٫) والفواصل
+   الألفية بأنواعها — لوحات المفاتيح العربية تُخرجها كثيراً حتى مع inputmode="decimal"،
+   فكان «٢٨٥٠٠٠» يُقرأ صفراً و«285،000» يُقرأ 285 */
+const num=v=>{
+  const s=String(v==null?'':v)
+    .replace(/[٠-٩]/g,d=>String(d.charCodeAt(0)-0x660))
+    .replace(/[۰-۹]/g,d=>String(d.charCodeAt(0)-0x6F0))
+    .replace(/٫/g,'.')
+    .replace(/[,،٬\s]/g,'');
+  const x=parseFloat(s);return isFinite(x)?x:0};
 const fmt=(v,d=0)=>isFinite(v)?Number(v).toLocaleString('en-US',{minimumFractionDigits:d,maximumFractionDigits:d}):'—';
 const pct=(v,d=2)=>isFinite(v)?Number(v).toLocaleString('en-US',{minimumFractionDigits:d,maximumFractionDigits:d})+'%':'—';
 
@@ -8159,6 +8240,10 @@ function analyze(){
   const cash=num(a_cash.value),down=num(a_down.value),m=num(a_m.value),balloon=num(a_balloon.value),n=getN();
   if(!cash||!m||!n){a_res.classList.remove('on');alert('أدخل سعر السيارة والقسط والمدة على الأقل');return}
   const financed=cash-down;
+  if(financed<=0){a_res.classList.remove('on');alert('الدفعة المقدمة تساوي سعر السيارة أو تتجاوزه — لا يوجد مبلغ ممول');return}
+  /* قرض شخصي للمقدمة بلا بياناته: كان الإجمالي يُسقط الدفعة المقدمة كلها وتظهر فائدة سالبة */
+  if(dpFin&&down>0&&(!num(a_dpm.value)||!Math.round(num(a_dpn.value)))){
+    a_res.classList.remove('on');alert('أدخل قسط القرض الشخصي ومدته، أو اختر «لا» في «قرض شخصي للمقدمة»');return}
   const totalInstall=m*n+balloon;
   const yrs=n/12;
   // النسبة الثابتة الضمنية على المبلغ الممول
@@ -8166,7 +8251,11 @@ function analyze(){
   const flat=financed>0?profit/financed/yrs*100:NaN;
   // APR الفعلي على المبلغ الممول
   const r=solveRate(financed,m,n,balloon);
-  const aprNom=isFinite(r)?r*12*100:NaN, aprEff=isFinite(r)?eff(r)*100:NaN;
+  /* لا حل للنسبة (إجمالي الأقساط والدفعة الأخيرة أقل من المبلغ الممول مثلاً): كان يُعرض
+     حكماً «نسبة فعلية مرتفعة (—)» ويُحفظ العرض بـ NaN فيُصدَّر صفراً */
+  if(!isFinite(r)){a_res.classList.remove('on');a_save.disabled=true;lastAnalysis=null;
+    alert('تعذّر حساب النسبة الفعلية — تحقق من الأرقام: إجمالي الأقساط مع الدفعة الأخيرة ('+fmt(m*n+balloon)+') أقل من المبلغ الممول ('+fmt(financed)+')؟');return}
+  const aprNom=r*12*100, aprEff=eff(r)*100;
   // طريقتك: نسبة الزيادة على السعر كاش
   const totalAll=down+m*n+balloon;
   const incr=(totalAll-cash)/cash*100;
