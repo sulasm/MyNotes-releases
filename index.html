@@ -5,7 +5,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
   <meta name="theme-color" content="#667eea">
-  <meta name="app-version" content="1.24.0">
+  <meta name="app-version" content="1.24.1">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <title>المنظم</title>
@@ -2089,7 +2089,7 @@
         <div class="section">
           <div class="sec-t">⚙️ خيارات إضافية</div>
           <div class="srow">
-            <div class="srow-l">تصدير جميع الملاحظات (JSON)</div>
+            <div class="srow-l">تصدير جميع الملاحظات (JSON) — على أندرويد يُحفظ في مجلد الملاحظات أو يُشارك</div>
             <button class="sm-btn" onclick="exportData()">تصدير</button>
           </div>
           <div class="srow">
@@ -2171,6 +2171,11 @@
           </div>
           <button class="sm-btn" onclick="requestNotifPerm()" style="margin-top:10px;">🔔 تفعيل الإشعارات</button>
           <div id="remind-status" style="font-size:12px;color:var(--text-m);padding:8px 0 0;"></div>
+          <!-- يظهر فقط على أندرويد 12+ حين يكون إذن المنبّه الدقيق غائباً -->
+          <div id="exact-alarm-row" style="display:none;margin-top:10px;">
+            <div style="font-size:12px;color:#fbbf24;">⏰ التذكيرات غير دقيقة حالياً: أندرويد 14 وما بعده يؤخّرها (قد تصل بعد ساعة) ما لم يُمنح التطبيق إذن «المنبّهات والتذكيرات».</div>
+            <button class="sm-btn" onclick="requestExactAlarmPerm()" style="margin-top:6px;">⏰ تفعيل التنبيه الدقيق</button>
+          </div>
         </div>
       </div>
 
@@ -2573,6 +2578,7 @@
       const _vl = document.getElementById('app-ver-label');
       if (_vl) _vl.textContent = 'الإصدار ' + (_getLocalHash() || '');
       const _rh = document.getElementById('remind-hour'); if (_rh) _rh.value = _remindHour();
+      if (typeof _reflectExactAlarm === 'function') _reflectExactAlarm();
       if (typeof renderWxCfg === 'function') renderWxCfg();
       if (typeof _reflectMapsKey === 'function') _reflectMapsKey();
       if (typeof renderTrash === 'function') renderTrash();
@@ -2806,13 +2812,57 @@
     const H = {
       mn: ['محرم', 'صفر', 'ربيع الأول', 'ربيع الثاني', 'جمادى الأولى', 'جمادى الآخرة', 'رجب', 'شعبان', 'رمضان', 'شوال', 'ذو القعدة', 'ذو الحجة'],
       gn: ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'],
-      uq: { 1445: [30, 29, 30, 29, 30, 29, 30, 29, 30, 29, 30, 29], 1446: [30, 29, 30, 29, 30, 29, 30, 29, 30, 29, 30, 30], 1447: [30, 29, 30, 29, 30, 29, 30, 29, 30, 29, 30, 29], 1448: [30, 29, 30, 29, 30, 29, 30, 29, 30, 29, 30, 30], 1449: [30, 29, 30, 29, 30, 29, 30, 29, 30, 29, 30, 29] },
-      base: { g: new Date('2024-12-24'), h: { y: 1446, m: 6, d: 23 } },
-      md(y, m0) { if (this.uq[y]) return this.uq[y][m0] || 29; return [2, 5, 7, 10, 13, 16, 18, 21, 24, 26, 29].includes(y % 30) ? 30 : 29 },
-      /* تحويل ميلادي→هجري عبر Intl (أم القرى) — للسنوات خارج تغطية الجدول */
+      /* أطوال أشهر أم القرى 1445–1449 — أطوال حقيقية من بيانات ICU (islamic-umalqura).
+         الجدول السابق كان نمطاً حسابياً متناوباً [30,29,30,29…] يخطئ يوماً في نحو
+         نصف أيام السنة (غرة رمضان 1446 وغرة محرم 1447 مثلاً). يُستعمل الآن ملاذاً
+         فقط حين يغيب Intl، والمرجع الأول هو Intl نفسه. */
+      uq: {
+        1445: [29, 30, 30, 30, 29, 30, 29, 29, 30, 29, 29, 30],
+        1446: [29, 30, 30, 30, 29, 30, 30, 29, 29, 30, 29, 29],
+        1447: [30, 29, 30, 30, 30, 29, 30, 29, 30, 29, 30, 29],
+        1448: [29, 30, 29, 30, 30, 29, 30, 30, 29, 30, 29, 30],
+        1449: [29, 29, 30, 29, 30, 29, 30, 30, 29, 30, 30, 29]
+      },
+      /* المرساة: 23 جمادى الآخرة 1446 = 24 ديسمبر 2024 — منتصف ليل محلي لا UTC، حتى
+         تتطابق مع parseG ومع تواريخ التقويم المحلية (كانت UTC فتنحرف يوماً بين
+         منتصف الليل والثالثة فجراً بتوقيت الرياض) */
+      base: { g: new Date(2024, 11, 24), h: { y: 1446, m: 6, d: 23 } },
+      /* فرق الأيام بين تاريخين بحساب التقويم المحلي — لا يتأثر بالساعة ولا بالتوقيت الصيفي */
+      _dayDiff(a, b) {
+        return Math.round((Date.UTC(a.getFullYear(), a.getMonth(), a.getDate())
+          - Date.UTC(b.getFullYear(), b.getMonth(), b.getDate())) / 864e5);
+      },
+      /* طول الشهر بالجدول، وخارجه بالتقويم الحسابي: الأشهر الفردية 30 والزوجية 29،
+         وذو الحجة 30 في السنوات الكبيسة (كان يعيد 30 لكل أشهر السنة الكبيسة و29 لغيرها) */
+      _arithMd(y, m0) {
+        if (this.uq[y]) return this.uq[y][m0] || 29;
+        if (m0 === 11) return [2, 5, 7, 10, 13, 16, 18, 21, 24, 26, 29].includes(y % 30) ? 30 : 29;
+        return m0 % 2 === 0 ? 30 : 29;
+      },
+      /* طول الشهر الهجري: Intl أولاً (هل يوجد يوم 30 في هذا الشهر؟) ثم الجدول */
+      md(y, m0) {
+        const m = m0 + 1;
+        const g1 = this.toG({ y, m, d: 1 });
+        const h1 = this._intlH(g1);
+        if (!h1 || h1.y !== y || h1.m !== m || h1.d !== 1) return this._arithMd(y, m0);
+        const g30 = new Date(g1); g30.setDate(g30.getDate() + 29);
+        const h30 = this._intlH(g30);
+        return (h30 && h30.y === y && h30.m === m && h30.d === 30) ? 30 : 29;
+      },
+      /** @type {Intl.DateTimeFormat|null|undefined} */
+      _fmt: undefined,
+      /* تحويل ميلادي→هجري عبر Intl (أم القرى) — المرجع الأول لكل التحويلات.
+         المنسّق يُنشأ مرة واحدة، ويُرفض إن لم يدعم المحرك تقويم أم القرى فعلاً
+         (Intl يسقط صامتاً إلى الميلادي عند غياب التقويم — فلا نأخذ ميلادياً على أنه هجري) */
       _intlH(gd) {
         try {
-          const parts = new Intl.DateTimeFormat('en-u-ca-islamic-umalqura', { day: 'numeric', month: 'numeric', year: 'numeric' }).formatToParts(gd);
+          if (this._fmt === undefined) {
+            this._fmt = null;
+            const f = new Intl.DateTimeFormat('en-u-ca-islamic-umalqura', { day: 'numeric', month: 'numeric', year: 'numeric' });
+            if (f.resolvedOptions().calendar === 'islamic-umalqura') this._fmt = f;
+          }
+          if (!this._fmt) return null;
+          const parts = this._fmt.formatToParts(gd);
           const o = {};
           parts.forEach(p => { if (p.type === 'day' || p.type === 'month' || p.type === 'year') o[p.type] = parseInt(p.value, 10); });
           if (o.year && o.month && o.day) return { y: o.year, m: o.month, d: o.day };
@@ -2820,32 +2870,35 @@
         return null;
       },
       _arithToH(gd) {
-        let r = Math.floor((/** @type {number} */ (gd) - /** @type {number} */ (/** @type {any} */ (this.base.g))) / 864e5), { y, m, d } = { y: this.base.h.y, m: this.base.h.m - 1, d: this.base.h.d };
-        while (r !== 0) { const dm = this.md(y, m); if (r > 0) { const e = dm - d + 1; if (r >= e) { r -= e; d = 1; m++; if (m >= 12) { m = 0; y++; } } else { d += r; r = 0; } } else { if (Math.abs(r) < d) { d += r; r = 0; } else { r += d; m--; if (m < 0) { m = 11; y--; } d = this.md(y, m); } } if (Math.abs(r) > 4e5) break; }
+        let r = this._dayDiff(gd, this.base.g), { y, m, d } = { y: this.base.h.y, m: this.base.h.m - 1, d: this.base.h.d };
+        while (r !== 0) { const dm = this._arithMd(y, m); if (r > 0) { const e = dm - d + 1; if (r >= e) { r -= e; d = 1; m++; if (m >= 12) { m = 0; y++; } } else { d += r; r = 0; } } else { if (Math.abs(r) < d) { d += r; r = 0; } else { r += d; m--; if (m < 0) { m = 11; y--; } d = this._arithMd(y, m); } } if (Math.abs(r) > 4e5) break; }
         return { y, m: m + 1, d };
       },
       toH(gd) {
-        const approx = this._arithToH(gd);
-        if (this.uq[approx.y]) return approx;          /* داخل تغطية الجدول — سلوك قديم بلا تغيير */
-        return this._intlH(gd) || approx;              /* خارجها: Intl، والحساب التقريبي كملاذ أخير */
+        return this._intlH(gd) || this._arithToH(gd);   /* Intl أولاً، والجدول ملاذاً */
       },
+      /* الرجوع إلى ما قبل المرساة: من يوم cd في شهر إلى آخر يوم في الشهر السابق = cd يوماً
+         (كان يُطرح d2-cd+1 فيخطئ بأشهر لكل تاريخ سابق لديسمبر 2024) */
       _arithToG(h) {
         let days = 0, cy = this.base.h.y, cm = this.base.h.m - 1, cd = this.base.h.d, ty = h.y, tm = h.m - 1, td = h.d;
-        while (cy !== ty || cm !== tm || cd !== td) { const dm = this.md(cy, cm); if (cy < ty || (cy === ty && cm < tm)) { const e = dm - cd + 1; days += e; cd = 1; cm++; if (cm >= 12) { cm = 0; cy++; } } else if (cy > ty || (cy === ty && cm > tm)) { cm--; if (cm < 0) { cm = 11; cy--; } const d2 = this.md(cy, cm); days -= (d2 - cd + 1); cd = d2; } else { days += td - cd; cd = td; } if (Math.abs(days) > 4e5) break; }
+        while (cy !== ty || cm !== tm || cd !== td) { const dm = this._arithMd(cy, cm); if (cy < ty || (cy === ty && cm < tm)) { const e = dm - cd + 1; days += e; cd = 1; cm++; if (cm >= 12) { cm = 0; cy++; } } else if (cy > ty || (cy === ty && cm > tm)) { cm--; if (cm < 0) { cm = 11; cy--; } const d2 = this._arithMd(cy, cm); days -= cd; cd = d2; } else { days += td - cd; cd = td; } if (Math.abs(days) > 4e5) break; }
         const r = new Date(this.base.g); r.setDate(r.getDate() + days); return r;
       },
+      /* هجري→ميلادي: تقدير بالجدول ثم مسح ±10 أيام حوله بمطابقة أجزاء Intl الهجرية
+         (الأقرب أولاً). غياب Intl أو تاريخ لا وجود له (30 في شهر من 29) → التقدير. */
       toG(h) {
-        if (this.uq[h.y]) return this._arithToG(h);    /* داخل تغطية الجدول — سلوك قديم بلا تغيير */
         const est = this._arithToG(h);
-        /* خارجها: قدّر بالحساب ثم امسح ±4 أيام وقارن أجزاء Intl الهجرية */
         try {
-          for (let off = -4; off <= 4; off++) {
-            const cand = new Date(est); cand.setDate(cand.getDate() + off);
-            const hp = this._intlH(cand);
-            if (hp && hp.y === h.y && hp.m === h.m && hp.d === h.d) return cand;
+          for (let off = 0; off <= 10; off++) {
+            for (const s of (off ? [-off, off] : [0])) {
+              const cand = new Date(est); cand.setDate(cand.getDate() + s);
+              const hp = this._intlH(cand);
+              if (!hp) return est;
+              if (hp.y === h.y && hp.m === h.m && hp.d === h.d) return cand;
+            }
           }
         } catch (e) { }
-        return est;                                    /* ملاذ أخير: الحساب التقريبي */
+        return est;
       },
       today() { return this.toH(new Date()) },
       p2(n) { return String(n).padStart(2, '0') },
@@ -3222,8 +3275,6 @@
       _purgeOldTrash();   /* حذف نهائي تلقائي لعناصر السلة الأقدم من 30 يوماً */
       updCount();
       if (typeof renderNotes === 'function') renderNotes();
-      /* تأكيد نجاح الإقلاع بعد تطبيق تحديث (يلغي التراجع التلقائي) */
-      try { if (window.AndroidFS && typeof window.AndroidFS.confirmUpdate === 'function') window.AndroidFS.confirmUpdate(); } catch (e) { }
     }
 
     const DB = {
@@ -5672,10 +5723,10 @@
 
       const t0 = Date.now();
       try {
-        const handle = await Promise.race([
-          window.showDirectoryPicker({ mode: 'readwrite' }),
-          new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 2500))
-        ]);
+        /* بلا مهلة: نافذة اختيار المجلد قد تبقى مفتوحة دقائق وهو يتصفح — المهلة
+           السابقة (2.5 ثانية) كانت ترفض الوعد وتبدّل التخزين إلى Share بينما
+           النافذة ما زالت مفتوحة، ثم يُهمَل اختياره حين يعود */
+        const handle = await window.showDirectoryPicker({ mode: 'readwrite' });
         const perm = await handle.requestPermission({ mode: 'readwrite' });
         if (perm !== 'granted') throw new Error('permission-denied');
         await _saveHandleToIDB(handle);
@@ -5687,10 +5738,7 @@
         await finishSetup();   /* يحمّل الملاحظات من المجلد */
       } catch (e) {
         if (btn) { btn.disabled = false; btn.textContent = '📂 اختيار مجلد الملاحظات ›'; }
-        if (e.message === 'timeout') {
-          _showSetupErr('⚠️ نظام الهاتف يعلق أو يمنع ظهور النافذة.\nسيتم تفعيل ميزة مشاركة النسخ الاحتياطي Share. اضغط "تخطي" للبدء.');
-          localStorage.setItem('notes_storage', 'share');
-        } else if (e.name === 'AbortError' && (Date.now() - t0) < 400) {
+        if (e.name === 'AbortError' && (Date.now() - t0) < 400) {
           _showSetupErr('⚠️ بيئة الهاتف الحالية ترفض الميزة.\nسيتم تفعيل ميزة مشاركة النسخ الاحتياطي. اضغط "تخطي" للبدء.');
           localStorage.setItem('notes_storage', 'share');
         } else if (e.name === 'AbortError') {
@@ -5718,10 +5766,10 @@
       }
       const t0 = Date.now();
       try {
-        const handle = await Promise.race([
-          window.showDirectoryPicker({ mode: 'readwrite' }),
-          new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 2500))
-        ]);
+        /* بلا مهلة: نافذة اختيار المجلد قد تبقى مفتوحة دقائق وهو يتصفح — المهلة
+           السابقة (2.5 ثانية) كانت ترفض الوعد وتبدّل التخزين إلى Share بينما
+           النافذة ما زالت مفتوحة، ثم يُهمَل اختياره حين يعود */
+        const handle = await window.showDirectoryPicker({ mode: 'readwrite' });
         const perm = await handle.requestPermission({ mode: 'readwrite' });
         if (perm !== 'granted') throw new Error('permission-denied');
         /* احفظ أي تعديل معلّق في المجلد الحالي قبل التبديل حتى لا يضيع آخر تغيير */
@@ -5737,10 +5785,7 @@
         if (typeof renderNotes === 'function') renderNotes();
         showFb('✅ تم تغيير المجلد: ' + handle.name);
       } catch (e) {
-        if (e.message === 'timeout') {
-          showFb('⚠️ بيئة الهاتف تمنع النافذة (تم تفعيل Share للنسخ الاحتياطي)', 1);
-          localStorage.setItem('notes_storage', 'share');
-        } else if (e.name === 'AbortError' && (Date.now() - t0) < 400) {
+        if (e.name === 'AbortError' && (Date.now() - t0) < 400) {
           showFb('⚠️ بيئة الموبايل لا تدعم اختيار مجلدات', 1);
         } else if (e.name === 'AbortError') {
         } else if (e.message === 'permission-denied') {
@@ -5785,16 +5830,35 @@
     /* النسخ الاحتياطي التلقائي: انظر _autoBackup أعلى قسم التخزين (كل 10 عمليات حفظ) */
 
     /* تصدير يدوي */
-    function exportData() {
-      /* v3: يشمل السلة والفئات المخصّصة وأماكن الخريطة — استعادة كاملة من ملف واحد */
+    /* v3: يشمل السلة والفئات المخصّصة وأماكن الخريطة — استعادة كاملة من ملف واحد */
+    function _exportPayloadJson() {
       const payload = { v: 3, savedAt: Date.now(), notes: DB.get(), trash: _trashCache, cats: CATS, places: MapBridge.getPlaces() };
-      const json = JSON.stringify(payload, null, 2);
+      return JSON.stringify(payload, null, 2);
+    }
+    function _exportFileName() { return 'منظم-' + new Date().toISOString().split('T')[0] + '.json'; }
+
+    function exportData() {
+      const json = _exportPayloadJson();
+      const name = _exportFileName();
+      /* أندرويد: تنزيل blob لا يعمل في WebView (لا DownloadListener) — كان الزر يعلن
+         «تم التصدير» ولا يُنشئ أي ملف. نكتب في مجلد الملاحظات إن وُجد، وإلا نفتح
+         منتقي المشاركة (Drive وغيره) */
+      const fsb = window.AndroidFS;
+      if (fsb && typeof fsb.shareTextFile === 'function') {
+        try {
+          if (typeof fsb.writeFile === 'function' && typeof fsb.hasSavedFolder === 'function'
+              && fsb.hasSavedFolder() && fsb.writeFile('', name, json)) {
+            showFb('💾 حُفظ في مجلد الملاحظات: ' + name);
+            return;
+          }
+        } catch (e) { }
+        try { fsb.shareTextFile(name, 'application/json', json); showFb('☁️ اختر وجهة الحفظ'); return; } catch (e) { }
+      }
       const blob = new Blob([json], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
-      const date = new Date().toISOString().split('T')[0];
       a.href = url;
-      a.download = `منظم-${date}.json`;
+      a.download = name;
       document.body.appendChild(a);
       a.click();
       setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 1000);
@@ -5806,9 +5870,7 @@
        على ويندوز/المتصفح: تنزيل عادي عبر exportData */
     function shareBackup() {
       if (window.AndroidFS && typeof window.AndroidFS.shareTextFile === 'function') {
-        const payload = { v: 3, savedAt: Date.now(), notes: DB.get(), trash: _trashCache, cats: CATS, places: MapBridge.getPlaces() };
-        const name = 'منظم-' + new Date().toISOString().split('T')[0] + '.json';
-        window.AndroidFS.shareTextFile(name, 'application/json', JSON.stringify(payload, null, 2));
+        window.AndroidFS.shareTextFile(_exportFileName(), 'application/json', _exportPayloadJson());
         showFb('☁️ اختر وجهة المشاركة — Drive للنسخ السحابي');
         return;
       }
@@ -6328,6 +6390,30 @@
         showFb('⚠️ لم يُمنح إذن الإشعارات', 1);
       }
     }
+    /* أندرويد 12+: إذن المنبّه الدقيق (SCHEDULE_EXACT_ALARM) مرفوض افتراضياً على
+       أندرويد 14+، وبدونه تُجمَّع التذكيرات في نوافذ الصيانة فتتأخر دقائق إلى ساعة.
+       الصف يظهر فقط حين تبلّغ الطبقة الأصلية أن الإذن غائب، ومنحُه يعيد الجدولة. */
+    let _exactAlarmOk = null;
+    function _reflectExactAlarm() {
+      const row = document.getElementById('exact-alarm-row');
+      if (!row) return;
+      let ok = true;
+      try {
+        const fsb = window.AndroidFS;
+        if (fsb && typeof fsb.canScheduleExactAlarms === 'function') ok = !!fsb.canScheduleExactAlarms();
+      } catch (e) { }
+      row.style.display = ok ? 'none' : 'block';
+      if (_exactAlarmOk === false && ok) _syncRemindersDebounced();   /* مُنح للتو → أعد الجدولة دقيقةً */
+      _exactAlarmOk = ok;
+    }
+    function requestExactAlarmPerm() {
+      try {
+        if (window.AndroidFS && typeof window.AndroidFS.requestExactAlarmPermission === 'function') {
+          window.AndroidFS.requestExactAlarmPermission();
+          showFb('⏰ فعّل «السماح بضبط المنبّهات والتذكيرات» ثم عُد للتطبيق');
+        }
+      } catch (e) { }
+    }
     function requestNotifPerm() {
       try { if (window.AndroidFS && window.AndroidFS.requestNotificationPermission) window.AndroidFS.requestNotificationPermission(); } catch (e) { }
       /* لا نُعلن النجاح إلا بعد التحقق من نتيجة الإذن فعلياً */
@@ -6386,6 +6472,13 @@
     try { if (window.AndroidFS && window.AndroidFS.requestNotificationPermission) window.AndroidFS.requestNotificationPermission(); } catch (e) { }
     setTimeout(_syncNativeReminders, 2800);
 
+    /* تأكيد نجاح إقلاع الصفحة بعد تطبيق تحديث (يلغي التراجع التلقائي في الطبقة الأصلية).
+       وصول التنفيذ إلى هنا يعني أن الصفحة الجديدة عملت — وهذا ما يقيسه التراجع.
+       كان التأكيد مشروطاً بنجاح قراءة ملف الملاحظات: ملف تالف (ونسخته الاحتياطية)
+       كان يمنع التأكيد فتتراجع الطبقة الأصلية عند كل إقلاع ثم تعيد تنزيل التحديث
+       نفسه بعد ثوانٍ — حلقة تحديث/تراجع لا تنتهي */
+    try { if (window.AndroidFS && typeof window.AndroidFS.confirmUpdate === 'function') window.AndroidFS.confirmUpdate(); } catch (e) { }
+
     /* ══ التحديث التلقائي ══ */
     const _APK_MANIFEST = 'https://raw.githubusercontent.com/sulasm/MyNotes-releases/main/latest.json';
     function _autoUpdateHtmlOnLaunch() {
@@ -6439,6 +6532,7 @@
     document.addEventListener('visibilitychange', () => {
       if (document.hidden) return;
       setTimeout(_scheduleReminders, 500);
+      _reflectExactAlarm();   /* العودة من شاشة إذن المنبّه الدقيق */
       if (Date.now() - window._lastUpdCheckT >= _UPD_RECHECK_MS) {
         window._lastUpdCheckT = Date.now();
         window._htmlAutoChecked = false; window._apkAutoChecked = false;
@@ -8383,13 +8477,30 @@ async function clearAll(){
   if(!confirm('مسح كل العروض المحفوظة؟'))return;
   await Store.set(KEY,'[]');renderCmp();updateCount();
 }
+/* حفظ ملف نصي على كل منصة: تنزيل blob لا يعمل داخل WebView أندرويد (لا DownloadListener)
+   فكانت أزرار التصدير والنسخة الاحتياطية تفعل لا شيء هناك. نستعمل جسر الطبقة الأصلية إن وُجد
+   (في الإطار نفسه أو في الأم — نفس الأصل): مجلد الملاحظات أولاً ثم منتقي المشاركة. */
+function saveTextFile(name,content,mime){
+  let fsb=null;
+  try{fsb=window.AndroidFS||(window.parent&&window.parent!==window?window.parent.AndroidFS:null)}catch(e){fsb=null}
+  if(fsb&&typeof fsb.shareTextFile==='function'){
+    try{
+      if(typeof fsb.writeFile==='function'&&typeof fsb.hasSavedFolder==='function'&&fsb.hasSavedFolder()&&fsb.writeFile('',name,content)){
+        alert('💾 حُفظ في مجلد الملاحظات: '+name);return;
+      }
+    }catch(e){}
+    try{fsb.shareTextFile(name,mime,content);return}catch(e){}
+  }
+  const blob=new Blob([content],{type:mime}),url=URL.createObjectURL(blob),a=document.createElement('a');
+  a.href=url;a.download=name;document.body.appendChild(a);a.click();
+  setTimeout(()=>{URL.revokeObjectURL(url);a.remove()},1000);   /* الإلغاء الفوري كان يُسقط التنزيل في بعض المتصفحات */
+}
 async function exportData(){
   const data=JSON.parse(await Store.get(KEY)||'[]');
   if(!data.length){alert('لا يوجد ما يُصدَّر');return}
   let csv='\uFEFFالاسم,APR فعلي,نسبة الزيادة,نسبة ثابتة,سعر كاش,دفعة مقدمة,قسط شهري,الدفعة الأخيرة,مدة(شهر),إجمالي,ملاحظات\n';
   data.forEach(d=>{csv+=`"${d.name}",${(d.aprEff||0).toFixed(2)},${(d.incr||0).toFixed(2)},${(d.flat||0).toFixed(2)},${d.cash},${d.down},${d.m},${d.balloon},${d.n},${d.grandTotal},"${(d.note||'').replace(/"/g,'""')}"\n`});
-  const blob=new Blob([csv],{type:'text/csv;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a');
-  a.href=url;a.download='مقارنة_التمويل.csv';a.click();URL.revokeObjectURL(url);
+  saveTextFile('مقارنة_التمويل.csv',csv,'text/csv;charset=utf-8');
 }
 async function updateCount(){const data=JSON.parse(await Store.get(KEY)||'[]');document.getElementById('cnt').textContent=data.length+' عرض محفوظ'}
 /* ===== نسخ احتياطي/استعادة موحّد للقائمتين ===== */
@@ -8397,9 +8508,8 @@ async function backupAll(){
   const offers=JSON.parse(await Store.get(KEY)||'[]');
   const payments=JSON.parse(await Store.get(PKEY)||'[]');
   const obj={app:'حاسبة التمويل الذكية',version:'1.3.1',date:new Date().toISOString(),offers,payments};
-  const blob=new Blob([JSON.stringify(obj,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');
   const d=new Date(),stamp=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-  a.href=url;a.download=`نسخة_احتياطية_الحاسبة_${stamp}.json`;a.click();URL.revokeObjectURL(url);
+  saveTextFile(`نسخة_احتياطية_الحاسبة_${stamp}.json`,JSON.stringify(obj,null,2),'application/json');
 }
 function restoreAll(ev){
   const file=ev.target.files[0];if(!file)return;
@@ -8492,8 +8602,7 @@ async function exportPData(){
   if(!data.length){alert('لا يوجد ما يُصدَّر');return}
   let csv='\uFEFFالاسم,القسط الشهري (سيارة),قسط القرض الشخصي,إجمالي القسط الشهري,سعر/مبلغ التمويل,دفعة مقدمة,المبلغ الممول,الدفعة الأخيرة,النسبة المدخلة,نوع النسبة,APR فعلي,مدة(شهر),إجمالي الربح,إجمالي مدفوع,نسبة الزيادة\n';
   data.forEach(d=>{const plRaw=d.down>0?d.down/60+300:0;const pl=Math.round(plRaw);const tot=Math.round(d.m+plRaw);const gFin=Math.round((d.grand-d.down)+plRaw*60);const profFin=Math.round((d.profit||0)+(plRaw*60-d.down));const iFin=d.price>0?((gFin-d.price)/d.price*100):0;csv+=`"${d.name}",${d.m},${pl},${tot},${d.price},${d.down},${d.F},${d.balloon},${d.rate||0},"${d.rateType==='flat'?'ثابتة':'فعلية'}",${(d.aprEff||0).toFixed(2)},${d.n},${profFin},${gFin},${iFin.toFixed(2)}\n`});
-  const blob=new Blob([csv],{type:'text/csv;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a');
-  a.href=url;a.download='مقارنة_الأقساط.csv';a.click();URL.revokeObjectURL(url);
+  saveTextFile('مقارنة_الأقساط.csv',csv,'text/csv;charset=utf-8');
 }
 async function updatePCount(){const data=JSON.parse(await Store.get(PKEY)||'[]');document.getElementById('pcnt').textContent=data.length+' قسط محفوظ'}
 
