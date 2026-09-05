@@ -5,7 +5,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
   <meta name="theme-color" content="#667eea">
-  <meta name="app-version" content="1.25.0">
+  <meta name="app-version" content="1.25.1">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <title>المنظم</title>
@@ -4854,6 +4854,8 @@
     }
     /* تفريغ كل حقول التسجيل السريع — يمنع إعادة حفظ نفس الملاحظة عند الإغلاق */
     function _resetQuickForm() {
+      /* مرفق أُلغي قبل الحفظ: ملفه كُتب فعلاً — يُجدوَل للحذف إن لم تستعمله ملاحظة */
+      if (S.q && S.q.file) _cleanupOldAttachment(S.q.file);
       S.q = { main: '', sub: '', sec: '', status: '', dH: '', dG: '', file: null, links: [] };
       setQC('main', '📁', 'الرئيسية', 1); setQC('sub', '📌', 'الفرعية', 1);
       setQC('sec', '🎯', 'الثانوية', 1); setQC('status', '📊', 'حالة', 1);
@@ -4869,7 +4871,8 @@
     }
     function _doSaveQuick() {
       const n = buildNote(S.q, 'q-text', 'q-num', S.q.file);
-      if (!n.main && !n.text && !n.num && (!n.links || !n.links.length)) return null;
+      /* المرفق محتوى: كان يُكتب على القرص عند الإرفاق ثم يُهمل بلا ملاحظة ولا رسالة */
+      if (!n.main && !n.text && !n.num && !n.file && (!n.links || !n.links.length)) return null;
       DB.add(n);
       /* ربط ثنائي الاتجاه */
       if (n.links && n.links.length) {
@@ -4893,6 +4896,8 @@
       if (!noFilter || _curSort !== 'default') return '';
       const future = n.dG && parseG(n.dG) > Date.now();
       if (n.status && n.status !== 'قيد التنفيذ') return ' — محفوظة تحت حالة «' + n.status + '»';
+      /* بلا حالة: لا تظهر في «المهام الحالية» أيضاً — وهذا بالضبط الالتباس الذي كُتبت الدالة لمنعه */
+      if (!n.status) return ' — بلا حالة، فلا تظهر في «المهام الحالية»';
       if (future) return ' — محفوظة بتاريخ مستقبلي';
       return '';
     }
@@ -4910,22 +4915,25 @@
       const sec  = FP.sec  || '';
       const status = FP.status || '';
 
-      if (!main && !txt) { showFb('أدخل الفئة الرئيسية أو النص', 1); return; }
-      _doSaveFromFilter(main, sub, sec, txt, status);
+      if (!main && !txt && !S.fFile) { showFb('أدخل الفئة الرئيسية أو النص', 1); return; }
+      const n = _doSaveFromFilter(main, sub, sec, txt, status);
+      showFb('⚡ تم الحفظ' + _hintIfHidden(n));
     }
     function _doSaveFromFilter(main, sub, sec, txt, status, dg) {
-      DB.add({
+      const n = {
         id: newNoteId(), main: main||'', sub: sub||'', sec: sec||'',
         text: txt||'', num: document.getElementById('f-num')?.value.trim()||'',
         status: status||'', dH: S.fDate.h||'', dG: dg||S.fDate.g||'',
         file: S.fFile||null, ts: new Date().toISOString()
-      });
+      };
+      DB.add(n);
       /* مسح الحقول — بما فيها الرقم لأنه يعمل أيضاً كمُدخل فلترة حيّ */
       document.getElementById('f-text').value = '';
       const _fn = document.getElementById('f-num'); if (_fn) _fn.value = '';
       S.fFile = null;
       document.getElementById('f-attach-cell').style.background = '';
       setTimeout(renderNotes, 100);
+      return n;
     }
 
     /* ══════════════════════════════════════
@@ -5259,6 +5267,7 @@
       })}</div>`;
     }
     function clearFilters() {
+      if (S.fFile) _cleanupOldAttachment(S.fFile);   /* مرفق شريط الفلترة لم يدخل ملاحظة */
       FP.main = ''; FP.sub = ''; FP.sec = ''; FP.status = ''; S.fFile = null;
       document.getElementById('f-attach-cell').style.background = '';
       if (typeof _updateCatChip === 'function') _updateCatChip();
@@ -6504,8 +6513,12 @@
         if (Notification.permission === 'granted') { _applyNotifStatus(true); return; }
         if (Notification.permission === 'denied') { _applyNotifStatus(false); return; }
         try {
-          const p = Notification.requestPermission(function (res) { _applyNotifStatus(res === 'granted'); });
-          if (p && typeof p.then === 'function') p.then(res => _applyNotifStatus(res === 'granted')).catch(() => _applyNotifStatus(false));
+          /* المتصفحات الحديثة تنفّذ الـ callback والـ Promise معاً — كان يعطي توستين ومزامنتين.
+             نعتمد الـ Promise، والـ callback فقط حين لا يعيد المتصفح وعداً (المحركات القديمة) */
+          let done = false;
+          const once = res => { if (done) return; done = true; _applyNotifStatus(res === 'granted'); };
+          const p = Notification.requestPermission(once);
+          if (p && typeof p.then === 'function') p.then(once).catch(() => once('denied'));
         } catch (e) { _applyNotifStatus(false); }
         return;
       }
@@ -7440,7 +7453,7 @@ function _render(seq, omR, ensR, hrR, cmfR, metR){
       hiList.length
         ? ` خلايا الفرصة القوية (مظللة): ${hiList.length}.`
         : " لا توجد خلايا فرصة قوية حالياً."}${
-      (oldTrend===null && !loadTrend())
+      (oldTrend===null && !!loadTrend())   /* saveTrend سبق هنا: المرجع الأول حُفظ للتو (كان الشرط معكوساً فلا تظهر الملاحظة إلا حين يفشل التخزين) */
         ? html` <span class="note">(أسهم التغيّر ↑↓ ستظهر بدءاً من التحديث القادم بعد حفظ مرجع أول)</span>`
         : null}`, sum);
   sum.style.display="block";
