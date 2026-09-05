@@ -5,7 +5,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
   <meta name="theme-color" content="#667eea">
-  <meta name="app-version" content="1.24.2">
+  <meta name="app-version" content="1.25.0">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <title>المنظم</title>
@@ -3928,6 +3928,12 @@
         document.getElementById('rain-frame').srcdoc =
           tpl.textContent.replace(/<\\\/script>/g, '<' + '/script>');
         _rainLoaded = true;
+      } else {
+        /* الإطار يبقى حياً بعد الإغلاق — اطلب تحديثاً إن قدُمت بياناته (30 دقيقة) */
+        try {
+          var rw = document.getElementById('rain-frame').contentWindow;
+          if (rw && typeof rw.refreshIfStale === 'function') rw.refreshIfStale();
+        } catch (e) { }
       }
       ov.style.display = 'flex';
       hPush();
@@ -4792,10 +4798,15 @@
       return String(Date.now()) + '_' + (Math.floor(Math.random() * 900) + 100) + '_' + cleanName;
     }
     /* يُرجع Promise<boolean>: true عند نجاح الحفظ الفعلي على القرص */
+    /* أنواع المرفقات المسموحة (صور، مستندات، صوت وفيديو). التنفيذيات والحزم مرفوضة
+       في الطبقات الثلاث: كانت الصفحة تستطيع حفظ x.exe أو x.apk ثم فتحه بالجسر */
+    const _ATT_ALLOWED_EXT = /\.(jpe?g|png|gif|webp|bmp|heic|heif|pdf|txt|md|csv|rtf|docx?|xlsx?|pptx?|odt|ods|odp|mp3|m4a|wav|ogg|opus|aac|flac|mp4|m4v|mkv|webm|mov|3gp)$/i;
+    function _attExtAllowed(name) { return _ATT_ALLOWED_EXT.test(String(name || '')); }
     function _saveAttachment(file, savedName) {
       return new Promise((resolve) => {
         const folderName = "المرفقات";
         const fName = savedName || file.name.replace(/[\\/:*?"<>|]/g, '');
+        if (!_attExtAllowed(fName)) { showFb('⚠️ نوع الملف غير مسموح كمرفق (صور، مستندات، صوت أو فيديو فقط)', 1); resolve(false); return; }
         const storage = localStorage.getItem('notes_storage');
         if (window.AndroidFS && storage === 'android_fs') {
           try {
@@ -6825,6 +6836,10 @@
     border:1px solid var(--line);position:relative;flex:none}
   .hc.h1{background:var(--h1)} .hc.h2{background:var(--h2)} .hc.h3{background:var(--h3)}
   .hc.zap::after{content:"⚡";position:absolute;top:-12px;left:-2px;font-size:.55rem}
+  .hc,.cc{cursor:pointer}
+  .hc.sel,.cc.sel{outline:2px solid var(--txt);outline-offset:1px;z-index:1}
+  .hdetail{font-size:.72rem;color:var(--muted);white-space:pre-line;padding:6px 8px;margin-top:6px;
+    border-radius:8px;background:var(--card);border:1px solid var(--line);min-height:2.6em;direction:rtl;text-align:right}
   .cc{width:9px;height:10px;border-radius:2px;border:1px solid var(--line);flex:none;background:var(--h0)}
   .cc.c1{background:rgba(148,163,184,.25)} .cc.c2{background:rgba(148,163,184,.5)}
   .cc.c3{background:rgba(148,163,184,.75)} .cc.c4{background:rgba(148,163,184,1)}
@@ -6935,7 +6950,7 @@
       <span class="lg"><i style="background:var(--h3)"></i>≥60%</span>
       <span class="lg">⚡ طاقة رعدية عالية (CAPE ≥ 1000)</span>
       <span class="lg"><i style="background:rgba(148,163,184,.75)"></i>الشريط الرمادي: الغطاء السحابي</span>
-      <span class="lg">المس/مرّر على أي خلية للتفاصيل</span>
+      <span class="lg">انقر أي خلية لعرض تفاصيلها تحت الشريط</span>
     </div>
   </div>
 
@@ -7160,19 +7175,37 @@ function trendArrow(old, name, iso, p){
 // الغطاء السحابي النهاري (6ص–6م) من البيانات الساعية إن غطت اليوم، وإلا null
 function cloudDaytime(hrLoc, iso){
   if(!hrLoc) return null;
-  const h = hrLoc.hourly, vals = [];
-  h.time.forEach((t,i)=>{
+  const h = hrLoc.hourly || {}, vals = [], cc = h.cloud_cover || [];
+  (h.time || []).forEach((t,i)=>{
     if(t.slice(0,10)!==iso) return;
     const hh = +t.slice(11,13);
-    if(hh>=6 && hh<=18){ const v=num(h.cloud_cover[i]); if(v!==null) vals.push(v); }
+    if(hh>=6 && hh<=18){ const v=num(cc[i]); if(v!==null) vals.push(v); }
   });
   return vals.length>=10 ? Math.round(vals.reduce((a,b)=>a+b,0)/vals.length) : null;
 }
 
+/* كل الطلبات مقيدة بمهلة (20 ثانية) وبإشارة إلغاء الجلب الحالي: طلب معلّق واحد
+   كان يُبقي الشاشة على «جارٍ جلب» بلا نهاية لأن Promise.allSettled ينتظر الجميع،
+   وتغيير المدن كان يتجاهل نتيجة الجلب القديم لكنه يترك طلباته تعمل */
+let FETCH_TIMEOUT_MS = 20000;   /* let: تُقصَّر في الاختبارات */
+let _loadSignal = null;   /* إشارة إلغاء الجلب الجاري — تُنشأ في load() */
 async function fetchJSON(url, opt){
-  const res = await fetch(url, Object.assign({cache:"no-store"}, opt||{}));
-  if(!res.ok) throw new Error("HTTP "+res.status);
-  return res.json();
+  const ctl = new AbortController();
+  const outer = _loadSignal;
+  const onAbort = ()=>ctl.abort();
+  if(outer){ if(outer.aborted) ctl.abort(); else outer.addEventListener("abort", onAbort, {once:true}); }
+  const timer = setTimeout(()=>ctl.abort(), FETCH_TIMEOUT_MS);
+  try{
+    const res = await fetch(url, Object.assign({cache:"no-store"}, opt||{}, {signal: ctl.signal}));
+    if(!res.ok) throw new Error("HTTP "+res.status);
+    return await res.json();
+  }catch(e){
+    if(e && e.name==="AbortError") throw new Error(outer && outer.aborted ? "أُلغي" : "مهلة الاتصال");
+    throw e;
+  }finally{
+    clearTimeout(timer);
+    if(outer) outer.removeEventListener("abort", onAbort);
+  }
 }
 /* ═════ إطار المكوّنات: Preact + HTM (موردة محلياً — نفس نمط الحاسبة) ═════
    المحرك يحسب البيانات، والمكوّنات تصفها بقوالب html`` (إغلاق المكوّن <//>) */
@@ -7224,7 +7257,11 @@ function DetailTable({iso, i, om, met, ens, hr, cmf}){
   </table>${anyPartial?html`<div class="note">* تغطية جزئية لليوم من MET Norway.</div>`:null}</div>`;
 }
 
+/* تفاصيل الخلية كانت في title فقط، وهو لا يظهر باللمس على أندرويد — الآن النقر يختار
+   الخلية ويعرض سطر تفاصيلها تحت الشريط، وtitle يبقى لسطح المكتب */
 function HourlyGrid({hr}){
+  const [sel, setSel] = useState(/** @type {any} */ (null));
+  const pick = (key, text) => () => setSel(sel && sel.key===key ? null : {key, text});
   // صف عناوين الساعات (كل 6 ساعات) من الموقع الأول
   const times = hr[0].hourly.time;
   const labels = [];
@@ -7238,28 +7275,33 @@ function HourlyGrid({hr}){
       const h = hr[li].hourly;
       return html`
         <div class="hname">${l.short}</div>
-        <div class="strip">${h.time.map((t,i)=>{
-          const p = num(h.precipitation_probability[i]) ?? 0;
-          const mm = num(h.precipitation[i]) ?? 0;
-          const cape = num(h.cape[i]) ?? 0;
+        <div class="strip">${(h.time||[]).map((t,i)=>{
+          const p = num((h.precipitation_probability||[])[i]) ?? 0;
+          const mm = num((h.precipitation||[])[i]) ?? 0;
+          const cape = num((h.cape||[])[i]) ?? 0;
           const dw = h.dew_point_2m ? num(h.dew_point_2m[i]) : null;
           const ap = h.apparent_temperature ? num(h.apparent_temperature[i]) : null;
           const cmfLine = (dw!==null || ap!==null)
             ? "\n" + [ap!==null ? "محسوسة: "+Math.round(ap)+"°" : "", dw!==null ? "نقطة الندى: "+Math.round(dw)+"°" : ""]
                 .filter(Boolean).join(" · ")
             : "";
+          const text = `${l.short} — ${t.replace("T"," ")}\nاحتمال: ${p}% · كمية: ${mm.toFixed(1)} ملم · CAPE: ${Math.round(cape)}` + cmfLine;
+          const key = "p:"+li+":"+i;
           return html`<span
-            class=${"hc" + (p>=60?" h3":p>=40?" h2":p>=20?" h1":"") + (cape>=CAPE_ZAP && p>=20 ? " zap":"")}
-            title=${`${l.short} — ${t.replace("T"," ")}\nاحتمال: ${p}% · كمية: ${mm.toFixed(1)} ملم · CAPE: ${Math.round(cape)}` + cmfLine}/>`;
+            class=${"hc" + (p>=60?" h3":p>=40?" h2":p>=20?" h1":"") + (cape>=CAPE_ZAP && p>=20 ? " zap":"") + (sel && sel.key===key ? " sel":"")}
+            title=${text} onClick=${pick(key, text)}/>`;
         })}</div>
         <div class="hname cloud">☁️</div>
-        <div class="strip">${h.time.map((t,i)=>{
-          const cv = num(h.cloud_cover[i]) ?? 0;
+        <div class="strip">${(h.time||[]).map((t,i)=>{
+          const cv = num((h.cloud_cover||[])[i]) ?? 0;
+          const text = `${l.short} — ${t.replace("T"," ")}\nغطاء سحابي: ${cv}%`;
+          const key = "c:"+li+":"+i;
           return html`<span
-            class=${"cc" + (cv>=80?" c4":cv>=60?" c3":cv>=40?" c2":cv>=20?" c1":"")}
-            title=${`${l.short} — ${t.replace("T"," ")}\nغطاء سحابي: ${cv}%`}/>`;
+            class=${"cc" + (cv>=80?" c4":cv>=60?" c3":cv>=40?" c2":cv>=20?" c1":"") + (sel && sel.key===key ? " sel":"")}
+            title=${text} onClick=${pick(key, text)}/>`;
         })}</div>`;
-    })}`;
+    })}
+    <div class="hdetail" style="grid-column:1 / -1">${sel ? sel.text : "انقر أي خلية لعرض تفاصيلها"}</div>`;
 }
 function buildHourly(hr){
   const grid = document.getElementById("hgrid");
@@ -7269,8 +7311,21 @@ function buildHourly(hr){
 }
 
 let _loadSeq = 0;   /* يلغي نتيجة جلب قديم إذا أعاد المستخدم التحميل (مثلاً بعد تغيير المدن) */
+let _loadCtl = null;
+let _lastLoadAt = 0;    /* آخر تحديث ناجح — لتحديث تلقائي عند العودة بعد غياب */
+const STALE_MS = 30*60*1000;
+/* الإطار يبقى محمَّلاً بعد الإغلاق: كانت العودة بعد أيام تعرض جدول اليوم القديم كأنه
+   اليوم. يستدعيه الأب عند إعادة الفتح، ويُستدعى عند عودة التطبيق من الخلفية */
+function refreshIfStale(){
+  if(_lastLoadAt && Date.now()-_lastLoadAt < STALE_MS) return false;
+  if(!_lastLoadAt && _loadCtl) return false;   /* جلب أول ما زال جارياً */
+  load(); return true;
+}
+document.addEventListener("visibilitychange", ()=>{ if(document.visibilityState==="visible") refreshIfStale(); });
 async function load(){
   const seq = ++_loadSeq;
+  if(_loadCtl) _loadCtl.abort();          /* ألغِ طلبات الجلب السابق فعلياً */
+  _loadCtl = new AbortController(); _loadSignal = _loadCtl.signal;
   renderHeader();
   const st = document.getElementById("status");
   st.className="status"; st.style.display="block";
@@ -7283,6 +7338,16 @@ async function load(){
     fetchJSON(urlOM()), fetchJSON(urlEns()), fetchJSON(urlHr()), fetchComfort(), ...metOpts
   ]));
   if(seq !== _loadSeq) return;
+  try{ _render(seq, omR, ensR, hrR, cmfR, metR); }
+  catch(e){
+    /* رد ناقص من مصدر (مثلاً hourly بلا cape) كان يرمي استثناءً يترك الشاشة على
+       «جارٍ جلب» بلا رسالة ولا زر */
+    st.className="status err"; st.style.display="block";
+    st.textContent="⚠️ خطأ في معالجة البيانات: " + (e && e.message ? e.message : e) + " — جرّب «تحديث الآن»";
+  }
+}
+function _render(seq, omR, ensR, hrR, cmfR, metR){
+  const st = document.getElementById("status");
   const om  = omR.status==="fulfilled" ? asArr(omR.value) : null;
   const ens = ensR.status==="fulfilled" ? asArr(ensR.value) : null;
   const hr  = hrR.status==="fulfilled" ? asArr(hrR.value) : null;
@@ -7386,6 +7451,7 @@ async function load(){
 
   document.getElementById("tableCard").style.display="block";
   st.style.display="none";
+  _lastLoadAt = Date.now();
   document.getElementById("updated").textContent =
     "آخر تحديث: " + new Date().toLocaleString("ar-SA");
 }
