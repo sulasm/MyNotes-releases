@@ -5,7 +5,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
   <meta name="theme-color" content="#667eea">
-  <meta name="app-version" content="1.25.1">
+  <meta name="app-version" content="1.26.0">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <title>المنظم</title>
@@ -2615,7 +2615,10 @@
       const cList = document.getElementById('cfg-cats-list');
       const allNotes = DB.get();
       vrender(html`${Object.keys(CATS).map(k =>
-        html`<${CatMain} key=${k} k=${k} cat=${CATS[k]} allNotes=${allNotes}/>`)}`, cList);
+        html`<${CatMain} key=${k} k=${k} cat=${CATS[k]} allNotes=${allNotes}/>`)}
+        <div style="border-radius:14px;border:1px dashed rgba(var(--ov),0.2);margin-top:4px;">
+          <${CatAddRow} label="فئة رئيسية" indent=10 withIcon=true onAdd=${(name, ic) => addCat(undefined, undefined, name, ic)}/>
+        </div>`, cList);
     }
 
     /* ── مكوّنات قائمة الفئات (أكورديون رئيسي ← فرعي ← تفاصيل) ── */
@@ -2632,7 +2635,7 @@
       const dets = sub.det || [];
       return html`<div style="border-bottom:1px solid rgba(var(--ov),0.05);">
         <div style="display:flex;align-items:center;gap:6px;padding:8px 18px;cursor:pointer;user-select:none;-webkit-tap-highlight-color:transparent;"
-          onClick=${() => { if (!dets.length) return; setOpen(!open); }}>
+          onClick=${() => setOpen(!open)}>
           <span style="font-size:17px;line-height:1">${sub.ic || '📌'}</span>
           <span style="flex:1;color:#fdba74;font-size:13px;font-weight:600">${sk}</span>
           <span style="font-size:10px;color:rgba(var(--ov),0.35)">${dets.length} تفصيل</span>
@@ -2643,8 +2646,51 @@
         </div>
         <div style=${'background:rgba(0,0,0,0.12);padding:2px 0;display:' + (open ? 'block' : 'none')}>
           ${dets.map((det, i) => html`<${CatDetRow} det=${det} k=${k} sk=${sk} i=${i}/>`)}
+          <${CatAddRow} label="تفصيل" indent=32 onAdd=${(name) => addCat(k, sk, name)}/>
         </div>
       </div>`;
+    }
+    /* صف إضافة عنصر (اسم + أيقونة اختيارية) — للفئة الرئيسية والفرعية والتفصيل */
+    function CatAddRow({ label, indent, withIcon, onAdd }) {
+      const [name, setName] = useState('');
+      const [ic, setIc] = useState('');
+      const submit = () => {
+        const v = String(name || '').trim();
+        if (!v) { showFb('اكتب اسم ' + label, 1); return; }
+        if (onAdd(v, String(ic || '').trim())) { setName(''); setIc(''); }
+      };
+      return html`<div style=${'display:flex;align-items:center;gap:6px;padding:6px ' + (indent || 14) + 'px;'}
+        onClick=${ev => ev.stopPropagation()}>
+        ${withIcon ? html`<input class="edit-inp" value=${ic} onInput=${e => setIc(e.target.value)} placeholder="🙂"
+          style="width:44px;padding:6px;text-align:center;font-size:14px;flex:none;" maxlength="4"/>` : null}
+        <input class="edit-inp" value=${name} onInput=${e => setName(e.target.value)} placeholder=${label + ' جديد…'}
+          onKeyDown=${e => { if (e.key === 'Enter') { e.preventDefault(); submit(); } }}
+          style="flex:1;padding:6px 10px;font-size:12px;min-width:0;"/>
+        <button class="sm-btn" style="font-size:11px;padding:4px 10px;flex:none;" onClick=${submit}>＋ إضافة</button>
+      </div>`;
+    }
+    /* إضافة فئة رئيسية/فرعية/تفصيل — لم تكن الإضافة ممكنة إلا بالاستيراد */
+    function addCat(m, s, name, ic) {
+      const v = String(name || '').trim();
+      if (!v) return false;
+      if (m === undefined || m === null) {                       /* رئيسية */
+        if (CATS[v]) { showFb('الفئة «' + v + '» موجودة', 1); return false; }
+        CATS[v] = { ic: ic || '📂', sub: {} };
+      } else if (s === undefined || s === null) {                /* فرعية */
+        if (!CATS[m]) return false;
+        if (!CATS[m].sub || typeof CATS[m].sub !== 'object') CATS[m].sub = {};
+        if (CATS[m].sub[v]) { showFb('الفئة الفرعية «' + v + '» موجودة', 1); return false; }
+        CATS[m].sub[v] = { ic: ic || '📌', det: [] };
+      } else {                                                    /* تفصيل */
+        const sub = CATS[m] && CATS[m].sub && CATS[m].sub[s]; if (!sub) return false;
+        if (!Array.isArray(sub.det)) sub.det = [];
+        if (sub.det.includes(v)) { showFb('التفصيل «' + v + '» موجود', 1); return false; }
+        sub.det.push(v);
+      }
+      saveCats();
+      renderSettings();
+      showFb('✅ أُضيف: ' + v);
+      return true;
     }
     function CatMain({ k, cat, allNotes }) {
       const [open, setOpen] = useState(false);
@@ -2665,6 +2711,7 @@
         <div style=${'background:rgba(0,0,0,0.18);display:' + (open ? 'block' : 'none')}>
           ${subKeys.map(sk => html`<${CatSub} key=${sk} k=${k} sk=${sk} sub=${subs[sk]}
             count=${allNotes.filter(n => n.main === k && n.sub === sk).length}/>`)}
+          <${CatAddRow} label="فئة فرعية" indent=18 withIcon=true onAdd=${(name, ic) => addCat(k, undefined, name, ic)}/>
         </div>
       </div>`;
     }
@@ -4868,6 +4915,18 @@
       const qcd = document.getElementById('q-cal-day'); if (qcd) qcd.textContent = '📅';
       const qcm = document.getElementById('q-cal-month'); if (qcm) qcm.textContent = '';
       if (typeof _renderQLinkChips === 'function') _renderQLinkChips();
+      _applyQuickDefaults();
+    }
+    /* افتراضيات الملاحظة الجديدة (طلب المالك): تاريخ اليوم والحالة «مكتمل».
+       الافتراضيات وحدها لا تُعدّ محتوى — نموذج فارغ لا يُحفظ عند الإغلاق */
+    function _applyQuickDefaults() {
+      try {
+        const today = new Date();
+        S.q.dH = H.fmtH(H.toH(today)); S.q.dG = H.fmtG(today);
+        setDateDisp('quick', S.q.dH, S.q.dG);
+        S.q.status = 'مكتمل';
+        setQC('status', SMAP['مكتمل'].ic, 'مكتمل');
+      } catch (e) { }
     }
     function _doSaveQuick() {
       const n = buildNote(S.q, 'q-text', 'q-num', S.q.file);
@@ -6116,7 +6175,15 @@
       /* الملاحظات المرتبطة */
       _renderEditLinks(n);
       document.getElementById('edit-ov').classList.add('open');
+      /* بعد الإظهار (scrollHeight صفر وهو مخفي): يتوسّع الحقل ليعرض النص كاملاً */
+      requestAnimationFrame(() => _autoGrowEdit(document.getElementById('edit-text')));
       hPush();
+    }
+    /* حقل نص التعديل يتوسّع مع المحتوى حتى نصف الشاشة ثم يتمرّر */
+    function _autoGrowEdit(el) {
+      if (!el) return;
+      el.style.height = 'auto';
+      el.style.height = Math.max(64, Math.min(el.scrollHeight + 2, Math.round(window.innerHeight * 0.5))) + 'px';
     }
 
     /* عرض الملاحظات المرتبطة (ثنائي الاتجاه) في نافذة التعديل */
@@ -6315,7 +6382,9 @@
       notes[idx].main   = _editMain;
       notes[idx].sub    = _editSub;
       notes[idx].sec    = _editSec;
-      notes[idx].tags   = _parseTags(document.getElementById('edit-tags')?.value);
+      /* حقل الوسوم أُزيل من الواجهة (لم يطلبه المالك) — الوسوم المخزَّنة سابقاً تبقى كما هي */
+      const _tagsEl = document.getElementById('edit-tags');
+      if (_tagsEl) notes[idx].tags = _parseTags(_tagsEl.value);
       notes[idx].loc    = _editLoc ? { lat: _editLoc.lat, lng: _editLoc.lng } : null;
       notes[idx].mt     = Date.now();   /* ختم التعديل — يحسم دمج المزامنة بين الأجهزة */
       DB.set(notes);
@@ -6357,12 +6426,64 @@
       document.getElementById('att-file-name').textContent = fName || 'لا يوجد مرفق';
       document.getElementById('att-btn-open').style.display = hasFile ? 'flex' : 'none';
       _updateAttOpenBtn();
+      _showAttPreview(n);
       document.getElementById('att-ov').classList.add('open');
       hPush();
     }
     function closeAttOv() {
       document.getElementById('att-ov').classList.remove('open');
       _attNoteId = null;
+      _clearAttPreview();
+    }
+    /* ── معاينة الصور داخل التطبيق ──
+       الملف يُقرأ من مجلد الملاحظات عبر القناة المتاحة: جسر أندرويد/ويندوز (readFileBase64)
+       أو مجلد المتصفح (File System Access). الصور فقط، وبحد 15 ميغابايت. */
+    const _IMG_EXT = /\.(jpe?g|png|gif|webp|bmp)$/i;
+    function _isImageFile(file) {
+      if (!file) return false;
+      const name = (typeof file === 'object' ? (file.saved || file.name) : file) || '';
+      const type = typeof file === 'object' ? String(file.type || '') : '';
+      return type.startsWith('image/') || _IMG_EXT.test(name);
+    }
+    let _attPreviewUrl = '';
+    function _clearAttPreview() {
+      const img = document.getElementById('att-preview');
+      const note = document.getElementById('att-preview-note');
+      if (img) { img.style.display = 'none'; img.removeAttribute('src'); }
+      if (note) note.style.display = 'none';
+      if (_attPreviewUrl) { try { URL.revokeObjectURL(_attPreviewUrl); } catch (e) { } _attPreviewUrl = ''; }
+    }
+    async function _showAttPreview(n) {
+      _clearAttPreview();
+      const img = document.getElementById('att-preview');
+      const note = document.getElementById('att-preview-note');
+      if (!img || !n || !n.file || !_isImageFile(n.file)) return;
+      const fName = typeof n.file === 'object' ? (n.file.saved || n.file.name) : n.file;
+      const forId = _attNoteId;
+      let src = '';
+      try {
+        const fsb = window.AndroidFS;
+        if (fsb && typeof fsb.readFileBase64 === 'function') {
+          let r = fsb.readFileBase64('المرفقات', fName);
+          if (r && typeof r.then === 'function') r = await r;
+          src = typeof r === 'string' ? r : '';
+        } else if (_dirHandle) {
+          const dir = await _dirHandle.getDirectoryHandle('المرفقات', { create: false });
+          const fh = await dir.getFileHandle(fName);
+          const f = await fh.getFile();
+          _attPreviewUrl = URL.createObjectURL(f);
+          src = _attPreviewUrl;
+        }
+      } catch (e) { src = ''; }
+      if (forId !== _attNoteId) return;   /* أُغلقت النافذة أو فُتح مرفق آخر أثناء القراءة */
+      if (!src) {
+        if (note) { note.textContent = 'تعذّر تحميل المعاينة — استخدم «فتح الملف»'; note.style.display = 'block'; }
+        return;
+      }
+      img.onload = () => { if (note) note.style.display = 'none'; };
+      img.onerror = () => { img.style.display = 'none'; if (note) { note.textContent = 'تعذّر عرض الصورة — استخدم «فتح الملف»'; note.style.display = 'block'; } };
+      img.src = src;
+      img.style.display = 'block';
     }
     function openAttFile() {
       const n = DB.get().find(x => _sameId(x.id, _attNoteId)); if (!n?.file) return;
@@ -6663,11 +6784,7 @@
 
         <!-- ص٢: النص -->
         <div class="edit-field-lbl">📝 النص</div>
-        <textarea id="edit-text" class="edit-inp" rows="2" placeholder="النص..." style="resize:none;"></textarea>
-
-        <!-- ص٢ب: وسوم حرة -->
-        <div class="edit-field-lbl">🏷️ وسوم (افصل بينها بفاصلة)</div>
-        <input type="text" id="edit-tags" class="edit-inp" placeholder="مثال: عمل، عاجل" style="padding:7px 10px;">
+        <textarea id="edit-text" class="edit-inp" rows="2" placeholder="النص..." style="resize:none;overflow-y:auto;" oninput="_autoGrowEdit(this)"></textarea>
 
         <!-- ص٣: الرقم + الحالة (عمودان) -->
         <div class="edit-row2">
@@ -6748,6 +6865,9 @@
       <div class="att-handle"></div>
       <div class="att-title" id="att-title">📎 المرفق</div>
       <div class="att-file-name" id="att-file-name"></div>
+      <!-- معاينة الصور داخل التطبيق (كان فتح الصورة يعتمد على تطبيق خارجي فقط) -->
+      <img id="att-preview" alt="" style="display:none;max-width:100%;max-height:48vh;border-radius:12px;object-fit:contain;margin:4px auto 10px;cursor:zoom-in;" onclick="openAttFile()">
+      <div id="att-preview-note" style="display:none;font-size:11px;color:var(--text-m);text-align:center;margin:-4px 0 8px;"></div>
       <button class="att-btn att-btn-open" id="att-btn-open" onclick="openAttFile()">🔗 فتح الملف</button>
       <button class="att-btn att-btn-change" onclick="triggerAttChange()">🔄 تغيير المرفق</button>
       <button class="att-btn att-btn-del" onclick="removeAttachment()">🗑️ حذف المرفق</button>
