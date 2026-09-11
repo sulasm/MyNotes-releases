@@ -5,7 +5,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
   <meta name="theme-color" content="#667eea">
-  <meta name="app-version" content="1.26.0">
+  <meta name="app-version" content="1.26.1">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <title>المنظم</title>
@@ -5607,6 +5607,18 @@
       document.getElementById('dp-ov').classList.remove('open');
       _dpHover = null;
     }
+    /* حارس النقرة الاصطناعية: بعد اختيار باللمس يولّد المتصفح click في الموضع نفسه
+       بعد إغلاق المنتقي، فكان يصل إلى بطاقة الملاحظة خلفه ويفتحها (أو إلى عنصر في
+       قائمة الخطوة التالية). يبتلع أي click لفترة قصيرة بعد الاختيار. */
+    function _ghostClickGuard(ms) {
+      const until = Date.now() + (ms || 350);
+      const h = e => {
+        if (Date.now() > until) { document.removeEventListener('click', h, true); return; }
+        e.stopPropagation(); e.preventDefault();
+      };
+      document.addEventListener('click', h, true);
+      setTimeout(() => document.removeEventListener('click', h, true), (ms || 350) + 50);
+    }
     function _dpAt(y) {
       for (const el of document.querySelectorAll('.dp-item')) {
         const r = el.getBoundingClientRect();
@@ -5644,6 +5656,10 @@
         if (dy < 10 && ds < 10) {
           const el = _dpHover || _dpAt(e.changedTouches[0].clientY);
           if (el) {
+            /* امنع النقرة الاصطناعية التي تلي اللمس: كانت تمرّ إلى ما خلف المنتقي بعد
+               إغلاقه (تفتح ملاحظة) أو إلى قائمة الخطوة التالية (تختار عنصراً بلا قصد) */
+            e.preventDefault();
+            _ghostClickGuard();
             const item = _dpItems[parseInt(el.dataset.idx)];
             /* صفّر _dpCb قبل الاستدعاء حتى لا تُطلق النقرة الاصطناعية اللاحقة الاختيار ثانيةً */
             const cb = _dpCb; _dpHover = null; _dpCb = null;
@@ -5651,7 +5667,7 @@
           }
         }
         _dpHl(null);
-      }, { passive: true });
+      }, { passive: false });
 
       /* ══ سحب لأسفل على الهاندل أو العنوان لإغلاق الـ sheet ══ */
       const handle = sheet.querySelector('.dp-handle');
@@ -5689,7 +5705,7 @@
       }, { passive: false });
 
       ov.addEventListener('touchend', e => {
-        if (e.target === ov) { e.preventDefault(); _closeDp(); }
+        if (e.target === ov) { e.preventDefault(); _ghostClickGuard(); _closeDp(); }
       }, { passive: false });
 
       /* دعم الماوس */
