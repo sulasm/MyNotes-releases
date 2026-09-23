@@ -5,7 +5,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
   <meta name="theme-color" content="#667eea">
-  <meta name="app-version" content="1.26.1">
+  <meta name="app-version" content="1.26.2">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <title>المنظم</title>
@@ -6556,10 +6556,14 @@
       const h = parseInt(localStorage.getItem('notes_remind_hour'), 10);
       return (h >= 0 && h <= 23) ? h : 9;
     }
-    function _syncNativeReminders() {
-      const fsb = window.AndroidFS;
-      if (!fsb || typeof fsb.scheduleReminder !== 'function') return;
-      try { if (typeof fsb.cancelAllReminders === 'function') fsb.cancelAllReminders(); } catch (e) { }
+    /* ما أُرسل للطبقة الأصلية في آخر مزامنة {id: {when,title,body}} — null قبل أول
+       مزامنة في هذه الجلسة. نداءات الجسر متزامنة على أندرويد (خيط الصفحة ينتظر
+       كل نداء)، وإلغاء كل التذكيرات ثم إعادة جدولتها جميعاً بعد كل حفظ كان يجمّد
+       الواجهة ثوانيَ — بقدر مدة توست الحفظ — فلا تُفتح أي ملاحظة خلالها.
+       الآن: مزامنة كاملة مرة واحدة بعد التحميل، ثم تفاضلية (ما تغيّر فقط). */
+    let _remSynced = null;
+    function _desiredReminders() {
+      const want = {};
       const now = Date.now();
       const hour = _remindHour();
       const today = new Date(); today.setHours(0, 0, 0, 0);
@@ -6592,9 +6596,34 @@
         const cat = [n.main, n.sub].filter(Boolean).join(' › ');
         const title = '📋 تذكير' + (cat ? ': ' + cat : '');
         const body = (n.text || cat || 'لديك مهمة') + (n.num ? ' — ' + n.num : '');
-        try { fsb.scheduleReminder(String(n.id), String(when), title, body); } catch (e) { }
+        want[String(n.id)] = { when, title, body };
       });
       if (lateChanged) { try { localStorage.setItem(lateKey, JSON.stringify(lateMap)); } catch (e) { } }
+      return want;
+    }
+    /** @param {boolean} [full] إلغاء الكل ثم جدولة الكل بدل التفاضل */
+    function _syncNativeReminders(full) {
+      const fsb = window.AndroidFS;
+      if (!fsb || typeof fsb.scheduleReminder !== 'function') return;
+      const want = _desiredReminders();
+      const canDiff = !!_remSynced && typeof fsb.cancelReminder === 'function';
+      if (full || !canDiff) {
+        try { if (typeof fsb.cancelAllReminders === 'function') fsb.cancelAllReminders(); } catch (e) { }
+        Object.keys(want).forEach(id => {
+          const w = want[id];
+          try { fsb.scheduleReminder(id, String(w.when), w.title, w.body); } catch (e) { }
+        });
+      } else {
+        Object.keys(_remSynced).forEach(id => {
+          if (!want[id]) { try { fsb.cancelReminder(id); } catch (e) { } }
+        });
+        Object.keys(want).forEach(id => {
+          const w = want[id], p = _remSynced[id];
+          if (p && p.when === w.when && p.title === w.title && p.body === w.body) return;
+          try { fsb.scheduleReminder(id, String(w.when), w.title, w.body); } catch (e) { }
+        });
+      }
+      _remSynced = want;
     }
     let _syncRemTimer = null;
     function _syncRemindersDebounced() {
@@ -6632,7 +6661,7 @@
         if (fsb && typeof fsb.canScheduleExactAlarms === 'function') ok = !!fsb.canScheduleExactAlarms();
       } catch (e) { }
       row.style.display = ok ? 'none' : 'block';
-      if (_exactAlarmOk === false && ok) _syncRemindersDebounced();   /* مُنح للتو → أعد الجدولة دقيقةً */
+      if (_exactAlarmOk === false && ok) { _remSynced = null; _syncRemindersDebounced(); }   /* مُنح للتو → أعد جدولة الكل دقيقةً */
       _exactAlarmOk = ok;
     }
     function requestExactAlarmPerm() {
