@@ -5,7 +5,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
   <meta name="theme-color" content="#667eea">
-  <meta name="app-version" content="1.26.2">
+  <meta name="app-version" content="1.26.3">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <title>المنظم</title>
@@ -3081,8 +3081,12 @@
       _autoBackup();
     }
 
-    /* كتابة فعلية لكل الملاحظات إلى ملف المجلد (غير متزامنة قدر الإمكان) */
-    function _writeNotesNow() {
+    /* رد الكتابة غير الحاجبة من أندرويد (writeJsonAsync) */
+    window._onNotesWriteResult = function (res, err) { if (res === 'ok') _onSaveOk(); else _onSaveFail(); };
+    /* كتابة فعلية لكل الملاحظات إلى ملف المجلد (غير متزامنة قدر الإمكان)
+       @param {boolean} [sync] كتابة متزامنة حاجبة — عند إخفاء التطبيق فقط، حيث لا
+       يمكن انتظار رد غير متزامن وحيث لا يضرّ تجميد الواجهة */
+    function _writeNotesNow(sync) {
       if (!_notesLoaded) {
         /* لم يكتمل التحميل بنجاح — الكتابة الآن قد تمسح الملف الأصلي */
         _persistPending = false;
@@ -3095,6 +3099,12 @@
       if (window.AndroidFS && typeof window.AndroidFS.writeJson === 'function'
         && localStorage.getItem('notes_storage') === 'android_fs') {
         try {
+          /* أندرويد: الكتابة عبر SAF قد تستغرق ثواني ونداء الجسر متزامن → كانت
+             الواجهة تتجمّد بعد كل حفظ (لا تُفتح أي ملاحظة طوال توست الحفظ) */
+          if (!sync && typeof window.AndroidFS.writeJsonAsync === 'function') {
+            window.AndroidFS.writeJsonAsync(NOTES_FILE, json, 'window._onNotesWriteResult');
+            return;
+          }
           const r = window.AndroidFS.writeJson(NOTES_FILE, json);
           if (r && typeof r.then === 'function') {
             /* عقد Electron الجديد: Promise<boolean> */
@@ -3144,6 +3154,7 @@
       if (_backupWarned) return; _backupWarned = true;
       try { showFb('⚠️ تعذّر إنشاء النسخة الاحتياطية التلقائية', 1); } catch (e) { }
     }
+    window._onBackupWriteResult = function (res) { if (res !== 'ok') _backupWarnOnce(); };
     function _autoBackup() {
       _saveCount++;
       try { localStorage.setItem('notes_save_count', String(_saveCount)); } catch (e) { }
@@ -3152,7 +3163,9 @@
       const storage = localStorage.getItem('notes_storage');
       try {
         if (window.AndroidFS && storage === 'android_fs') {
-          if (typeof window.AndroidFS.writeFile === 'function') {
+          if (typeof window.AndroidFS.writeFileAsync === 'function') {
+            window.AndroidFS.writeFileAsync('', BACKUP_FILE, json, 'window._onBackupWriteResult');
+          } else if (typeof window.AndroidFS.writeFile === 'function') {
             window.AndroidFS.writeFile('', BACKUP_FILE, json);
           }
         } else if (_dirHandle) {
@@ -3183,7 +3196,7 @@
     function _flushNotes() {
       const wasPending = _persistPending || !!_persistTimer;
       if (_persistTimer) { clearTimeout(_persistTimer); _persistTimer = null; }
-      if (_persistPending) _writeNotesNow();
+      if (_persistPending) _writeNotesNow(true);
       /* سطح المكتب FS-Access: الكتابة غير متزامنة وقد لا تكتمل قبل الإغلاق —
          نحفظ لقطة متزامنة تُفضَّل عند التحميل التالي إذا كانت أحدث من الملف */
       if (wasPending && _dirHandle && _notesLoaded) {
