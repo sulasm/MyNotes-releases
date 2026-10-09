@@ -5,7 +5,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
   <meta name="theme-color" content="#667eea">
-  <meta name="app-version" content="1.26.3">
+  <meta name="app-version" content="1.27.0">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <title>المنظم</title>
@@ -1235,6 +1235,49 @@
       gap: 2px
     }
 
+    .cal-nav-y {
+      font-size: 14px;
+      opacity: .85
+    }
+
+    /* أيام الشهر الميلادي الثاني داخل الشهر الهجري الواحد */
+    .cal-day.g2 {
+      background: rgba(251, 191, 36, .10);
+    }
+
+    .cal-day.g2 .dg {
+      color: #fbbf24;
+      font-weight: 700;
+    }
+
+    /* شبكة اختيار السنة السريعة */
+    .cal-years {
+      grid-column: 1 / -1;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
+    }
+
+    .cal-year {
+      padding: 10px 4px;
+      border-radius: 8px;
+      text-align: center;
+      cursor: pointer;
+      background: rgba(var(--ov), .08);
+      font-size: 13px;
+      font-weight: 600;
+      transition: background .12s;
+    }
+
+    .cal-year:hover {
+      background: rgba(var(--ov), .2)
+    }
+
+    .cal-year.cur {
+      background: rgba(var(--ov), .25);
+      box-shadow: inset 0 0 0 1px rgba(var(--ov), .4);
+    }
+
     .cal-day {
       aspect-ratio: 1;
       display: flex;
@@ -2277,15 +2320,21 @@
   <!-- ══ Picker ══ -->
 
   <!-- ══ التقويم ══ -->
-  <div class="cal-ov" id="cal-ov">
+  <div class="cal-ov" id="cal-ov" onclick="if(event.target===this)closeCal()">
     <div class="cal-box">
       <div class="cal-hdr">
-        <button class="cal-nav" onclick="calStep(-1)">‹</button>
-        <div class="cal-ttl">
+        <div style="display:flex;gap:4px">
+          <button class="cal-nav cal-nav-y" onclick="calStepY(-1)" title="السنة السابقة">«</button>
+          <button class="cal-nav" onclick="calStep(-1)" title="الشهر السابق">‹</button>
+        </div>
+        <div class="cal-ttl" onclick="toggleCalYears()" style="cursor:pointer" title="اختيار سنة">
           <div class="cal-th" id="cal-th"></div>
           <div class="cal-tg" id="cal-tg"></div>
         </div>
-        <button class="cal-nav" onclick="calStep(1)">›</button>
+        <div style="display:flex;gap:4px">
+          <button class="cal-nav" onclick="calStep(1)" title="الشهر التالي">›</button>
+          <button class="cal-nav cal-nav-y" onclick="calStepY(1)" title="السنة التالية">»</button>
+        </div>
       </div>
       <div class="cal-dh">
         <div>أح</div>
@@ -2638,7 +2687,7 @@
           onClick=${() => setOpen(!open)}>
           <span style="font-size:17px;line-height:1">${sub.ic || '📌'}</span>
           <span style="flex:1;color:#fdba74;font-size:13px;font-weight:600">${sk}</span>
-          <span style="font-size:10px;color:rgba(var(--ov),0.35)">${dets.length} تفصيل</span>
+          <span style="font-size:10px;color:rgba(var(--ov),0.35)">${dets.length} فئة ثانوية</span>
           ${count > 0 ? html`<span style="font-size:10px;background:rgba(34,197,94,0.25);color:#86efac;border-radius:6px;padding:1px 6px">${count}</span>` : null}
           <span class="sub-arrow" style=${'font-size:12px;color:rgba(var(--ov),0.35);transition:transform .18s;margin-left:5px;' + (open ? 'transform:rotate(90deg);' : '')}>›</span>
           <button class="sm-btn danger del-sub-btn" style="font-size:10px;padding:2px 7px"
@@ -2646,7 +2695,7 @@
         </div>
         <div style=${'background:rgba(0,0,0,0.12);padding:2px 0;display:' + (open ? 'block' : 'none')}>
           ${dets.map((det, i) => html`<${CatDetRow} det=${det} k=${k} sk=${sk} i=${i}/>`)}
-          <${CatAddRow} label="تفصيل" indent=32 onAdd=${(name) => addCat(k, sk, name)}/>
+          <${CatAddRow} label="فئة ثانوية" indent=32 onAdd=${(name) => addCat(k, sk, name)}/>
         </div>
       </div>`;
     }
@@ -2663,7 +2712,7 @@
         onClick=${ev => ev.stopPropagation()}>
         ${withIcon ? html`<input class="edit-inp" value=${ic} onInput=${e => setIc(e.target.value)} placeholder="🙂"
           style="width:44px;padding:6px;text-align:center;font-size:14px;flex:none;" maxlength="4"/>` : null}
-        <input class="edit-inp" value=${name} onInput=${e => setName(e.target.value)} placeholder=${label + ' جديد…'}
+        <input class="edit-inp" value=${name} onInput=${e => setName(e.target.value)} placeholder=${label + ' جديدة…'}
           onKeyDown=${e => { if (e.key === 'Enter') { e.preventDefault(); submit(); } }}
           style="flex:1;padding:6px 10px;font-size:12px;min-width:0;"/>
         <button class="sm-btn" style="font-size:11px;padding:4px 10px;flex:none;" onClick=${submit}>＋ إضافة</button>
@@ -2684,7 +2733,7 @@
       } else {                                                    /* تفصيل */
         const sub = CATS[m] && CATS[m].sub && CATS[m].sub[s]; if (!sub) return false;
         if (!Array.isArray(sub.det)) sub.det = [];
-        if (sub.det.includes(v)) { showFb('التفصيل «' + v + '» موجود', 1); return false; }
+        if (sub.det.includes(v)) { showFb('الفئة الثانوية «' + v + '» موجودة', 1); return false; }
         sub.det.push(v);
       }
       saveCats();
@@ -4651,7 +4700,7 @@
       } else if (t === 'sec') {
         if (!S.q.main || !S.q.sub) { showFb('اختر الرئيسية والفرعية', 1); return; }
         const d = CATS[S.q.main].sub[S.q.sub].det;
-        if (!d.length) { showFb('لا توجد تفاصيل', 1); return; }
+        if (!d.length) { showFb('لا توجد فئات ثانوية', 1); return; }
         title = `🎯 ${S.q.sub}`;
         items = d.map(x => { const sp = splitLeadingEmoji(x); return { n: sp.ic ? sp.rest : x, i: sp.ic || '🔸', v: x, full: x }; });
       } else if (t === 'status') {
@@ -4689,10 +4738,11 @@
     /* ══════════════════════════════════════
        التقويم
     ══════════════════════════════════════ */
-    let calTarget = null, calView = { y: 0, m: 0 };
+    let calTarget = null, calView = { y: 0, m: 0 }, _calYearMode = false;
 
     function openCal(t) {
       calTarget = t;
+      _calYearMode = false;
       /* افتح على شهر التاريخ المحفوظ (إن وُجد) بدل شهر اليوم دائماً — أسهل للتعديل */
       const savedG = t === 'quick' ? S.q.dG : (t === 'edit' ? _editDG : (t === 'filter' ? S.fDate.g : ''));
       let base = null;
@@ -4722,11 +4772,33 @@
       closeCal();
     }
     function calStep(d) { calView.m += d; if (calView.m < 1) { calView.m = 12; calView.y--; } if (calView.m > 12) { calView.m = 1; calView.y++; } renderCal(); }
+    /* تنقّل سريع بالسنوات: زرا « » ينقلان سنة كاملة، والنقر على العنوان يفتح شبكة سنوات */
+    function calStepY(d) { calView.y += d; renderCal(); }
+    function toggleCalYears() { _calYearMode = !_calYearMode; renderCal(); }
 
     function renderCal() {
       const { y, m } = calView, days = H.md(y, m - 1), fg = H.toG({ y, m, d: 1 });
+      const wd = document.querySelector('#cal-ov .cal-dh');
+      if (wd) wd.style.display = _calYearMode ? 'none' : '';
+      if (_calYearMode) {
+        /* شبكة اختيار سنة: 15 سنة حول السنة المعروضة */
+        document.getElementById('cal-th').textContent = 'اختر السنة الهجرية';
+        document.getElementById('cal-tg').textContent = `${toArabic(y - 7)} – ${toArabic(y + 7)} هـ`;
+        const years = [];
+        for (let yy = y - 7; yy <= y + 7; yy++) years.push(yy);
+        vrender(html`<div class="cal-years">${years.map(yy =>
+          html`<div class=${'cal-year' + (yy === y ? ' cur' : '')}
+            onClick=${() => { calView.y = yy; _calYearMode = false; renderCal(); }}>${toArabic(yy)}</div>`)}</div>`,
+          document.getElementById('cal-grid'));
+        return;
+      }
+      /* شهر هجري يمتد على شهرين ميلاديين: اعرض المدى كاملاً في السطر الميلادي */
+      const gLast = H.toG({ y, m, d: days });
+      const span2 = gLast.getMonth() !== fg.getMonth() || gLast.getFullYear() !== fg.getFullYear();
       document.getElementById('cal-th').textContent = `${H.mn[m - 1]} ${y}`;
-      document.getElementById('cal-tg').textContent = `${H.gn[fg.getMonth()]} ${fg.getFullYear()} م`;
+      document.getElementById('cal-tg').textContent = span2
+        ? `${H.gn[fg.getMonth()]}${fg.getFullYear() !== gLast.getFullYear() ? ' ' + fg.getFullYear() : ''} – ${H.gn[gLast.getMonth()]} ${gLast.getFullYear()} م`
+        : `${H.gn[fg.getMonth()]} ${fg.getFullYear()} م`;
       const th = H.today();
       // التاريخ المحدد حسب الهدف (يشمل هدف التعديل حتى يُظلَّل التاريخ المحفوظ)
       let selH = '';
@@ -4739,8 +4811,10 @@
         const gd = H.toG({ y, m, d });
         const isToday = th.y === y && th.m === m && th.d === d;
         const isSel = selH === H.fmtH({ y, m, d });
+        /* أيام الشهر الميلادي الثاني تُميَّز بخلفية ورقم كهرماني ليسهل تمييز الشهرين */
+        const g2 = gd.getMonth() !== fg.getMonth() || gd.getFullYear() !== fg.getFullYear();
         const _y = y, _m = m, _d = d, _gd = new Date(gd);
-        cells.push(html`<div class=${'cal-day' + (isToday ? ' today' : '') + (isSel ? ' selected' : '')}
+        cells.push(html`<div class=${'cal-day' + (isToday ? ' today' : '') + (isSel ? ' selected' : '') + (g2 ? ' g2' : '')}
           onClick=${() => {
             const dh = H.fmtH({ y: _y, m: _m, d: _d }), dg = H.fmtG(_gd);
             if (calTarget === 'quick') { S.q.dH = dh; S.q.dG = dg; setDateDisp('quick', dh, dg); }
@@ -5076,12 +5150,13 @@
           setFP('sec', '🔸', 'الكل', '');
           _updateCatChip();
           renderNotes();
-          if (item.v) { setTimeout(() => _openCatStep('sub'), 80); }
+          /* تابع للفرعية فقط إن وُجدت فعلاً — وإلا أغلق فوراً (كان يُترك المنتقي مفتوحاً) */
+          if (item.v && Object.keys(CATS[item.v]?.sub || {}).length) { setTimeout(() => _openCatStep('sub'), 80); }
           else { _closeDp(); }
         });
       } else if (step === 'sub') {
         const sub = FP.main ? CATS[FP.main]?.sub : null;
-        if (!sub || !Object.keys(sub).length) return;
+        if (!sub || !Object.keys(sub).length) { _closeDp(); return; }
         title = `📌 ${FP.main}`;
         items = [{ n: 'الكل', i: '📋', v: '' }, ...Object.keys(sub).map(k => ({ n: k, i: sub[k].ic, v: k }))];
         openDragPicker(title, items, FP.sub || '', (item) => {
@@ -5089,12 +5164,13 @@
           setFP('sec', '🔸', 'الكل', '');
           _updateCatChip();
           renderNotes();
-          if (item.v) { setTimeout(() => _openCatStep('sec'), 80); }
+          /* تابع للثانوية فقط إن وُجدت — فرعية بلا فئة ثانوية كانت تُبقي النافذة مفتوحة */
+          if (item.v && CATS[FP.main]?.sub?.[item.v]?.det?.length) { setTimeout(() => _openCatStep('sec'), 80); }
           else { _closeDp(); }
         });
       } else if (step === 'sec') {
         const sub = FP.main && FP.sub ? CATS[FP.main]?.sub?.[FP.sub] : null;
-        if (!sub || !sub.det || !sub.det.length) return;
+        if (!sub || !sub.det || !sub.det.length) { _closeDp(); return; }
         title = `🎯 ${FP.sub}`;
         items = [{ n: 'الكل', i: '🔸', v: '' }, ...sub.det.map(x => {
           const sp = splitLeadingEmoji(x);
