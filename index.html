@@ -5,7 +5,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
   <meta name="theme-color" content="#667eea">
-  <meta name="app-version" content="1.27.0">
+  <meta name="app-version" content="1.28.0">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <title>المنظم</title>
@@ -2264,15 +2264,6 @@
           </div><!-- /row1 -->
 
           <div class="orgtbl-row2-wrap">
-            <div class="orgtbl-field of-attach">
-              <div class="orgtbl-label">📎 ملف</div>
-              <div class="orgtbl-cell" onclick="triggerFile('filter')" id="f-attach-cell"
-                style="cursor:pointer;justify-content:center">
-                <span id="f-attach-ic" style="font-size:19px">📎</span>
-                <input type="file" id="f-file-input" style="display:none" onchange="handleFile(event, 'filter')">
-              </div>
-            </div>
-
             <div class="orgtbl-field of-date">
               <div class="orgtbl-label">📅 التاريخ</div>
               <div class="orgtbl-date-cell" id="f-date-cell" style="cursor:pointer">
@@ -2303,9 +2294,10 @@
             <div class="orgtbl-field of-save">
               <div class="orgtbl-label">&nbsp;</div>
               <div style="display:flex;gap:4px">
-                <button class="orgtbl-btn-clear" onclick="clearFilters()" title="مسح"
-                  style="font-size:18px;padding:0;width:38px;flex-shrink:0">🧹</button>
-                <button class="orgtbl-btn-save" onclick="saveFromFilter()" style="flex:1;min-width:0;overflow:hidden">💾 <span class="save-lbl">حفظ</span></button>
+                <!-- حُذف زر «💾 حفظ» (الإنشاء السريع من شريط الفلترة) بطلب المالك —
+                     إضافة الملاحظات عبر زر ➕ (الإضافة الموجّهة) فقط -->
+                <button class="orgtbl-btn-clear" onclick="clearFilters()" title="مسح الفلاتر"
+                  style="font-size:18px;padding:0;flex:1;min-width:38px">🧹</button>
               </div>
             </div>
           </div><!-- /row2 -->
@@ -3019,8 +3011,7 @@
     ══════════════════════════════════════ */
     const S = {
       q: { main: '', sub: '', sec: '', status: '', dH: '', dG: '', file: null, links: [] },
-      fDate: { g: '', h: '' },
-      fFile: null
+      fDate: { g: '', h: '' }
     };
 
     /* ══════════════════════════════════════
@@ -4901,7 +4892,7 @@
        حفظ
     ══════════════════════════════════════ */
     function triggerFile(t) {
-      document.getElementById(t === 'quick' ? 'q-file-input' : 'f-file-input').click();
+      if (t === 'quick') document.getElementById('q-file-input').click();
     }
     /* هل تتوفّر قناة تخزين تدعم حفظ المرفقات فعلياً؟ (مجلد أندرويد أو File System Access) */
     function _canSaveAttachments() {
@@ -4923,7 +4914,6 @@
       if (!ok) { e.target.value = ''; return; }   /* فشل الحفظ — لا نضع مرجعاً معلّقاً */
       const noteFile = { name: fName, saved, type: f.type, lastMod: f.lastModified };
       if (t === 'quick') { S.q.file = noteFile; document.getElementById('q-attach-cell').style.background = 'rgba(34,197,94,0.2)'; }
-      else { S.fFile = noteFile; document.getElementById('f-attach-cell').style.background = 'rgba(34,197,94,0.2)'; }
       showFb('📎 تم إرفاق: ' + fName);
       e.target.value = '';
     }
@@ -5054,33 +5044,8 @@
       showFb('⚡ تم الحفظ' + (n.links && n.links.length ? ' مع ' + n.links.length + ' ربط' : '') + _hintIfHidden(n));
       setTimeout(renderNotes, 400);
     }
-    function saveFromFilter() {
-      const txt  = document.getElementById('f-text')?.value.trim() || '';
-      const main = FP.main || '';
-      const sub  = FP.sub  || '';
-      const sec  = FP.sec  || '';
-      const status = FP.status || '';
-
-      if (!main && !txt && !S.fFile) { showFb('أدخل الفئة الرئيسية أو النص', 1); return; }
-      const n = _doSaveFromFilter(main, sub, sec, txt, status);
-      showFb('⚡ تم الحفظ' + _hintIfHidden(n));
-    }
-    function _doSaveFromFilter(main, sub, sec, txt, status, dg) {
-      const n = {
-        id: newNoteId(), main: main||'', sub: sub||'', sec: sec||'',
-        text: txt||'', num: document.getElementById('f-num')?.value.trim()||'',
-        status: status||'', dH: S.fDate.h||'', dG: dg||S.fDate.g||'',
-        file: S.fFile||null, ts: new Date().toISOString()
-      };
-      DB.add(n);
-      /* مسح الحقول — بما فيها الرقم لأنه يعمل أيضاً كمُدخل فلترة حيّ */
-      document.getElementById('f-text').value = '';
-      const _fn = document.getElementById('f-num'); if (_fn) _fn.value = '';
-      S.fFile = null;
-      document.getElementById('f-attach-cell').style.background = '';
-      setTimeout(renderNotes, 100);
-      return n;
-    }
+    /* حُذفت saveFromFilter/_doSaveFromFilter (الإنشاء السريع من شريط الفلترة) بطلب
+       المالك — إنشاء الملاحظات عبر زر ➕ (الإضافة الموجّهة) فقط، والشريط للفلترة وحدها */
 
     /* ══════════════════════════════════════
        عرض الملاحظات
@@ -5415,9 +5380,7 @@
       })}</div>`;
     }
     function clearFilters() {
-      if (S.fFile) _cleanupOldAttachment(S.fFile);   /* مرفق شريط الفلترة لم يدخل ملاحظة */
-      FP.main = ''; FP.sub = ''; FP.sec = ''; FP.status = ''; S.fFile = null;
-      document.getElementById('f-attach-cell').style.background = '';
+      FP.main = ''; FP.sub = ''; FP.sec = ''; FP.status = '';
       if (typeof _updateCatChip === 'function') _updateCatChip();
       _updateFilterButtonStates();
       /* إعادة أيقونة الحالة للافتراضي */
