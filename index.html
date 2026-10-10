@@ -5,7 +5,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
   <meta name="theme-color" content="#667eea">
-  <meta name="app-version" content="1.29.0">
+  <meta name="app-version" content="1.29.1">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <title>المنظم</title>
@@ -2593,6 +2593,73 @@
         localStorage.setItem('notes_cats_at', String(_catsAt));
       } catch (e) { }
     }
+
+    /* ── شواهد حذف الفئات ──
+       ختم الشجرة الواحد (catsAt) لا يحمي الحذف: جهاز يحمل شجرة قديمة (فيها
+       الفئة المحذوفة) ويختمها لاحقاً بأي تعديل فئات — أو لم يصله ملف الحذف بعد —
+       يعيد المحذوف كاملاً عند الدمج. الشاهد يسجّل مسار المحذوف
+       (رئيسية␁فرعية␁ثانوية) مع ختمه فيُشطَب من أي شجرة واردة مهما كان ختمها،
+       وإعادة الإضافة الصريحة تكتب سجل «إحياء» أحدث يعادله. السجلات تنتقل في
+       الملف (catsDel) وتتّحد عند الدمج بالأحدث لكل مسار، وتنتهي بعد ١٨٠ يوماً. */
+    const CATS_DEL_SEP = '\u0001';
+    const CATS_DEL_TTL = 180 * 24 * 3600 * 1000;
+    let _catsDel = [];
+    try { _catsDel = _validCatsDel(JSON.parse(localStorage.getItem('notes_cats_del_v1') || '[]')); } catch (e) { }
+    function _validCatsDel(a) {
+      const now = Date.now();
+      return (Array.isArray(a) ? a : [])
+        .filter(e => e && typeof e.p === 'string' && e.p && +e.at > 0
+          && typeof e.alive === 'boolean' && now - +e.at < CATS_DEL_TTL)
+        .map(e => ({ p: e.p, at: +e.at, alive: e.alive }));
+    }
+    function _setCatsDel(d) {
+      _catsDel = _validCatsDel(d);
+      try { localStorage.setItem('notes_cats_del_v1', JSON.stringify(_catsDel)); } catch (e) { }
+    }
+    /* اتحاد سجلّين: الأحدث ختماً لكل مسار يفوز */
+    function _unionCatsDel(a, b) {
+      const m = new Map();
+      for (const e of _validCatsDel(a).concat(_validCatsDel(b))) {
+        const cur = m.get(e.p);
+        if (!cur || e.at > cur.at) m.set(e.p, e);
+      }
+      return [...m.values()];
+    }
+    /* تسجيل حذف (alive=false) أو إحياء بإعادة الإضافة (alive=true) لمسار */
+    function _catsDelMark(parts, alive) {
+      const p = parts.join(CATS_DEL_SEP);
+      _setCatsDel(_catsDel.filter(e => e.p !== p).concat([{ p, at: Date.now(), alive: !!alive }]));
+    }
+    /* شطب المسارات الميتة من شجرة فئات — يعيد {cats, changed} ولا يعدّل الأصل */
+    function _pruneCatsDel(cats, del) {
+      if (!cats || typeof cats !== 'object') return { cats, changed: false };
+      const dead = new Set();
+      for (const e of _validCatsDel(del)) if (!e.alive) dead.add(e.p);
+      if (!dead.size) return { cats, changed: false };
+      let changed = false;
+      const out = {};
+      for (const k of Object.keys(cats)) {
+        if (dead.has(k)) { changed = true; continue; }
+        const c = cats[k];
+        const subIn = (c && c.sub && typeof c.sub === 'object' && !Array.isArray(c.sub)) ? c.sub : null;
+        if (!subIn) { out[k] = c; continue; }
+        let subChanged = false;
+        const subOut = {};
+        for (const sk of Object.keys(subIn)) {
+          if (dead.has(k + CATS_DEL_SEP + sk)) { subChanged = true; continue; }
+          const s = subIn[sk];
+          const detIn = (s && Array.isArray(s.det)) ? s.det : null;
+          if (!detIn) { subOut[sk] = s; continue; }
+          const detOut = detIn.filter(dv => !dead.has(k + CATS_DEL_SEP + sk + CATS_DEL_SEP + dv));
+          if (detOut.length !== detIn.length) { subChanged = true; subOut[sk] = Object.assign({}, s, { det: detOut }); }
+          else subOut[sk] = s;
+        }
+        if (subChanged) { changed = true; out[k] = Object.assign({}, c, { sub: subOut }); }
+        else out[k] = c;
+      }
+      return { cats: changed ? out : cats, changed };
+    }
+
     function saveCats() {
       _setCats(CATS, Date.now());
       /* الفئات تُحفظ أيضاً داخل ملف الملاحظات (v3) كي تنجو من إعادة التثبيت وتنتقل مع المجلد */
@@ -2724,16 +2791,19 @@
       if (m === undefined || m === null) {                       /* رئيسية */
         if (CATS[v]) { showFb('الفئة «' + v + '» موجودة', 1); return false; }
         CATS[v] = { ic: ic || '📂', sub: {} };
+        _catsDelMark([v], true);           /* إحياء: يعادل أي شاهد حذف سابق لنفس الاسم */
       } else if (s === undefined || s === null) {                /* فرعية */
         if (!CATS[m]) return false;
         if (!CATS[m].sub || typeof CATS[m].sub !== 'object') CATS[m].sub = {};
         if (CATS[m].sub[v]) { showFb('الفئة الفرعية «' + v + '» موجودة', 1); return false; }
         CATS[m].sub[v] = { ic: ic || '📌', det: [] };
+        _catsDelMark([m, v], true);
       } else {                                                    /* تفصيل */
         const sub = CATS[m] && CATS[m].sub && CATS[m].sub[s]; if (!sub) return false;
         if (!Array.isArray(sub.det)) sub.det = [];
         if (sub.det.includes(v)) { showFb('الفئة الثانوية «' + v + '» موجودة', 1); return false; }
         sub.det.push(v);
+        _catsDelMark([m, s, v], true);
       }
       saveCats();
       renderSettings();
@@ -2889,16 +2959,20 @@
 
     function delCat(m, s, d) {
       if (d !== undefined) {
-        if (confirm('حذف الفئة الثانوية (' + CATS[m].sub[s].det[d] + ')؟')) {
+        const dv = CATS[m].sub[s].det[d];
+        if (confirm('حذف الفئة الثانوية (' + dv + ')؟')) {
           CATS[m].sub[s].det.splice(d, 1);
+          _catsDelMark([m, s, dv], false);   /* شاهد يمنع عودتها من شجرة جهاز آخر */
         } else return;
       } else if (s !== undefined) {
         if (confirm('حذف الفئة الفرعية وكل تفاصيلها (' + s + ')؟')) {
           delete CATS[m].sub[s];
+          _catsDelMark([m, s], false);
         } else return;
       } else {
         if (confirm('حذف الفئة الأساسية وكل ما فيها (' + m + ')؟')) {
           delete CATS[m];
+          _catsDelMark([m], false);
         } else return;
       }
       saveCats();
@@ -3067,7 +3141,7 @@
       const savedAt = Date.now();
       let places = [];
       try { if (typeof MapBridge !== 'undefined') places = MapBridge.getPlaces(); } catch (e) { }
-      const json = JSON.stringify({ v: 3, savedAt, notes: _notesCache, trash: _trashCache, cats: CATS, catsAt: _catsAt, places, purged: _purgedCache });
+      const json = JSON.stringify({ v: 3, savedAt, notes: _notesCache, trash: _trashCache, cats: CATS, catsAt: _catsAt, catsDel: _catsDel, places, purged: _purgedCache });
       if (forFile) { _lastFileSavedAt = savedAt; _lastFileLen = json.length; }
       return json;
     }
@@ -3083,12 +3157,13 @@
     }
     function _deserializeNotes(text) {
       const p = JSON.parse(text);
-      if (Array.isArray(p)) return { v: 1, savedAt: 0, notes: p, trash: [], cats: null, catsAt: 0, places: [], purged: [] };
+      if (Array.isArray(p)) return { v: 1, savedAt: 0, notes: p, trash: [], cats: null, catsAt: 0, catsDel: [], places: [], purged: [] };
       if (p && Array.isArray(p.notes)) return {
         v: p.v || 2, savedAt: +p.savedAt || 0, notes: p.notes,
         trash: Array.isArray(p.trash) ? p.trash : [],
         cats: _validCats(p.cats),
         catsAt: +p.catsAt || 0,
+        catsDel: _validCatsDel(p.catsDel),
         places: Array.isArray(p.places) ? p.places : [],
         purged: _validPurged(p.purged)
       };
@@ -3380,12 +3455,22 @@
       _trashCache = Array.isArray(parsed.trash) ? parsed.trash : [];
       _purgedCache = _validPurged(parsed.purged);
       /* ملف v3 يحمل الفئات المخصّصة — اعتمادها يجعلها تنجو من إعادة التثبيت وتنتقل مع
-         مزامنة المجلد. الأحدث ختماً يفوز: تعديل محلي لم يُكتب بعد لا يمحوه ملف أقدم */
-      if (parsed.cats) {
+         مزامنة المجلد. الأحدث ختماً يفوز: تعديل محلي لم يُكتب بعد لا يمحوه ملف أقدم.
+         شواهد حذف الفئات تُتَّحد من الطرفين ثم تُشطَب مساراتها الميتة من الناتج —
+         فلا يعيد ملفٌ قديم الختمُ أحدثُ فئاتٍ حُذفت هنا (أو العكس). */
+      {
         const fa = +parsed.catsAt || 0;
-        if (!fa && !_catsAt) _setCats(parsed.cats, 0);       /* بلا أختام (ملفات أقدم): الملف يفوز كما كان */
-        else if (fa > _catsAt) _setCats(parsed.cats, fa);
-        else if (_catsAt > fa) needResave = true;            /* المحلي أحدث — أعد كتابة الملف به */
+        const fdel = _validCatsDel(parsed.catsDel);
+        const fileCatsJson = JSON.stringify({ c: _validCats(parsed.cats), d: fdel, at: fa });
+        if (fdel.length || _catsDel.length) _setCatsDel(_unionCatsDel(_catsDel, fdel));
+        if (parsed.cats) {
+          if (!fa && !_catsAt) _setCats(parsed.cats, 0);     /* بلا أختام (ملفات أقدم): الملف يفوز كما كان */
+          else if (fa > _catsAt) _setCats(parsed.cats, fa);
+        }
+        const pr = _pruneCatsDel(CATS, _catsDel);
+        if (pr.changed) _setCats(pr.cats, _catsAt);
+        /* الملف يختلف عن الحالة النهائية (فئات أو شواهد أو ختم) ⇒ أعد كتابته */
+        if (fileCatsJson !== JSON.stringify({ c: _validCats(CATS), d: _catsDel, at: _catsAt })) needResave = true;
       }
       /* أماكن الخريطة محفوظة في نفس الملف لكنها كانت تُقرأ عند الدمج فقط: على جهاز
          جديد أو بعد إعادة تثبيت كانت أول كتابة تمسح أماكن الملف بقائمة محلية فارغة.
@@ -3597,22 +3682,30 @@
         const t = trash.get(k);
         if (t && _trashStamp(t) <= e.at) trash.delete(k);
       }
-      const c = _mergeCats(loc.cats, loc.catsAt, ext.cats, ext.catsAt);
-      return { notes: [...notes.values()], trash: [...trash.values()], cats: c.cats, catsAt: c.at, purged: [...purged.values()] };
+      const c = _mergeCats(loc.cats, loc.catsAt, ext.cats, ext.catsAt, loc.catsDel, ext.catsDel);
+      return { notes: [...notes.values()], trash: [...trash.values()], cats: c.cats, catsAt: c.at, catsDel: c.del, purged: [...purged.values()] };
     }
 
-    /* دمج الفئات: الطرف الأحدث ختماً (catsAt) يأخذها كاملة — فينتقل الحذف
-       وتعديل الفروع لا الإضافة فقط. بلا ختم عند الطرفين (ملفات نسخ أقدم) يبقى
-       السلوك القديم: اتحاد المفاتيح العليا والمحلي يفوز. */
-    function _mergeCats(locC, locAt, extC, extAt) {
+    /* دمج الفئات: الطرف الأحدث ختماً (catsAt) يأخذها كاملة، ثم تُشطَب منها
+       المسارات التي تحمل شاهد حذف (الشواهد اتحاد الطرفين، الأحدث لكل مسار) —
+       فلا يعيد جهازٌ شجرةً قديمة فئاتٍ حُذفت على الجهاز الآخر مهما كان ختمه.
+       بلا ختم عند الطرفين (ملفات نسخ أقدم) يبقى السلوك القديم: اتحاد المفاتيح
+       العليا والمحلي يفوز — مع الشطب أيضاً. */
+    function _mergeCats(locC, locAt, extC, extAt, locDel, extDel) {
+      const del = _unionCatsDel(locDel, extDel);
       const lc = _validCats(locC), ec = _validCats(extC);
       const la = +locAt || 0, ea = +extAt || 0;
-      if (!lc) return { cats: ec || null, at: ec ? ea : 0 };
-      if (!ec) return { cats: lc, at: la };
-      if (la || ea) return ea > la ? { cats: ec, at: ea } : { cats: lc, at: la };
-      const cats = lc;
-      for (const k of Object.keys(ec)) if (!(k in cats)) cats[k] = ec[k];
-      return { cats, at: 0 };
+      let cats, at;
+      if (!lc) { cats = ec || null; at = ec ? ea : 0; }
+      else if (!ec) { cats = lc; at = la; }
+      else if (la || ea) { if (ea > la) { cats = ec; at = ea; } else { cats = lc; at = la; } }
+      else {
+        cats = lc;
+        for (const k of Object.keys(ec)) if (!(k in cats)) cats[k] = ec[k];
+        at = 0;
+      }
+      if (cats) cats = _pruneCatsDel(cats, del).cats;
+      return { cats, at, del };
     }
 
     /* دمج أماكن الخريطة الواردة في الملف مع المحفوظة محلياً — بالمعرّف والأحدث
@@ -3646,8 +3739,8 @@
       const snapAt = +snap.savedAt || 0, fileAt = +parsed.savedAt || 0;
       if (snapAt === fileAt) return null;   /* اللقطة هي الملف نفسه */
       const merged = _mergeStates(
-        { notes: snap.notes, trash: Array.isArray(snap.trash) ? snap.trash : [], cats: snap.cats, catsAt: snap.catsAt, purged: snap.purged },
-        { notes: parsed.notes, trash: Array.isArray(parsed.trash) ? parsed.trash : [], cats: parsed.cats, catsAt: parsed.catsAt, purged: parsed.purged });
+        { notes: snap.notes, trash: Array.isArray(snap.trash) ? snap.trash : [], cats: snap.cats, catsAt: snap.catsAt, catsDel: snap.catsDel, purged: snap.purged },
+        { notes: parsed.notes, trash: Array.isArray(parsed.trash) ? parsed.trash : [], cats: parsed.cats, catsAt: parsed.catsAt, catsDel: parsed.catsDel, purged: parsed.purged });
       return {
         parsed: {
           v: 3,
@@ -3656,6 +3749,7 @@
           trash: merged.trash,
           cats: merged.cats || parsed.cats || snap.cats || null,
           catsAt: merged.catsAt || 0,
+          catsDel: merged.catsDel || [],
           places: parsed.places,
           purged: merged.purged
         },
@@ -3693,10 +3787,11 @@
         if (extAt === _lastFileSavedAt && String(raw).length === _lastFileLen) return false;
 
         _writeConflictBackup(_serializeNotes());
-        const merged = _mergeStates({ notes: _notesCache, trash: _trashCache, cats: CATS, catsAt: _catsAt, purged: _purgedCache }, ext);
+        const merged = _mergeStates({ notes: _notesCache, trash: _trashCache, cats: CATS, catsAt: _catsAt, catsDel: _catsDel, purged: _purgedCache }, ext);
         _notesCache = merged.notes;
         _trashCache = merged.trash;
         _purgedCache = merged.purged;
+        _setCatsDel(merged.catsDel);
         if (merged.cats) _setCats(merged.cats, merged.catsAt);
         _mergePlaces(ext.places);   /* أماكن الخريطة: بالمعرّف والأحدث بختمه ts يفوز */
 
@@ -5622,7 +5717,12 @@
           _trashCache.forEach(t => tmap.set(String(t.id), t));
           incomingTrash.forEach(t => { const k = String(t.id); if (!map.has(k) && !tmap.has(k)) tmap.set(k, t); });
           resultTrash = [...tmap.values()];
-          if (parsed.cats) { CATS = Object.assign({}, parsed.cats, CATS); saveCats(); }
+          /* شواهد حذف الفئات تُضم ثم تُشطَب مساراتها الميتة من ناتج الاتحاد */
+          _setCatsDel(_unionCatsDel(_catsDel, parsed.catsDel));
+          if (parsed.cats) {
+            CATS = _pruneCatsDel(Object.assign({}, parsed.cats, CATS), _catsDel).cats;
+            saveCats();
+          }
           /* شواهد الحذف من الملف تُضم كي لا تعود عناصر مسحها الطرف الآخر */
           const pm = new Map(_purgedCache.map(e => [String(e.id), e]));
           _validPurged(parsed.purged).forEach(e => { const k = String(e.id); if (!pm.has(k) || e.at > pm.get(k).at) pm.set(k, e); });
@@ -5647,7 +5747,8 @@
           result = incoming;
           resultTrash = incomingTrash;
           _purgedCache = _validPurged(parsed.purged);
-          if (parsed.cats) { CATS = parsed.cats; saveCats(); }
+          _setCatsDel(_validCatsDel(parsed.catsDel));   /* استبدال كامل: شواهد الملف وحدها */
+          if (parsed.cats) { CATS = _pruneCatsDel(parsed.cats, _catsDel).cats; saveCats(); }
           if (Array.isArray(parsed.places) && parsed.places.length) MapBridge.setPlaces(parsed.places.filter(p => p && typeof p === 'object' && isFinite(p.lat) && isFinite(p.lng)));
         }
         /* الاستيراد يُعد تحميلاً ناجحاً */
