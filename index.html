@@ -5,7 +5,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
   <meta name="theme-color" content="#667eea">
-  <meta name="app-version" content="1.29.1">
+  <meta name="app-version" content="1.30.0">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <title>المنظم</title>
@@ -2124,6 +2124,9 @@
             <div class="srow-l" id="cfg-folder-path">لم يتم التحديد</div>
             <button class="sm-btn" onclick="changeFolder()">تغيير المجلد</button>
           </div>
+          <!-- حالة المزامنة: من كتب الملف آخر مرة ومتى — يكشف هل يصل ملف الجهاز الآخر -->
+          <div id="cfg-sync-status" style="font-size:12px;color:var(--text-m);padding:8px 0 4px;line-height:1.8;"></div>
+          <button class="sm-btn" id="sync-now-btn" onclick="syncNow()">🔄 مزامنة الآن</button>
         </div>
         <div class="section">
           <div class="sec-t">🗂️ التصنيفات</div>
@@ -2718,6 +2721,7 @@
       } else {
         fd.textContent = 'التخزين الداخلي فقط';
       }
+      if (typeof _renderSyncStatus === 'function') _renderSyncStatus();
 
       /* حالة التحديث */
       if (window.AndroidFS && typeof window.AndroidFS.hasLocalUpdate === 'function') {
@@ -3137,13 +3141,46 @@
        خارجياً (مزامنة من جهاز آخر) — انظر _syncMergeCheck ── */
     let _lastFileSavedAt = 0;
     let _lastFileLen = -1;      /* طول آخر محتوى نعرفه للملف — يحسم التصادم النادر في savedAt */
+    /** @type {string[]} «ختم:طول» لآخر ما كتبه هذا الجهاز — نسخنا القديمة ليست تغييراً خارجياً.
+        الطول مع الختم: تطابق الختم وحده قد يكون كتابة الجهاز الآخر في الميلي ثانية نفسها */
+    let _ownWrites = [];
+    /* أي جهاز كتب الملف: يظهر في حالة المزامنة كي يُعرف هل وصل ملف الجهاز الآخر */
+    function _devKind() {
+      if (window._winAutoUpdate) return 'windows';
+      if (window.AndroidFS) return 'android';
+      return 'web';
+    }
     function _serializeNotes(forFile) {
       const savedAt = Date.now();
       let places = [];
       try { if (typeof MapBridge !== 'undefined') places = MapBridge.getPlaces(); } catch (e) { }
-      const json = JSON.stringify({ v: 3, savedAt, notes: _notesCache, trash: _trashCache, cats: CATS, catsAt: _catsAt, catsDel: _catsDel, places, purged: _purgedCache });
-      if (forFile) { _lastFileSavedAt = savedAt; _lastFileLen = json.length; }
+      const json = JSON.stringify({ v: 3, savedAt, dev: _devKind(), notes: _notesCache, trash: _trashCache, cats: CATS, catsAt: _catsAt, catsDel: _catsDel, places, purged: _purgedCache });
+      if (forFile) {
+        _lastFileSavedAt = savedAt; _lastFileLen = json.length;
+        _ownWrites = _ownWrites.concat([savedAt + ':' + json.length]).slice(-8);
+        _syncNoteFile(_devKind(), savedAt, _notesCache.length);
+      }
       return json;
+    }
+
+    /* ── حالة المزامنة (للعرض في الإعدادات): من كتب الملف آخر مرة ومتى، ومتى
+       وصل آخر تغيير من جهاز آخر. تُحفظ محلياً كي تبقى بعد إعادة التشغيل ── */
+    const SYNC_STATUS_KEY = 'notes_sync_status_v1';
+    let _syncStatus = (function () {
+      try { return JSON.parse(localStorage.getItem(SYNC_STATUS_KEY) || '{}') || {}; } catch (e) { return {}; }
+    })();
+    function _syncStatusSave() {
+      try { localStorage.setItem(SYNC_STATUS_KEY, JSON.stringify(_syncStatus)); } catch (e) { }
+    }
+    function _syncNoteFile(dev, at, n) {
+      _syncStatus.fileDev = dev || ''; _syncStatus.fileAt = +at || 0; _syncStatus.fileN = +n || 0;
+      _syncStatusSave();
+    }
+    function _syncNoteMerge(ext) {
+      _syncStatus.mergeAt = Date.now();
+      _syncStatus.mergeDev = (ext && ext.dev) || '';
+      _syncStatus.mergeFileAt = +(ext && ext.savedAt) || 0;
+      _syncStatusSave();
     }
     /* شواهد الحذف النهائي: [{id, at}] — الحذف اليدوي من السلة كان لا يترك أثراً
        يُنقل مع المزامنة، فتعود العناصر من سلة الجهاز الآخر عند الدمج التالي */
@@ -3159,7 +3196,7 @@
       const p = JSON.parse(text);
       if (Array.isArray(p)) return { v: 1, savedAt: 0, notes: p, trash: [], cats: null, catsAt: 0, catsDel: [], places: [], purged: [] };
       if (p && Array.isArray(p.notes)) return {
-        v: p.v || 2, savedAt: +p.savedAt || 0, notes: p.notes,
+        v: p.v || 2, savedAt: +p.savedAt || 0, dev: typeof p.dev === 'string' ? p.dev : '', notes: p.notes,
         trash: Array.isArray(p.trash) ? p.trash : [],
         cats: _validCats(p.cats),
         catsAt: +p.catsAt || 0,
@@ -3206,6 +3243,76 @@
 
     /* رد الكتابة غير الحاجبة من أندرويد (writeJsonAsync) */
     window._onNotesWriteResult = function (res, err) { if (res === 'ok') _onSaveOk(); else _onSaveFail(); };
+    window._onConflictBackupResult = function () { };
+
+    /* التخزين عبر الجسر الأصلي (أندرويد، أو ويندوز بالواجهة نفسها) */
+    function _bridgeStorage() {
+      return !!(window.AndroidFS && typeof window.AndroidFS.writeJson === 'function'
+        && localStorage.getItem('notes_storage') === 'android_fs');
+    }
+
+    /* قراءة غير حاجبة عبر الجسر: أندرويد ينفّذها في منفّذ الكتابة نفسه، فتأتي
+       بعد أي كتابة سابقة لنا ولا تقع أبداً في منتصف إعادة تسمية الملف */
+    let _rjSeq = 0;
+    /** @param {string} fileName @returns {Promise<string>} */
+    function _readJsonAsync(fileName) {
+      return new Promise((resolve, reject) => {
+        const cb = '_rjCb' + (++_rjSeq);
+        const w = /** @type {any} */ (window);
+        const t = setTimeout(() => { delete w[cb]; reject(new Error('timeout')); }, 15000);
+        w[cb] = (res, err) => {
+          clearTimeout(t); delete w[cb];
+          if (err) reject(new Error(String(err))); else resolve(String(res == null ? '' : res));
+        };
+        try { window.AndroidFS.readJsonAsync(fileName, 'window.' + cb); }
+        catch (e) { clearTimeout(t); delete w[cb]; reject(e); }
+      });
+    }
+
+    /* ── مرآة الجهاز: آخر حالة كتبها هذا الجهاز، في IndexedDB ومربوطة باسم المجلد.
+       الإقلاع كان يعتمد ملف المجلد كما هو: لو كتب الجهاز الآخر فوقه نسخةً لا
+       تحوي ملاحظات هذا الجهاز (أداة المزامنة تحسم تعارضها بالأحدث مثلاً) ضاعت
+       هنا أيضاً عند أول إعادة تشغيل. المرآة تُدمج مع الملف عند الإقلاع كما يُدمج
+       أي تغيير خارجي، فلا يضيع ما أنشأه الجهاز أبداً ويُعاد دفعه في الكتابة التالية ── */
+    const MIRROR_KEY = 'notes_mirror_v1';
+    function _mirrorFolder() {
+      try {
+        if (_bridgeStorage() && typeof window.AndroidFS.getFolderName === 'function') {
+          return String(window.AndroidFS.getFolderName() || '');
+        }
+        if (_dirHandle) return String(_dirHandle.name || '');
+      } catch (e) { }
+      return '';
+    }
+    function _saveMirror(json) {
+      const f = _mirrorFolder();
+      if (!f) return;
+      try { idbSet(MIRROR_KEY, { f, j: json }).catch(() => { }); } catch (e) { }
+    }
+    /* بصمة الحالة بالمعرّفات والأختام — تكشف هل غيّر الدمج شيئاً فعلاً */
+    function _stateSig(s) {
+      const n = (s.notes || []).map(x => String(x && x.id) + ':' + _noteStamp(x) + ':' + JSON.stringify((x && x.ft) || 0)).sort();
+      const t = (s.trash || []).map(x => String(x && x.id) + ':' + _trashStamp(x)).sort();
+      const p = _validPurged(s.purged).map(e => String(e.id) + ':' + e.at).sort();
+      return JSON.stringify([n, t, p, +s.catsAt || 0, JSON.stringify(s.cats || null), _validCatsDel(s.catsDel).length]);
+    }
+
+    /* الدمج قبل الكتابة: ما أوصلته أداة المزامنة من الجهاز الآخر يُدمج أولاً ثم
+       تُكتب الحالة المدموجة. كانت كتابة هذا الجهاز تمحو من الملف ما وصل للتو
+       قبل أن يلحق الفحص الدوري بدمجه — فلا تصل ملاحظات الجهاز الآخر أبداً */
+    function _preWriteAbsorb(raw) {
+      const ext = _externalChange(raw);
+      if (!ext) return false;
+      _absorbExternal(ext, String(raw).length);
+      setTimeout(() => {
+        try { _sweepPendingAttachments(); } catch (e) { }
+        updCount(); _syncRemindersDebounced();
+        if (typeof renderNotes === 'function') renderNotes();
+        showFb('🔄 دُمجت تغييرات واصلة من جهاز آخر');
+      }, 0);
+      return true;
+    }
+
     /* كتابة فعلية لكل الملاحظات إلى ملف المجلد (غير متزامنة قدر الإمكان)
        @param {boolean} [sync] كتابة متزامنة حاجبة — عند إخفاء التطبيق فقط، حيث لا
        يمكن انتظار رد غير متزامن وحيث لا يضرّ تجميد الواجهة */
@@ -3217,34 +3324,31 @@
         return;
       }
       _persistPending = false;
-      const json = _serializeNotes(true);
-      /* أندرويد / ويندوز (جسر AndroidFS) */
-      if (window.AndroidFS && typeof window.AndroidFS.writeJson === 'function'
-        && localStorage.getItem('notes_storage') === 'android_fs') {
+      /* أندرويد / ويندوز (جسر AndroidFS): اقرأ الملف وادمج ما تغيّر خارجياً، ثم اكتب */
+      if (_bridgeStorage()) {
+        if (!sync && typeof window.AndroidFS.readJsonAsync === 'function') {
+          _readJsonAsync(NOTES_FILE)
+            .then(raw => { _preWriteAbsorb(raw); }, () => { })
+            .then(() => _writeViaBridge(false));
+          return;
+        }
         try {
-          /* أندرويد: الكتابة عبر SAF قد تستغرق ثواني ونداء الجسر متزامن → كانت
-             الواجهة تتجمّد بعد كل حفظ (لا تُفتح أي ملاحظة طوال توست الحفظ) */
-          if (!sync && typeof window.AndroidFS.writeJsonAsync === 'function') {
-            window.AndroidFS.writeJsonAsync(NOTES_FILE, json, 'window._onNotesWriteResult');
-            return;
-          }
-          const r = window.AndroidFS.writeJson(NOTES_FILE, json);
-          if (r && typeof r.then === 'function') {
-            /* عقد Electron الجديد: Promise<boolean> */
-            r.then(ok => { if (ok === false) _onSaveFail(); else _onSaveOk(); })
-              .catch(() => _onSaveFail());
-          } else if (r === false) {
-            _onSaveFail();
-          } else {
-            _onSaveOk();
-          }
-        } catch (e) { _onSaveFail(); }
+          const raw = window.AndroidFS.readJson(NOTES_FILE);
+          if (typeof raw === 'string') _preWriteAbsorb(raw);
+        } catch (e) { }
+        _writeViaBridge(sync);
         return;
       }
       /* سطح المكتب: File System Access (غير متزامن) */
       if (_dirHandle) {
         (async () => {
           try {
+            try {
+              const fh0 = await _dirHandle.getFileHandle(NOTES_FILE);
+              _preWriteAbsorb(await (await fh0.getFile()).text());
+            } catch (e) { /* لا ملف بعد */ }
+            const json = _serializeNotes(true);
+            _saveMirror(json);
             const fh = await _dirHandle.getFileHandle(NOTES_FILE, { create: true });
             const w = await fh.createWritable();
             await w.write(json);
@@ -3256,7 +3360,32 @@
         return;
       }
       /* احتياطي أخير: لا يوجد مجلد → IndexedDB أولاً + مرآة localStorage للتوافق الرجعي */
-      _writeFallback(json);
+      _writeFallback(_serializeNotes(true));
+    }
+
+    /* الكتابة عبر الجسر بعد الدمج — التسلسل هنا لا قبله، كي يشمل ما دُمج للتو */
+    function _writeViaBridge(sync) {
+      if (!_notesLoaded) return;
+      const json = _serializeNotes(true);
+      _saveMirror(json);
+      try {
+        /* أندرويد: الكتابة عبر SAF قد تستغرق ثواني ونداء الجسر متزامن → كانت
+           الواجهة تتجمّد بعد كل حفظ (لا تُفتح أي ملاحظة طوال توست الحفظ) */
+        if (!sync && typeof window.AndroidFS.writeJsonAsync === 'function') {
+          window.AndroidFS.writeJsonAsync(NOTES_FILE, json, 'window._onNotesWriteResult');
+          return;
+        }
+        const r = window.AndroidFS.writeJson(NOTES_FILE, json);
+        if (r && typeof r.then === 'function') {
+          /* عقد Electron الجديد: Promise<boolean> */
+          r.then(ok => { if (ok === false) _onSaveFail(); else _onSaveOk(); })
+            .catch(() => _onSaveFail());
+        } else if (r === false) {
+          _onSaveFail();
+        } else {
+          _onSaveOk();
+        }
+      } catch (e) { _onSaveFail(); }
     }
 
     function _writeFallback(json) {
@@ -3433,6 +3562,9 @@
       }
 
       let needResave = fromBak;
+      /* الملف كما قُرئ (قبل دمج اللقطة والمرآة) — مرجع كشف التغيّر وحالة المزامنة */
+      const fileAt0 = +parsed.savedAt || 0;
+      _syncNoteFile(parsed.dev || '', fileAt0, Array.isArray(parsed.notes) ? parsed.notes.length : 0);
       /* سطح المكتب: لقطة الطوارئ (كتابة لم تكتمل قبل الإغلاق) تُدمج مع الملف
          لكل عنصر بالأختام بدل الاستبدال أو الإهمال — الملف قد يكون وصل للتو من
          جهاز آخر عبر أداة مزامنة (GoodSync وأمثالها) واللقطة تحمل تغييرات
@@ -3447,6 +3579,23 @@
               if (r.restored) showFb('↩️ استُعيدت آخر التغييرات غير المحفوظة');
             }
             localStorage.removeItem(FLUSH_SNAPSHOT_KEY);
+          }
+        } catch (e) { }
+      }
+      /* مرآة هذا الجهاز (المجلد نفسه فقط) تُدمج مع الملف لكل عنصر بالأختام — ما
+         أنشأه هنا ولم يبقَ في الملف (كتب الجهاز الآخر فوقه) يعود ويُعاد دفعه */
+      if (_bridgeStorage() || _dirHandle) {
+        try {
+          const m = await idbGet(MIRROR_KEY);
+          const f = _mirrorFolder();
+          if (m && f && m.f === f && typeof m.j === 'string') {
+            const r = _applyFlushSnapshot(parsed, m.j);
+            if (r && _stateSig(r.parsed) !== _stateSig(parsed)) {
+              const fileIds = new Set((parsed.notes || []).map(n => String(n && n.id)));
+              const back = r.parsed.notes.filter(n => n && !fileIds.has(String(n.id))).length;
+              parsed = r.parsed; needResave = true;
+              if (back) setTimeout(() => showFb('🔄 أُعيدت ' + back + ' ملاحظة من هذا الجهاز لم تكن في ملف المزامنة'), 400);
+            }
           }
         } catch (e) { }
       }
@@ -3485,7 +3634,7 @@
       }
       _notesLoaded = true;
       _ftCapture();   /* المحمَّل مرجعٌ لا تعديل */
-      _lastFileSavedAt = +parsed.savedAt || 0;   /* مرجع كشف التغيّر الخارجي */
+      _lastFileSavedAt = fileAt0;   /* مرجع كشف التغيّر الخارجي: الملف كما هو على القرص */
       _lastFileLen = raw == null ? -1 : String(raw).length;
       hideSaveError();
       if (fromBak) showFb('تمت الاستعادة من النسخة الاحتياطية');
@@ -3761,7 +3910,10 @@
     function _writeConflictBackup(json) {
       try {
         const storage = localStorage.getItem('notes_storage');
-        if (window.AndroidFS && typeof window.AndroidFS.writeFile === 'function' && storage === 'android_fs') {
+        if (window.AndroidFS && typeof window.AndroidFS.writeFileAsync === 'function' && storage === 'android_fs') {
+          /* غير حاجبة: الدمج قد يقع الآن قبل أي كتابة، فلا نجمّد الواجهة بانتظار SAF */
+          window.AndroidFS.writeFileAsync('', CONFLICT_BACKUP_FILE, json, 'window._onConflictBackupResult');
+        } else if (window.AndroidFS && typeof window.AndroidFS.writeFile === 'function' && storage === 'android_fs') {
           window.AndroidFS.writeFile('', CONFLICT_BACKUP_FILE, json);
         } else if (_dirHandle) {
           (async () => {
@@ -3772,30 +3924,90 @@
       } catch (e) { }
     }
 
+    /* هل يحمل الملف المقروء تغييراً من جهاز آخر لم ندمجه بعد؟ يعيد الحالة
+       المحلَّلة أو null. الملف كما تركناه (savedAt والطول) ليس تغييراً — الطول يحسم
+       التصادم النادر في savedAt — ولا نسخةٌ كتبناها نحن سابقاً (كتابتنا غير
+       المتزامنة على أندرويد لم تصل القرص بعد، أو أعادت أداة المزامنة نسخة أقدم
+       منّا): لا جديد فيها، ودمجها كان يُظهر «دُمجت تغييرات» زوراً */
+    function _externalChange(raw) {
+      if (raw == null || String(raw).trim() === '') return null;   /* فارغ/قيد النقل */
+      let ext;
+      try { ext = _deserializeNotes(String(raw)); } catch (e) { return null; }  /* تالف: يعالجه مسار التحميل */
+      const extAt = +ext.savedAt || 0;
+      if (extAt === _lastFileSavedAt && String(raw).length === _lastFileLen) return null;
+      if (extAt && _ownWrites.includes(extAt + ':' + String(raw).length)) return null;
+      return ext;
+    }
+    /* دمج حالة خارجية في الذاكرة — لكل عنصر والأحدث بختمه يفوز — بلا كتابة */
+    function _absorbExternal(ext, rawLen) {
+      _writeConflictBackup(_serializeNotes());
+      const merged = _mergeStates({ notes: _notesCache, trash: _trashCache, cats: CATS, catsAt: _catsAt, catsDel: _catsDel, purged: _purgedCache }, ext);
+      _notesCache = merged.notes;
+      _trashCache = merged.trash;
+      _purgedCache = merged.purged;
+      _setCatsDel(merged.catsDel);
+      if (merged.cats) _setCats(merged.cats, merged.catsAt);
+      _mergePlaces(ext.places);   /* أماكن الخريطة: بالمعرّف والأحدث بختمه ts يفوز */
+      _ftCapture();      /* المدموج مرجعٌ لا تعديل — وإلا خُتمت حقوله بزمن الدمج */
+      _syncNoteMerge(ext);
+      /* الملف الآن هو ما دمجناه: قراءته ثانيةً (فحص دوري أو دمج ما قبل الكتابة)
+         قبل أن نكتب ليست تغييراً جديداً */
+      _lastFileSavedAt = +ext.savedAt || 0; _lastFileLen = rawLen;
+    }
+
+    /* ── حالة المزامنة في الإعدادات + «مزامنة الآن» ── */
+    const _DEV_LABEL = { windows: '🪟 ويندوز', android: '📱 أندرويد', web: '🌐 المتصفح' };
+    function _devLabel(d) { return _DEV_LABEL[d] || (d ? String(d) : 'نسخة أقدم بلا وسم جهاز'); }
+    function _fmtWhen(at) {
+      if (!at) return '—';
+      const d = new Date(at), p = x => String(x).padStart(2, '0');
+      const mins = Math.max(0, Math.round((Date.now() - at) / 60000));
+      const rel = mins < 1 ? 'الآن'
+        : mins < 60 ? 'منذ ' + mins + ' دقيقة'
+        : mins < 1440 ? 'منذ ' + Math.round(mins / 60) + ' ساعة'
+        : 'منذ ' + Math.round(mins / 1440) + ' يوم';
+      return toArabic(rel + ' (' + d.getDate() + '/' + (d.getMonth() + 1) + ' ' + p(d.getHours()) + ':' + p(d.getMinutes()) + ')');
+    }
+    function _renderSyncStatus() {
+      const el = document.getElementById('cfg-sync-status');
+      const btn = document.getElementById('sync-now-btn');
+      if (!el) return;
+      const folder = _bridgeStorage() || !!_dirHandle;
+      if (btn) btn.style.display = folder ? '' : 'none';
+      if (!folder) { vrender(null, el); return; }
+      const s = _syncStatus;
+      vrender(html`
+        <div>📄 ملف المزامنة: <b>${toArabic(s.fileN || 0)}</b> ملاحظة — آخر كتابة: <b>${_devLabel(s.fileDev)}</b> ${_fmtWhen(s.fileAt)}</div>
+        <div>🔄 آخر ما وصل من جهاز آخر: ${s.mergeAt
+          ? html`<b>${_devLabel(s.mergeDev)}</b> ${_fmtWhen(s.mergeAt)}`
+          : 'لم يصل تغيير من جهاز آخر بعد'}</div>
+        <div>${_devLabel(_devKind())} (هذا الجهاز): <b>${toArabic(_notesCache.length)}</b> ملاحظة</div>`, el);
+    }
+    /* دمج ما في الملف الآن ثم كتابة كل حالة هذا الجهاز فوراً — حتى بلا تغيير، كي
+       يحمل الملف أحدث ختم فتنقله أداة المزامنة إلى الجهاز الآخر */
+    async function syncNow() {
+      if (!(_bridgeStorage() || _dirHandle)) { showFb('⚠️ لا يوجد مجلد مزامنة — اختر مجلد الحفظ أولاً', 1); return; }
+      if (!_notesLoaded) { showFb('⚠️ لم يكتمل تحميل الملاحظات بعد', 1); return; }
+      const merged = await _syncMergeCheck();
+      if (_persistTimer) { clearTimeout(_persistTimer); _persistTimer = null; }
+      _ftStampChanges();
+      _writeNotesNow();
+      if (merged && typeof renderNotes === 'function') renderNotes();
+      showFb(merged ? '🔄 دُمجت تغييرات الجهاز الآخر وكُتب ملف المزامنة'
+        : '✅ كُتب ملف المزامنة بكل ملاحظات هذا الجهاز');
+      setTimeout(_renderSyncStatus, 300);
+    }
+
     let _mergeBusy = false;
     async function _syncMergeCheck() {
       if (!_notesLoaded || _mergeBusy) return false;
       _mergeBusy = true;
       try {
         const { raw, failed } = await _readNotesRaw();
-        if (failed || raw == null || String(raw).trim() === '') return false;
-        let ext;
-        try { ext = _deserializeNotes(String(raw)); } catch (e) { return false; }  /* تالف: يعالجه مسار التحميل */
-        const extAt = +ext.savedAt || 0;
-        /* الملف كما تركناه — لا تغيّر خارجي. الطول يحسم التصادم النادر الذي يكتب
-           فيه الجهازان في الميلي ثانية نفسها فيتطابق savedAt والمحتوى مختلف */
-        if (extAt === _lastFileSavedAt && String(raw).length === _lastFileLen) return false;
-
-        _writeConflictBackup(_serializeNotes());
-        const merged = _mergeStates({ notes: _notesCache, trash: _trashCache, cats: CATS, catsAt: _catsAt, catsDel: _catsDel, purged: _purgedCache }, ext);
-        _notesCache = merged.notes;
-        _trashCache = merged.trash;
-        _purgedCache = merged.purged;
-        _setCatsDel(merged.catsDel);
-        if (merged.cats) _setCats(merged.cats, merged.catsAt);
-        _mergePlaces(ext.places);   /* أماكن الخريطة: بالمعرّف والأحدث بختمه ts يفوز */
-
-        _ftCapture();      /* المدموج مرجعٌ لا تعديل — وإلا خُتمت حقوله بزمن الدمج */
+        if (failed) return false;
+        const ext = _externalChange(raw);
+        if (!ext) return false;
+        _absorbExternal(ext, String(raw).length);
         _persistNotes();   /* اكتب الحالة المدموجة — فيتقارب الجهازان */
         _sweepPendingAttachments();   /* ملاحظة عادت بالدمج تُلغي حذف مرفقها المؤجّل */
         updCount(); _syncRemindersDebounced();
