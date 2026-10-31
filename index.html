@@ -5,7 +5,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
   <meta name="theme-color" content="#667eea">
-  <meta name="app-version" content="1.30.0">
+  <meta name="app-version" content="1.31.0">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <title>المنظم</title>
@@ -2461,45 +2461,24 @@
 </script>
   <script>
     /* ╔══════════════════════════════════════════════════════════════════╗
-       ║  فهرس أقسام الكود (المنظِّم — ملف واحد)                              ║
-       ║  للانتقال: ابحث (Ctrl+F) عن عنوان القسم كما هو مكتوب أدناه.          ║
+       ║  فهرس ملفات التطبيق الرئيسي (src/js/main/ — تُضمَّن مرتبةً بالاسم   ║
+       ║  في وسم <script> واحد عبر //@@scripts:js/main/@@ = نطاق عام واحد) ║
        ╠══════════════════════════════════════════════════════════════════╣
-       ║  ● البيانات والتخزين                                                ║
-       ║      الفئات .............. شجرة التصنيفات + renderSettings + delCat  ║
-       ║      حالة التطبيق ........ كائن S للحالة المؤقتة للواجهة              ║
-       ║      التخزين ............. التحميل/الحفظ الذرّي v3، .bak، IDB، النسخ الآلي║
-       ║      تحديث التطبيق ....... _updateAllowed + تنزيل HTML (أحادي الاتجاه)║
-       ║      سلة المحذوفات ....... _moveToTrash/_purgeOldTrash + تنظيف المرفقات║
-       ║      تصدير / استيراد ..... exportData/importData v3 (يشمل السلة والفئات)║
-       ║      (exportData وcheckSetup مُعرَّفتان لاحقاً — انظر تعليقَي «moved»)  ║
-       ║                                                                     ║
-       ║  ● التقويم والتاريخ                                                  ║
-       ║      التقويم الهجري ...... كائن H (ميلادي↔هجري: أم القرى + Intl)      ║
-       ║      التقويم ............. واجهة اختيار التاريخ                       ║
-       ║                                                                     ║
-       ║  ● التنقل والواجهة العامة                                            ║
-       ║      التنقل .............. نظام موحّد للرجوع (_handleBack، goto)      ║
-       ║      شريط العنوان ........ الضغطة المطوّلة + مؤشر الترتيب النشط         ║
-       ║      اختصارات ............ لوحة المفاتيح (Escape / Ctrl+Enter)        ║
-       ║      Feedback ............ رسائل التنبيه (showFb)                     ║
-       ║      أدوات مساعدة عامة ... esc، firstGrapheme، ...                    ║
-       ║                                                                     ║
-       ║  ● عرض الملاحظات والفلترة                                            ║
-       ║      عرض الملاحظات ....... renderNotes/renderCards + فلاتر            ║
-       ║      الترتيب ............. setSort/_applySort (المؤشر في العنوان)     ║
-       ║      Picker للفلاتر ...... منتقي قيم الفلاتر                          ║
-       ║      Drag-to-Select ..... منتقي السحب                                ║
-       ║      أيقونة نوع الملف .... اختيار أيقونة حسب الامتداد                  ║
-       ║                                                                     ║
-       ║  ● الإدخال والتحرير                                                  ║
-       ║      التسجيل السريع ...... saveQuick / closeQuick                    ║
-       ║      الإضافة الموجّهة ..... الإدخال الموجّه + ربط الملاحظات            ║
-       ║      تعديل الملاحظة ...... saveEdit                                  ║
-       ║      إدارة المرفقات ...... نافذة الضغط الطويل                         ║
-       ║                                                                     ║
-       ║  ● النظام والتذكيرات                                                 ║
-       ║      إعداد أول تشغيل ..... checkSetup + اختيار المجلد + _onFolderPicked║
-       ║      التذكيرات ........... AlarmManager / Electron + Notification    ║
+       ║  01-core ............ Preact/HTM، شجرة الفئات، شواهد حذف الفئات والأماكن║
+       ║  02-theme-update .... السمة + تحديث التطبيق (_updateAllowed)          ║
+       ║  03-hijri-state ..... التقويم الهجري (كائن H) + حالة التطبيق S        ║
+       ║  04-storage ......... التحميل/الحفظ الذرّي v3، .bak، IDB، النسخ الآلي  ║
+       ║  05-sync-merge ...... دمج المزامنة بالحقل، الأماكن، «مزامنة الآن»      ║
+       ║  06-trash ........... سلة المحذوفات + تنظيف المرفقات اليتيمة          ║
+       ║  07-nav-header ...... التنقل والرجوع (_handleBack) + شريط العنوان     ║
+       ║  08-embedded-apps ... الطقس والحاسبة والخريطة (MapBridge)            ║
+       ║  09-weather ......... مؤشر أملج، نافذة الطقس، تنبيه فرص المطر          ║
+       ║  10-calendar ........ واجهة اختيار التاريخ                           ║
+       ║  11-save-render-picker حفظ، عرض الملاحظات والفلاتر، Picker، السحب     ║
+       ║  12-input-feedback .. الإضافة الموجّهة، الاختصارات، showFb            ║
+       ║  13-io-init ......... تصدير/استيراد v3 + التهيئة وإعداد أول تشغيل      ║
+       ║  14-sort-edit ....... الترتيب، أيقونة نوع الملف، تعديل الملاحظة        ║
+       ║  15-attachments-reminders المرفقات، التذكيرات الأصلية، التحديث التلقائي║
        ╚══════════════════════════════════════════════════════════════════╝ */
 
     var _dpCb = null, _dpItems = [], _dpHover = null;
@@ -2661,6 +2640,54 @@
         else out[k] = c;
       }
       return { cats: changed ? out : cats, changed };
+    }
+
+    /* ── شواهد حذف أماكن الخريطة ──
+       الدمج بالمعرّف وحده كان اتحاداً: مكان حُذف على جهاز يبقى عند الآخر، فيعيد
+       كتابته في الملف ويعود إلى الجهاز الأول. الشاهد {id, at} يُسجَّل عند الحذف
+       وينتقل في الملف (placesDel) ويتّحد بالأحدث لكل معرّف؛ كل مكان ختمه ts أقدم
+       من شاهده يُشطَب. مكان عُدّل بعد لحظة الحذف يبقى (الأحدث يفوز). مدته ١٨٠ يوماً. */
+    const PLACES_DEL_LS = 'map_places_del_v1';
+    const PLACES_DEL_TTL = 180 * 24 * 3600 * 1000;
+    function _validPlacesDel(a) {
+      const now = Date.now();
+      return (Array.isArray(a) ? a : [])
+        .filter(e => e && e.id != null && String(e.id) && +e.at > 0 && now - +e.at < PLACES_DEL_TTL)
+        .map(e => ({ id: String(e.id), at: +e.at }));
+    }
+    function _placesDelGet() {
+      try { return _validPlacesDel(JSON.parse(localStorage.getItem(PLACES_DEL_LS) || '[]')); } catch (e) { return []; }
+    }
+    function _placesDelSet(d) {
+      const v = _validPlacesDel(d);
+      try {
+        if (v.length) localStorage.setItem(PLACES_DEL_LS, JSON.stringify(v));
+        else localStorage.removeItem(PLACES_DEL_LS);
+      } catch (e) { }
+      return v;
+    }
+    /* اتحاد سجلّين: الأحدث ختماً لكل معرّف يفوز */
+    function _unionPlacesDel(a, b) {
+      const m = new Map();
+      for (const e of _validPlacesDel(a).concat(_validPlacesDel(b))) {
+        const cur = m.get(e.id);
+        if (!cur || e.at > cur.at) m.set(e.id, e);
+      }
+      return [...m.values()];
+    }
+    function _placeStamp(p) {
+      const t = Date.parse((p && p.ts) || '');
+      return isFinite(t) ? t : 0;
+    }
+    /* شطب الأماكن التي ختمها لا يتجاوز شاهد حذفها — يعيد {places, changed} */
+    function _prunePlacesDel(places, del) {
+      const dm = new Map(_validPlacesDel(del).map(e => [e.id, e.at]));
+      if (!dm.size) return { places, changed: false };
+      const out = places.filter(p => {
+        const at = dm.get(String(p && p.id));
+        return !(at && _placeStamp(p) <= at);
+      });
+      return { places: out, changed: out.length !== places.length };
     }
 
     function saveCats() {
@@ -3154,7 +3181,7 @@
       const savedAt = Date.now();
       let places = [];
       try { if (typeof MapBridge !== 'undefined') places = MapBridge.getPlaces(); } catch (e) { }
-      const json = JSON.stringify({ v: 3, savedAt, dev: _devKind(), notes: _notesCache, trash: _trashCache, cats: CATS, catsAt: _catsAt, catsDel: _catsDel, places, purged: _purgedCache });
+      const json = JSON.stringify({ v: 3, savedAt, dev: _devKind(), notes: _notesCache, trash: _trashCache, cats: CATS, catsAt: _catsAt, catsDel: _catsDel, places, placesDel: _placesDelGet(), purged: _purgedCache });
       if (forFile) {
         _lastFileSavedAt = savedAt; _lastFileLen = json.length;
         _ownWrites = _ownWrites.concat([savedAt + ':' + json.length]).slice(-8);
@@ -3194,7 +3221,7 @@
     }
     function _deserializeNotes(text) {
       const p = JSON.parse(text);
-      if (Array.isArray(p)) return { v: 1, savedAt: 0, notes: p, trash: [], cats: null, catsAt: 0, catsDel: [], places: [], purged: [] };
+      if (Array.isArray(p)) return { v: 1, savedAt: 0, notes: p, trash: [], cats: null, catsAt: 0, catsDel: [], places: [], placesDel: [], purged: [] };
       if (p && Array.isArray(p.notes)) return {
         v: p.v || 2, savedAt: +p.savedAt || 0, dev: typeof p.dev === 'string' ? p.dev : '', notes: p.notes,
         trash: Array.isArray(p.trash) ? p.trash : [],
@@ -3202,6 +3229,7 @@
         catsAt: +p.catsAt || 0,
         catsDel: _validCatsDel(p.catsDel),
         places: Array.isArray(p.places) ? p.places : [],
+        placesDel: _validPlacesDel(p.placesDel),
         purged: _validPurged(p.purged)
       };
       throw new Error('bad-notes-format');
@@ -3624,8 +3652,8 @@
       /* أماكن الخريطة محفوظة في نفس الملف لكنها كانت تُقرأ عند الدمج فقط: على جهاز
          جديد أو بعد إعادة تثبيت كانت أول كتابة تمسح أماكن الملف بقائمة محلية فارغة.
          تحميلها هنا يجعلها تصل عبر المزامنة كبقية البيانات. */
-      const _pl = _mergePlaces(parsed.places);
-      if (_pl.fileStale) needResave = true;   /* المحلي يحمل أماكن ليست في الملف */
+      const _pl = _mergePlaces(parsed.places, parsed.placesDel);
+      if (_pl.fileStale) needResave = true;   /* المحلي يحمل أماكن أو شواهد حذف ليست في الملف */
       /* تعبئة أزمنة الحقول لما حُمّل من ملف كتبته نسخة أقدم — مرة واحدة */
       for (const n of _notesCache) {
         if (!n || n.id == null || n.ft) continue;
@@ -3860,21 +3888,32 @@
     /* دمج أماكن الخريطة الواردة في الملف مع المحفوظة محلياً — بالمعرّف والأحدث
        بختمه ts يفوز. يعيد fileStale=true عندما يحمل المحلي أماكن ليست في الملف،
        فتلزم إعادة كتابته كي لا تضيع عند أول حفظ. */
-    function _mergePlaces(extPlaces) {
+    function _mergePlaces(extPlaces, extDel) {
       const out = { localChanged: false, fileStale: false };
       try {
         if (typeof MapBridge === 'undefined') return out;
         const ext = (Array.isArray(extPlaces) ? extPlaces : [])
           .filter(p => p && typeof p === 'object' && p.id != null && isFinite(p.lat) && isFinite(p.lng));
+        /* الشواهد: اتحاد الطرفين، والملف قديم إن نقصه شاهد محلي (أو أقدم منه) */
+        const locDel = _placesDelGet(), fDel = _validPlacesDel(extDel);
+        const del = _unionPlacesDel(locDel, fDel);
+        const fDelMap = new Map(fDel.map(e => [e.id, e.at]));
+        if (del.some(e => (fDelMap.get(e.id) || 0) < e.at)) out.fileStale = true;
+        if (JSON.stringify(del) !== JSON.stringify(locDel)) _placesDelSet(del);
         const pmap = new Map();
         MapBridge.getPlaces().forEach(p => { if (p && p.id != null) pmap.set(String(p.id), p); });
-        const extKeys = new Set(ext.map(p => String(p.id)));
-        for (const k of pmap.keys()) if (!extKeys.has(k)) out.fileStale = true;
         ext.forEach(p => {
           const k = String(p.id), cur = pmap.get(k);
           if (!cur || String(p.ts || '') > String(cur.ts || '')) { pmap.set(k, p); out.localChanged = true; }
         });
-        if (out.localChanged) MapBridge.setPlaces([...pmap.values()]);
+        const pr = _prunePlacesDel([...pmap.values()], del);
+        if (pr.changed) out.localChanged = true;
+        /* الملف قديم إن اختلف عن الناتج النهائي: مكان ناقص أو مكان شُطب */
+        const finalKeys = new Set(pr.places.map(p => String(p.id)));
+        const extKeys = new Set(ext.map(p => String(p.id)));
+        for (const k of finalKeys) if (!extKeys.has(k)) out.fileStale = true;
+        for (const k of extKeys) if (!finalKeys.has(k)) out.fileStale = true;
+        if (out.localChanged) MapBridge.writePlaces(pr.places);
       } catch (e) { }
       return out;
     }
@@ -3900,6 +3939,7 @@
           catsAt: merged.catsAt || 0,
           catsDel: merged.catsDel || [],
           places: parsed.places,
+          placesDel: _unionPlacesDel(parsed.placesDel, snap.placesDel),
           purged: merged.purged
         },
         restored: snapAt > fileAt
@@ -3947,7 +3987,7 @@
       _purgedCache = merged.purged;
       _setCatsDel(merged.catsDel);
       if (merged.cats) _setCats(merged.cats, merged.catsAt);
-      _mergePlaces(ext.places);   /* أماكن الخريطة: بالمعرّف والأحدث بختمه ts يفوز */
+      _mergePlaces(ext.places, ext.placesDel);   /* أماكن الخريطة: بالمعرّف والأحدث بختمه ts يفوز، والشواهد تشطب المحذوف */
       _ftCapture();      /* المدموج مرجعٌ لا تعديل — وإلا خُتمت حقوله بزمن الدمج */
       _syncNoteMerge(ext);
       /* الملف الآن هو ما دمجناه: قراءته ثانيةً (فحص دوري أو دمج ما قبل الكتابة)
@@ -3988,6 +4028,13 @@
     async function syncNow() {
       if (!(_bridgeStorage() || _dirHandle)) { showFb('⚠️ لا يوجد مجلد مزامنة — اختر مجلد الحفظ أولاً', 1); return; }
       if (!_notesLoaded) { showFb('⚠️ لم يكتمل تحميل الملاحظات بعد', 1); return; }
+      /* دمج دوري جارٍ؟ انتظره (بحد ١٠ ثوانٍ) — الكتابة في منتصفه تسبق ما قرأه */
+      for (let i = 0; _mergeBusy && i < 200; i++) await new Promise(r => setTimeout(r, 50));
+      if (_mergeBusy) { showFb('⚠️ دمج آخر ما زال يعمل — أعد المحاولة بعد قليل', 1); return; }
+      /* ملف فارغ أو ناقص (أداة المزامنة تنقله الآن) أو تالف: الكتابة فوقه كانت تمحو
+         تغييرات الجهاز الآخر الواصلة فيه — لا نكتب شيئاً ونطلب إعادة المحاولة */
+      const bad = _syncFileProblem(await _readNotesRaw());
+      if (bad) { showFb(bad, 1); setTimeout(_renderSyncStatus, 300); return; }
       const merged = await _syncMergeCheck();
       if (_persistTimer) { clearTimeout(_persistTimer); _persistTimer = null; }
       _ftStampChanges();
@@ -3996,6 +4043,18 @@
       showFb(merged ? '🔄 دُمجت تغييرات الجهاز الآخر وكُتب ملف المزامنة'
         : '✅ كُتب ملف المزامنة بكل ملاحظات هذا الجهاز');
       setTimeout(_renderSyncStatus, 300);
+    }
+
+    /* هل ملف المزامنة صالح للكتابة فوقه؟ يعيد رسالة المشكلة أو '' إن كان سليماً.
+       الغائب/الفارغ مقبول: جسر أندرويد يعيد '' للملف المفقود، وإعادة إنشائه مطلوبة */
+    function _syncFileProblem(r) {
+      if (!r || r.failed) return '⚠️ تعذّرت قراءة ملف المزامنة — لم يُكتب شيء';
+      const raw = r.raw == null ? '' : String(r.raw);
+      if (raw.trim() === '') return '';
+      try { _deserializeNotes(raw); } catch (e) {
+        return '⚠️ ملف المزامنة غير مكتمل أو تالف (قد يكون قيد النقل) — لم يُكتب شيء، أعد المحاولة بعد قليل';
+      }
+      return '';
     }
 
     let _mergeBusy = false;
@@ -4466,7 +4525,18 @@
           return Array.isArray(a) ? a.filter(function (p) { return p && typeof p === 'object' && isFinite(p.lat) && isFinite(p.lng); }) : [];
         } catch (e) { return []; }
       },
+      /* كتابة من واجهة المستخدم (الخريطة/الاستيراد): كل معرّف اختفى يُسجَّل له شاهد حذف */
       setPlaces(a) {
+        const next = Array.isArray(a) ? a : [];
+        const keep = new Set(next.map(function (p) { return String(p && p.id); }));
+        const now = Date.now();
+        const gone = MapBridge.getPlaces().filter(function (p) { return p.id != null && !keep.has(String(p.id)); })
+          .map(function (p) { return { id: String(p.id), at: Math.max(now, _placeStamp(p) + 1) }; });
+        if (gone.length) _placesDelSet(_unionPlacesDel(_placesDelGet(), gone));
+        MapBridge.writePlaces(next);
+      },
+      /* كتابة داخلية (ناتج دمج) — بلا شواهد: ما شطبه الدمج محذوف أصلاً بشاهد قائم */
+      writePlaces(a) {
         try { localStorage.setItem(_MAP_PLACES_LS, JSON.stringify(Array.isArray(a) ? a : [])); } catch (e) { }
       },
       getView() { try { return JSON.parse(localStorage.getItem(_MAP_VIEW_LS) || 'null'); } catch (e) { return null; } },
@@ -5158,12 +5228,6 @@
     function toArabic(s) {
       return String(s).replace(/[0-9]/g, d => '٠١٢٣٤٥٦٧٨٩'[d]);
     }
-    /* تحويل الأرقام العربية إلى غربية (للمقارنة الداخلية) */
-    function toWestern(s) {
-      return String(s)
-        .replace(/[٠١٢٣٤٥٦٧٨٩]/g, d => String(d.charCodeAt(0) - 1632))
-        .replace(/[۰۱۲۳۴۵۶۷۸۹]/g, d => String(d.charCodeAt(0) - 1776));
-    }
 
     function setDateDisp(t, dh, dg) {
       const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -5521,9 +5585,9 @@
     /* نص البحث المفهرس: يُحسب مرة ويُخزَّن على الملاحظة (_st) بمفتاح توقيع (_stKey)
        يعتمد على الحقول المؤثّرة — فلا يُعاد بناؤه لكل ملاحظة في كل عملية عرض */
     function _noteSearchText(n) {
-      const key = (n.text || '') + ' ' + (n.main || '') + ' ' + (n.sub || '') + ' ' +
-        (n.sec || '') + ' ' + (n.num || '') + ' ' + (n.dH || '') + ' ' +
-        (n.dG || '') + ' ' + (n.status || '') + ' ' + (Array.isArray(n.tags) ? n.tags.join(' ') : '');
+      const key = (n.text || '') + '\u0000' + (n.main || '') + '\u0000' + (n.sub || '') + '\u0000' +
+        (n.sec || '') + '\u0000' + (n.num || '') + '\u0000' + (n.dH || '') + '\u0000' +
+        (n.dG || '') + '\u0000' + (n.status || '') + '\u0000' + (Array.isArray(n.tags) ? n.tags.join(' ') : '');
       if (n._stKey === key && typeof n._st === 'string') return n._st;
       const txt = [n.text, n.main, n.sub, n.sec, n.num, n.dH, n.dG, n.status,
         Array.isArray(n.tags) ? n.tags.join(' ') : '']
@@ -5939,18 +6003,19 @@
           const pm = new Map(_purgedCache.map(e => [String(e.id), e]));
           _validPurged(parsed.purged).forEach(e => { const k = String(e.id); if (!pm.has(k) || e.at > pm.get(k).at) pm.set(k, e); });
           _purgedCache = [...pm.values()];
-          /* دمج أماكن الخريطة حسب المعرّف (الأحدث يفوز) */
-          if (Array.isArray(parsed.places) && parsed.places.length) {
+          /* دمج أماكن الخريطة حسب المعرّف (الأحدث يفوز) مع شواهد حذفها */
+          if ((Array.isArray(parsed.places) && parsed.places.length) || _validPlacesDel(parsed.placesDel).length) {
             const pmap = new Map();
             MapBridge.getPlaces().forEach(p => pmap.set(String(p.id), p));
-            parsed.places.forEach(p => {
+            (Array.isArray(parsed.places) ? parsed.places : []).forEach(p => {
               if (!p || typeof p !== 'object' || !isFinite(p.lat) || !isFinite(p.lng)) return;
               const k = String(p.id || '');
               const ex = pmap.get(k);
               if (!k) return;
               if (!ex || String(p.ts || '') > String(ex.ts || '')) pmap.set(k, p);
             });
-            MapBridge.setPlaces([...pmap.values()]);
+            const pdel = _placesDelSet(_unionPlacesDel(_placesDelGet(), parsed.placesDel));
+            MapBridge.writePlaces(_prunePlacesDel([...pmap.values()], pdel).places);
           }
         } else {
           if (!confirm('⚠️ سيتم استبدال جميع الملاحظات الحالية (' + DB.get().length + ') بمحتوى الملف نهائياً. متابعة؟')) {
@@ -5961,7 +6026,10 @@
           _purgedCache = _validPurged(parsed.purged);
           _setCatsDel(_validCatsDel(parsed.catsDel));   /* استبدال كامل: شواهد الملف وحدها */
           if (parsed.cats) { CATS = _pruneCatsDel(parsed.cats, _catsDel).cats; saveCats(); }
-          if (Array.isArray(parsed.places) && parsed.places.length) MapBridge.setPlaces(parsed.places.filter(p => p && typeof p === 'object' && isFinite(p.lat) && isFinite(p.lng)));
+          if (Array.isArray(parsed.places) && parsed.places.length) {
+            _placesDelSet(parsed.placesDel);   /* استبدال كامل: شواهد الملف وحدها */
+            MapBridge.writePlaces(parsed.places.filter(p => p && typeof p === 'object' && isFinite(p.lat) && isFinite(p.lng)));
+          }
         }
         /* الاستيراد يُعد تحميلاً ناجحاً */
         _notesLoaded = true;
@@ -6068,9 +6136,8 @@
         _dpHl(null);
       }, { passive: false });
 
-      /* ══ سحب لأسفل على الهاندل أو العنوان لإغلاق الـ sheet ══ */
+      /* ══ سحب لأسفل على الهاندل لإغلاق الـ sheet ══ */
       const handle = sheet.querySelector('.dp-handle');
-      const titleEl = sheet.querySelector('.dp-title') || sheet;
       const swipeZone = handle || sheet;
 
       swipeZone.addEventListener('touchstart', e => {
@@ -6398,7 +6465,7 @@
     /* تصدير يدوي */
     /* v3: يشمل السلة والفئات المخصّصة وأماكن الخريطة — استعادة كاملة من ملف واحد */
     function _exportPayloadJson() {
-      const payload = { v: 3, savedAt: Date.now(), notes: DB.get(), trash: _trashCache, cats: CATS, places: MapBridge.getPlaces() };
+      const payload = { v: 3, savedAt: Date.now(), notes: DB.get(), trash: _trashCache, cats: CATS, places: MapBridge.getPlaces(), placesDel: _placesDelGet() };
       return JSON.stringify(payload, null, 2);
     }
     function _exportFileName() { return 'منظم-' + new Date().toISOString().split('T')[0] + '.json'; }
@@ -7652,12 +7719,6 @@ const asArr = x => x==null ? null : (Array.isArray(x) ? x : [x]);
 
 const urlMet = l => "https://api.met.no/weatherapi/locationforecast/2.0/compact?lat="+l.lat+"&lon="+l.lon;
 
-const WMO = {
-  0:"صافٍ",1:"صافٍ غالباً",2:"غائم جزئياً",3:"غائم",45:"ضباب",48:"ضباب صقيعي",
-  51:"رذاذ خفيف",53:"رذاذ متوسط",55:"رذاذ كثيف",61:"مطر خفيف",63:"مطر متوسط",65:"مطر غزير",
-  80:"زخات خفيفة",81:"زخات متوسطة",82:"زخات عنيفة",
-  95:"عاصفة رعدية",96:"رعدية مع بَرَد خفيف",99:"رعدية مع بَرَد شديد"
-};
 const DAYS_AR = ["الأحد","الإثنين","الثلاثاء","الأربعاء","الخميس","الجمعة","السبت"];
 const MON_AR = ["يناير","فبراير","مارس","أبريل","مايو","يونيو","يوليو","أغسطس","سبتمبر","أكتوبر","نوفمبر","ديسمبر"];
 const fmtDate = iso => { const d=new Date(iso+"T00:00:00");
