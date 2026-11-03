@@ -5,7 +5,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
   <meta name="theme-color" content="#667eea">
-  <meta name="app-version" content="1.31.0">
+  <meta name="app-version" content="1.32.0">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <title>المنظم</title>
@@ -4650,6 +4650,9 @@
       { name: 'الداير', lat: 17.3520, lon: 43.1102 },
       { name: 'الريث', lat: 17.5406, lon: 42.8524 },
       { name: 'جازان', lat: 16.8894, lon: 42.5511 },
+      { name: 'مكة المكرمة', lat: 21.4225, lon: 39.8262 },
+      { name: 'عنيزة', lat: 26.0906, lon: 43.9875 },
+      { name: 'تبوك', lat: 28.3972, lon: 36.5789 },
       { name: 'أملج', lat: 25.0213, lon: 37.2685 },
     ];
     var WX_METRICS = [
@@ -4671,7 +4674,8 @@
     function _storeWxCfg(c) { try { localStorage.setItem(WX_CFG_KEY, JSON.stringify(c)); } catch (e) { } }
     function _wxCity() {
       var c = _wxCfg();
-      return WX_CITIES.filter(function (x) { return x.name === c.city; })[0] || WX_CITIES[WX_CITIES.length - 1];
+      return WX_CITIES.filter(function (x) { return x.name === c.city; })[0]
+        || WX_CITIES.filter(function (x) { return x.name === 'أملج'; })[0];
     }
     function _wxFullUrl() {
       var ct = _wxCity();
@@ -7664,6 +7668,9 @@ const ALL_LOCS = [
   {name:"الداير",    short:"الداير",    lat:17.3520, lon:43.1102, elev:"1890م", def:false},
   {name:"الريث",     short:"الريث",     lat:17.5406, lon:42.8524, elev:"920م",  def:false},
   {name:"جازان",     short:"جازان",     lat:16.8894, lon:42.5511, elev:"5م",   def:false},
+  {name:"مكة المكرمة", short:"مكة",    lat:21.4225, lon:39.8262, elev:"277م", def:false},
+  {name:"عنيزة",     short:"عنيزة",     lat:26.0906, lon:43.9875, elev:"666م", def:false},
+  {name:"تبوك",      short:"تبوك",      lat:28.3972, lon:36.5789, elev:"768م", def:false},
   {name:"أملج",      short:"أملج",      lat:25.0213, lon:37.2685, elev:"10م",  def:false},
 ];
 
