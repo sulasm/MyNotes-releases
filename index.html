@@ -5,7 +5,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
   <meta name="theme-color" content="#667eea">
-  <meta name="app-version" content="1.32.0">
+  <meta name="app-version" content="1.33.0">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <title>المنظم</title>
@@ -2129,6 +2129,13 @@
           <button class="sm-btn" id="sync-now-btn" onclick="syncNow()">🔄 مزامنة الآن</button>
         </div>
         <div class="section">
+          <div class="sec-t">📡 المزامنة المباشرة (تجريبي)</div>
+          <div style="font-size:12px;color:var(--text-m);padding:4px 0 10px;line-height:1.7;">
+            مزامنة الملاحظات والمرفقات (صور وفيديو) مباشرةً بين ويندوز وأندرويد على نفس الشبكة، بلا GoodSync وبلا خادم خارجي.
+          </div>
+          <div id="lan-sync-box"></div>
+        </div>
+        <div class="section">
           <div class="sec-t">🗂️ التصنيفات</div>
           <div id="cfg-cats-list" style="display:flex;flex-direction:column;gap:8px;"></div>
         </div>
@@ -2749,6 +2756,7 @@
         fd.textContent = 'التخزين الداخلي فقط';
       }
       if (typeof _renderSyncStatus === 'function') _renderSyncStatus();
+      if (typeof _lanRenderStatus === 'function') _lanRenderStatus();
 
       /* حالة التحديث */
       if (window.AndroidFS && typeof window.AndroidFS.hasLocalUpdate === 'function') {
@@ -7273,7 +7281,376 @@
       }
     });
 
-  </script>
+      /* ══════════════════════════════════════════════════════════════════
+       المزامنة المباشرة على الشبكة المحلية (تجريبي) — بديل GoodSync مضمّن
+       ─────────────────────────────────────────────────────────────────
+       جهازان على نفس الواي فاي يتبادلان ملف الملاحظات والمرفقات (صور/فيديو)
+       مباشرةً عبر HTTP، بلا خادم خارجي ولا اشتراك ولا مغادرة البيانات للشبكة.
+
+       تقسيم المسؤوليات (كي يبقى كل المنطق هنا قابلاً للاختبار):
+       • الطبقة الأصلية (window.LanSync في ويندوز/أندرويد) = أنابيب بسيطة:
+         تشغيل خادم يخدم المجلد، وسحب ملف/نص من نظير، وسرد ملفات المجلد.
+       • هذا المحرّك = كل القرار: الإقران، مقارنة البيان، اختيار ما يُسحب،
+         ودمج ملف الملاحظات عبر منطق الدمج الآمن القائم (_absorbExternal).
+
+       الأمان: الملفات الثنائية (الفيديو) لا تمرّ عبر جسر JS أبداً — الطبقة
+       الأصلية تسحبها من رابط النظير إلى القرص مباشرةً. الإقران برمز ٦ خانات
+       يُنشئ توكناً مشتركاً عشوائياً يحمي كل الطلبات على الشبكة.
+
+       حالة الترحيل: المرحلة ١ — الإقران اليدوي (إدخال العنوان)، والسحب عند
+       فتح التطبيق وبالزر، مع بقاء GoodSync يعمل بالتوازي. الاكتشاف التلقائي
+       (mDNS) والسحب النشط من الخدمة الأمامية وهي مغلقة = مرحلة تالية.
+    ══════════════════════════════════════════════════════════════════ */
+
+    var LS = (function () {
+      var KEY = 'lansync_v1';
+      /** @returns {any} */
+      function _state() {
+        try { var s = JSON.parse(localStorage.getItem(KEY) || '{}'); return (s && typeof s === 'object') ? s : {}; }
+        catch (e) { return {}; }
+      }
+      function _save(s) { try { localStorage.setItem(KEY, JSON.stringify(s)); } catch (e) { } }
+      function _patch(p) { var s = _state(); for (var k in p) s[k] = p[k]; _save(s); return s; }
+      return { get: _state, save: _save, patch: _patch };
+    })();
+
+    /* هل تدعم الطبقة الأصلية المزامنة المباشرة؟ (أندرويد الجديد / Electron) */
+    function _lanAvailable() {
+      return !!(window.LanSync && typeof window.LanSync.serverStart === 'function');
+    }
+
+    /* نداء أصلي غير متزامن بنمط «اسم ردّ عام»: يحوّله إلى وعد */
+    var _lanCbSeq = 0;
+    /* يدعم نمطَي الطبقة الأصلية: أندرويد (ردّ باسم عام) وElectron (وعد مُعاد).
+       @param {string} method @param {any[]} args @returns {Promise<string>} */
+    function _lanCall(method, args) {
+      return new Promise(function (resolve, reject) {
+        var cb = '_lanCb' + (++_lanCbSeq);
+        var w = /** @type {any} */ (window);
+        var done = false;
+        function fin(ok, val) {
+          if (done) return; done = true; clearTimeout(t); delete w[cb];
+          if (ok) resolve(String(val == null ? '' : val)); else reject(val instanceof Error ? val : new Error(String(val)));
+        }
+        var t = setTimeout(function () { fin(false, 'timeout'); }, 45000);
+        w[cb] = function (res, err) { fin(!err, err ? err : res); };
+        try {
+          var r = window.LanSync[method].apply(window.LanSync, args.concat(['window.' + cb]));
+          if (r && typeof r.then === 'function') {
+            r.then(function (v) { fin(true, v); }, function (e) { fin(false, e); });
+          }
+        } catch (e) { fin(false, e); }
+      });
+    }
+
+    /* هوية هذا الجهاز (ثابتة لكل تثبيت؛ الطبقة الأصلية تحفظها) */
+    function _lanIdentity() {
+      try {
+        var j = window.LanSync.identity();
+        var o = JSON.parse(j || '{}');
+        if (o && o.id) return { id: String(o.id), name: String(o.name || _devKind()) };
+      } catch (e) { }
+      return { id: '', name: _devKind() };
+    }
+
+    /* رمز إقران من ٦ خانات */
+    function _lanGenCode() {
+      var n = 0;
+      try { var a = new Uint32Array(1); /** @type {any} */(window.crypto).getRandomValues(a); n = a[0]; }
+      catch (e) { n = Math.floor(Math.random() * 4294967296); }
+      return String(100000 + (n % 900000));
+    }
+    /* توكن مشترك عشوائي (hex) يُنشئه الطرف الذي يُظهر الرمز عند نجاح الإقران */
+    function _lanGenToken() {
+      try {
+        var a = new Uint8Array(24); /** @type {any} */(window.crypto).getRandomValues(a);
+        return Array.prototype.map.call(a, function (b) { return ('0' + b.toString(16)).slice(-2); }).join('');
+      } catch (e) {
+        return String(Date.now()) + Math.random().toString(16).slice(2) + Math.random().toString(16).slice(2);
+      }
+    }
+
+    /* مجلد المرفقات داخل مجلد الحفظ (مسار نسبي في البيان) */
+    var LAN_ATT_DIR = 'المرفقات';
+
+    /* تطبيع بيان الملفات الوارد إلى خريطة path→{size,mt} */
+    function _lanManifestMap(files) {
+      var m = {};
+      (Array.isArray(files) ? files : []).forEach(function (f) {
+        if (f && typeof f.p === 'string' && f.p) m[f.p] = { size: +f.size || 0, mt: +f.mt || 0 };
+      });
+      return m;
+    }
+
+    /* قرار السحب: ما المرفقات الموجودة عند النظير وغير موجودة محلياً؟
+       أسماء المرفقات فريدة وثابتة (زمن+عشوائي+اسم) فالاسم نفسه = نفس المحتوى،
+       ويكفي سحب ما ينقصنا. لا نحذف محلياً بناءً على الغياب (الكنس اليتيم يتكفّل). */
+    function _lanPlanPull(localFiles, peerFiles) {
+      var loc = _lanManifestMap(localFiles), peer = _lanManifestMap(peerFiles);
+      var pull = [];
+      Object.keys(peer).forEach(function (p) {
+        if (p.indexOf(LAN_ATT_DIR + '/') !== 0) return;   /* المرفقات فقط هنا */
+        var name = p.slice(LAN_ATT_DIR.length + 1);
+        if (!name || name.indexOf('/') >= 0) return;       /* مستوى واحد، بلا مسارات */
+        if (!Object.prototype.hasOwnProperty.call(loc, p)) pull.push(name);
+      });
+      return pull;
+    }
+
+    /* رابط أساس النظير من عنوانه ومنفذه */
+    function _lanBase(ip, port) { return 'http://' + ip + ':' + (port || 0); }
+
+    /* ── الإقران (الطرف البادئ: يُدخل عنوان النظير ورمزه الظاهر عنده) ── */
+    async function _lanPairInitiate(ip, port, code) {
+      var id = _lanIdentity();
+      var base = _lanBase(ip, port);
+      var res = await _lanCall('pairRequest', [base, String(code), JSON.stringify({ id: id.id, name: id.name })]);
+      var o = JSON.parse(res || '{}');
+      if (!o || !o.token || !o.id) throw new Error('bad-pair');
+      LS.patch({
+        paired: true, token: String(o.token),
+        peerId: String(o.id), peerName: String(o.name || ''),
+        peerIp: String(ip), peerPort: +port || 0, pairedAt: Date.now()
+      });
+      await _lanEnsureServer();
+      return o;
+    }
+
+    /* ── الإقران (الطرف المُظهِر للرمز): يولّد الرمز والتوكن ويأمر الطبقة الأصلية
+       بقبول POST /pair بهذا الرمز لدقيقتين، فتعيد التوكن للطرف البادئ وتبدأ الخدمة ── */
+    function _lanPairHost() {
+      var code = _lanGenCode(), token = _lanGenToken();
+      try { window.LanSync.setPairCode(code, token); } catch (e) { return null; }
+      /* نخزّن التوكن كي نخدم به بعد نجاح الإقران (الطبقة الأصلية تبدأ الخدمة تلقائياً عند أول إقران ناجح) */
+      LS.patch({ hostCode: code, hostToken: token, hostCodeAt: Date.now() });
+      return { code: code, ips: _lanLocalIps(), port: _lanServerPort() };
+    }
+
+    function _lanLocalIps() {
+      try { var a = JSON.parse(window.LanSync.localIps() || '[]'); return Array.isArray(a) ? a : []; }
+      catch (e) { return []; }
+    }
+    function _lanServerPort() {
+      try { return +window.LanSync.serverPort() || 0; } catch (e) { return 0; }
+    }
+    function _lanServerRunning() {
+      try { return !!window.LanSync.serverRunning(); } catch (e) { return false; }
+    }
+
+    /* شغّل الخادم بالتوكن المناسب (المشترك بعد الإقران) إن كانت الميزة مفعّلة */
+    async function _lanEnsureServer() {
+      var s = LS.get();
+      if (!s.enabled || !_lanAvailable()) return false;
+      var token = s.token || s.hostToken || '';
+      if (!token) return false;
+      if (_lanServerRunning()) return true;
+      try { await _lanCall('serverStart', [token]); return _lanServerRunning(); } catch (e) { return false; }
+    }
+    function _lanStopServer() { try { window.LanSync.serverStop(); } catch (e) { } }
+
+    /* سرد ملفات المجلد محلياً عبر الطبقة الأصلية */
+    async function _lanLocalFiles() {
+      var res = await _lanCall('listFiles', []);
+      try { var a = JSON.parse(res || '[]'); return Array.isArray(a) ? a : []; } catch (e) { return []; }
+    }
+
+    var _lanBusy = false;
+    var _lanLastErr = '';
+    /* ── المزامنة مع النظير: بيان → سحب المرفقات الناقصة → سحب ملف الملاحظات ودمجه ── */
+    async function _lanSyncNow(quiet) {
+      var s = LS.get();
+      if (!_lanAvailable()) { if (!quiet) showFb('⚠️ المزامنة المباشرة غير مدعومة في هذه النسخة', 1); return false; }
+      if (!s.enabled) { if (!quiet) showFb('⚠️ فعّل المزامنة المباشرة أولاً', 1); return false; }
+      if (!s.paired || !s.peerIp || !s.token) { if (!quiet) showFb('⚠️ لم يتم الإقران بجهاز بعد', 1); return false; }
+      if (_lanBusy) return false;
+      if (!_notesLoaded) { if (!quiet) showFb('⚠️ لم يكتمل تحميل الملاحظات بعد', 1); return false; }
+      _lanBusy = true;
+      var base = _lanBase(s.peerIp, s.peerPort), token = s.token;
+      var pulledCount = 0, mergedNotes = false;
+      try {
+        await _lanEnsureServer();
+        /* ١) بيان النظير */
+        var manRaw = await _lanCall('httpJson', [base + '/manifest', token]);
+        var man = JSON.parse(manRaw || '{}');
+        if (!man || !Array.isArray(man.files)) throw new Error('bad-manifest');
+        /* ٢) المرفقات الناقصة (تُسحب إلى القرص مباشرةً — الفيديو لا يمرّ عبر JS) */
+        var local = await _lanLocalFiles();
+        var toPull = _lanPlanPull(local, man.files);
+        for (var i = 0; i < toPull.length; i++) {
+          var name = toPull[i];
+          var url = base + '/file?p=' + encodeURIComponent(LAN_ATT_DIR + '/' + name);
+          try {
+            var r = await _lanCall('pullToFolder', [url, token, LAN_ATT_DIR, name]);
+            if (r === 'ok') pulledCount++;
+          } catch (e) { /* ملف واحد فشل لا يوقف البقية */ }
+        }
+        /* ٣) ملف الملاحظات: اسحب نصّه وادمجه بمنطق الدمج الآمن القائم */
+        try {
+          var peerNotes = await _lanCall('pullText', [base + '/file?p=' + encodeURIComponent(NOTES_FILE), token]);
+          var ext = _externalChange(peerNotes);
+          if (ext) {
+            _absorbExternal(ext, String(peerNotes).length);
+            mergedNotes = true;
+            _lanWriteMerged();
+          }
+        } catch (e) { /* قد لا يكون للنظير ملف بعد */ }
+
+        LS.patch({ lastSyncAt: Date.now(), lastPeerName: String(man.name || s.peerName || ''), lastErr: '' });
+        _lanLastErr = '';
+        if (mergedNotes && typeof renderNotes === 'function') renderNotes();
+        if (!quiet) {
+          showFb('🔁 تمت المزامنة المباشرة' + (pulledCount ? ' — ' + toArabic(pulledCount) + ' مرفق' : '')
+            + (mergedNotes ? ' + ملاحظات' : ''));
+        }
+        setTimeout(_lanRenderStatus, 200);
+        return true;
+      } catch (e) {
+        _lanLastErr = (e && e.message) || 'error';
+        LS.patch({ lastErr: _lanLastErr, lastErrAt: Date.now() });
+        if (!quiet) showFb('⚠️ تعذّرت المزامنة المباشرة: ' + _lanLastErr, 1);
+        setTimeout(_lanRenderStatus, 200);
+        return false;
+      } finally { _lanBusy = false; }
+    }
+
+    /* بعد الدمج: اكتب الحالة المدموجة إلى المجلد كي يسحبها النظير في دورته */
+    function _lanWriteMerged() {
+      try {
+        if (_persistTimer) { clearTimeout(_persistTimer); _persistTimer = null; }
+        _ftStampChanges();
+        _writeNotesNow();
+      } catch (e) { }
+    }
+
+    /* فكّ الإقران وإيقاف الخدمة */
+    function _lanUnpair() {
+      _lanStopServer();
+      LS.save({ enabled: false });
+      showFb('أُلغي الإقران وأُوقفت المزامنة المباشرة');
+      _lanRenderStatus();
+    }
+
+    /* تفعيل/تعطيل الميزة */
+    async function _lanSetEnabled(on) {
+      LS.patch({ enabled: !!on });
+      if (on) {
+        if (!_lanAvailable()) { showFb('⚠️ غير مدعومة في هذه النسخة', 1); LS.patch({ enabled: false }); _lanRenderStatus(); return; }
+        await _lanEnsureServer();
+        if (LS.get().paired) _lanSyncNow(true);
+      } else {
+        _lanStopServer();
+      }
+      _lanRenderStatus();
+    }
+
+    /* ── واجهة الإعدادات: لوحة المزامنة المباشرة (مكوّن Preact) ── */
+    function _lanFmtWhen(at) {
+      if (!at) return '—';
+      var mins = Math.max(0, Math.round((Date.now() - at) / 60000));
+      var rel = mins < 1 ? 'الآن' : mins < 60 ? 'منذ ' + mins + ' دقيقة'
+        : mins < 1440 ? 'منذ ' + Math.round(mins / 60) + ' ساعة' : 'منذ ' + Math.round(mins / 1440) + ' يوم';
+      return toArabic(rel);
+    }
+
+    function LanPairHost() {
+      var st = useState(null), info = st[0], setInfo = st[1];
+      var start = async function () { await _lanEnsureServer(); var r = _lanPairHost(); setInfo(r || { err: 1 }); };
+      if (!info) return html`<button class="sm-btn" onClick=${start}>📟 إظهار رمز للإقران على هذا الجهاز</button>`;
+      if (info.err) return html`<div style="color:#fca5a5;font-size:12px">تعذّر توليد الرمز</div>`;
+      return html`<div style="background:rgba(var(--ov),0.07);border-radius:10px;padding:10px;font-size:12px;line-height:1.9">
+        <div>على الجهاز الآخر اختر «الإقران بجهاز» ثم أدخل:</div>
+        <div>الرمز: <b style="font-size:17px;letter-spacing:3px;color:var(--tw)">${toArabic(info.code)}</b></div>
+        <div>العنوان: <b dir="ltr">${info.ips && info.ips.length ? info.ips.join(' أو ') : '—'}</b></div>
+        <div>المنفذ: <b dir="ltr">${toArabic(info.port || 0)}</b></div>
+        <div style="color:rgba(var(--ov),0.5);margin-top:4px">الرمز صالح لدقيقتين، ومرة واحدة.</div>
+      </div>`;
+    }
+
+    function LanPairJoin() {
+      var a = useState(''), ip = a[0], setIp = a[1];
+      var b = useState(''), port = b[0], setPort = b[1];
+      var c = useState(''), code = c[0], setCode = c[1];
+      var d = useState(''), msg = d[0], setMsg = d[1];
+      var go = async function () {
+        if (!ip || !code) { setMsg('أدخل العنوان والرمز'); return; }
+        setMsg('… جارٍ الإقران');
+        try {
+          var o = await _lanPairInitiate(ip.trim(), parseInt(port, 10) || 0, code.trim());
+          setMsg('✓ تم الإقران بـ ' + (o.name || 'الجهاز'));
+          setTimeout(_lanRenderStatus, 400);
+        } catch (e) { setMsg('✗ فشل الإقران: ' + ((e && e.message) || 'خطأ')); }
+      };
+      return html`<div style="display:flex;flex-direction:column;gap:6px">
+        <div style="font-size:12px;color:rgba(var(--ov),0.7)">الإقران بجهاز يُظهر رمزاً:</div>
+        <input class="edit-inp" dir="ltr" placeholder="عنوان IP" value=${ip} onInput=${function (e) { setIp(e.target.value); }} style="padding:7px 10px;font-size:13px"/>
+        <input class="edit-inp" dir="ltr" placeholder="المنفذ" value=${port} onInput=${function (e) { setPort(e.target.value); }} style="padding:7px 10px;font-size:13px"/>
+        <input class="edit-inp" dir="ltr" inputmode="numeric" placeholder="الرمز (٦ خانات)" value=${code} onInput=${function (e) { setCode(e.target.value); }} style="padding:7px 10px;font-size:13px"/>
+        <button class="sm-btn" onClick=${go}>🔗 إقران</button>
+        ${msg ? html`<div style="font-size:12px;color:var(--tw)">${msg}</div>` : null}
+      </div>`;
+    }
+
+    function LanSyncPanel() {
+      var s = LS.get();
+      var avail = _lanAvailable();
+      if (!avail) {
+        return html`<div style="font-size:12px;color:rgba(var(--ov),0.6)">
+          المزامنة المباشرة متاحة في تطبيق أندرويد وويندوز بعد هذا التحديث. حدّث التطبيق على الجهازين.</div>`;
+      }
+      var running = _lanServerRunning();
+      return html`<div style="display:flex;flex-direction:column;gap:10px">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+          <input type="checkbox" checked=${!!s.enabled} onChange=${function (e) { _lanSetEnabled(e.target.checked); }}/>
+          <span>تفعيل المزامنة المباشرة على الشبكة المحلية</span>
+        </label>
+        <div style="font-size:11px;color:rgba(var(--ov),0.5)">
+          هذا الجهاز: ${_devLabel(_devKind())} — ${running ? 'الخادم يعمل على المنفذ ' + toArabic(_lanServerPort()) : 'الخادم متوقف'}
+        </div>
+        ${s.enabled && !s.paired ? html`<div style="display:flex;flex-direction:column;gap:10px;border-top:1px solid rgba(var(--ov),0.08);padding-top:10px">
+          <${LanPairHost}/>
+          <${LanPairJoin}/>
+        </div>` : null}
+        ${s.enabled && s.paired ? html`<div style="display:flex;flex-direction:column;gap:7px;border-top:1px solid rgba(var(--ov),0.08);padding-top:10px">
+          <div style="font-size:12px;line-height:1.8">
+            <div>مقترن بـ: <b>${s.peerName || s.peerId || '—'}</b> <span dir="ltr" style="color:rgba(var(--ov),0.5)">(${s.peerIp}:${toArabic(s.peerPort || 0)})</span></div>
+            <div>آخر مزامنة: ${_lanFmtWhen(s.lastSyncAt)}</div>
+            ${s.lastErr ? html`<div style="color:#fca5a5">آخر خطأ: ${s.lastErr}</div>` : null}
+          </div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            <button class="sm-btn" onClick=${function () { _lanSyncNow(false); }}>🔁 مزامنة الآن</button>
+            <button class="sm-btn danger" onClick=${function () { if (confirm('فك الإقران وإيقاف المزامنة المباشرة؟')) _lanUnpair(); }}>فك الإقران</button>
+          </div>
+        </div>` : null}
+        <div style="font-size:11px;color:rgba(var(--ov),0.45);border-top:1px solid rgba(var(--ov),0.08);padding-top:8px">
+          تجريبي — يعمل والجهازان على نفس الواي فاي. يبقى GoodSync يعمل كالمعتاد؛ لا تُلغِه إلا بعد أن تثق بهذه الميزة.
+        </div>
+      </div>`;
+    }
+
+    function _lanRenderStatus() {
+      var el = document.getElementById('lan-sync-box');
+      if (!el) return;
+      try { vrender(html`<${LanSyncPanel}/>`, el); } catch (e) { }
+    }
+
+    /* محفزات المزامنة: عند فتح الإعدادات (renderSettings)، وعند العودة للتطبيق،
+       ودورياً كل ٣ دقائق وهو ظاهر، وبعد الإقلاع — كلها هادئة (بلا توست) */
+    document.addEventListener('visibilitychange', function () {
+      if (document.visibilityState === 'visible') {
+        var s = LS.get();
+        if (s.enabled && s.paired) { _lanEnsureServer().then(function () { setTimeout(function () { _lanSyncNow(true); }, 1200); }); }
+      }
+    });
+    setInterval(function () {
+      if (document.hidden) return;
+      var s = LS.get();
+      if (s.enabled && s.paired) _lanSyncNow(true);
+    }, 180e3);
+    setTimeout(function () {
+      var s = LS.get();
+      if (s.enabled && _lanAvailable()) { _lanEnsureServer().then(function () { if (s.paired) setTimeout(function () { _lanSyncNow(true); }, 2500); }); }
+    }, 8000);
+</script>
 
   <!-- نافذة تعديل الملاحظة — كل المعلومات بدون تمرير -->
   <div id="edit-ov" class="edit-ov">
