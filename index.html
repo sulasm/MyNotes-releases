@@ -3,9 +3,15 @@
 
 <head>
   <meta charset="UTF-8">
+  <!-- سياسة أمان المحتوى: تسري على هذه الصفحة وعلى التطبيقات المضمّنة (إطارات srcdoc ترثها).
+       السكربتات مضمّنة كلها ('unsafe-inline' لازم)، فالحماية هنا في حصر المصادر الخارجية:
+       لا سكربت ولا اتصال إلا بالمضيفات المسمّاة — الطقس (open-meteo، met.no)، قناة التحديث
+       (raw.githubusercontent.com)، خطوط جوجل، وخرائط جوجل (قائمتها ومنها 'unsafe-eval' كما
+       تتطلب مكتبتها). مضيف جديد يُجلب منه ⇐ يُضاف هنا، وإلا حُجب وظهر تنبيه «حُجب مورد». -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: https://*.googleapis.com https://*.gstatic.com https://*.google.com https://*.ggpht.com https://*.googleusercontent.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https://*.googleapis.com https://*.gstatic.com https://*.google.com https://*.ggpht.com https://*.googleusercontent.com; media-src 'self' data: blob:; connect-src 'self' data: blob: https://api.open-meteo.com https://ensemble-api.open-meteo.com https://api.met.no https://raw.githubusercontent.com https://*.googleapis.com https://*.gstatic.com https://*.google.com https://*.ggpht.com https://*.googleusercontent.com; frame-src 'self' data: blob: https://*.google.com; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
   <meta name="theme-color" content="#667eea">
-  <meta name="app-version" content="1.35.0">
+  <meta name="app-version" content="1.36.0">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <title>المنظم</title>
@@ -2489,6 +2495,21 @@
        ╚══════════════════════════════════════════════════════════════════╝ */
 
     var _dpCb = null, _dpItems = [], _dpHover = null;
+
+    /* مورد حجبته سياسة أمان المحتوى (وسم CSP في رأس الصفحة): تنبيه ظاهر باسم المضيف مرة
+       واحدة لكل مضيف — كي لا ينكسر شيء بصمت إن أضيف مصدر جديد ونُسي في السياسة */
+    var _cspSeen = {};
+    function _cspHost(e) {
+      var u = String((e && e.blockedURI) || '');
+      try { return new URL(u).host || u; } catch (x) { return u || 'inline'; }
+    }
+    document.addEventListener('securitypolicyviolation', function (e) {
+      var h = _cspHost(e);
+      if (_cspSeen[h]) return;
+      _cspSeen[h] = 1;
+      try { console.warn('CSP: حُجب ' + h + ' (' + e.violatedDirective + ')'); } catch (x) { }
+      try { showFb('⚠️ حُجب مورد: ' + h, 1); } catch (x) { }
+    });
 
     /* ══════════════════════════════════════
        إطار المكوّنات: Preact + HTM (موردة محلياً في src/vendor/ — نفس نمط
@@ -10007,6 +10028,15 @@ function boot(){
   s.onerror=function(){ showGate('تعذّر تحميل خرائط جوجل — تحقق من الاتصال بالإنترنت ثم أعد فتح الخريطة'); };
   document.head.appendChild(s);
 }
+/* مورد حجبته سياسة أمان المحتوى (الموروثة من الصفحة الأم): اعرض المضيف بدل رسالة الاتصال العامة */
+var _cspBlocked='';
+document.addEventListener('securitypolicyviolation', function(e){
+  var u=String(e.blockedURI||''), h=u;
+  try{ h=new URL(u).host||u; }catch(x){}
+  _cspBlocked=h;
+  try{ console.warn('CSP: حُجب '+h+' ('+e.violatedDirective+')'); }catch(x){}
+  try{ var ge=document.getElementById('gate-err'); if(ge && document.getElementById('gate').style.display==='flex'){ ge.style.display='block'; ge.textContent='حُجب مورد للخريطة: '+h+' — أبلغ المطوّر بهذا الاسم'; } }catch(x){}
+});
 /* تستدعيها مكتبة جوجل عند رفض المفتاح */
 window.gm_authFailure=function(){ showGate('رُفض المفتاح — تأكد من صحته ومن تفعيل Maps JavaScript API والفوترة في مشروعك'); };
 
