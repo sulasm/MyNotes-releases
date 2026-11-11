@@ -5,7 +5,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
   <meta name="theme-color" content="#667eea">
-  <meta name="app-version" content="1.33.1">
+  <meta name="app-version" content="1.34.0">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <title>المنظم</title>
@@ -7295,7 +7295,9 @@
 
        الأمان: الملفات الثنائية (الفيديو) لا تمرّ عبر جسر JS أبداً — الطبقة
        الأصلية تسحبها من رابط النظير إلى القرص مباشرةً. الإقران برمز ٦ خانات
-       يُنشئ توكناً مشتركاً عشوائياً يحمي كل الطلبات على الشبكة.
+       يُنشئ توكناً مشتركاً عشوائياً؛ والطبقة الأصلية (البروتوكول ٢) تتبادله
+       مشفّراً (ECDH) وتوقّع به كل طلب وتشفّر كل ردّ (AES-256-GCM) — لا التوكن
+       ولا الملاحظات تمرّ نصاً صريحاً على الشبكة.
 
        حالة الترحيل: المرحلة ١ — الإقران اليدوي (إدخال العنوان)، والسحب عند
        فتح التطبيق وبالزر، مع بقاء GoodSync يعمل بالتوازي. الاكتشاف التلقائي
@@ -7313,6 +7315,22 @@
       function _patch(p) { var s = _state(); for (var k in p) s[k] = p[k]; _save(s); return s; }
       return { get: _state, save: _save, patch: _patch };
     })();
+
+    /* البروتوكول ٢ (مشفّر): إقران أُجري بالبروتوكول ١ تبادل توكنه نصاً صريحاً على
+       الشبكة — لا يُؤتمن بعد اليوم، فيُسقَط ويُطلب إقران جديد (مرة واحدة). */
+    var LAN_PROTO = 2;
+    (function () {
+      var s = LS.get();
+      if ((s.token || s.hostToken) && s.proto !== LAN_PROTO) LS.save({ enabled: !!s.enabled, needRepair: true });
+    })();
+    /* رسالة مفهومة لأخطاء عدم تطابق الإصدار بين الجهازين */
+    function _lanErrText(m) {
+      m = String(m || '');
+      if (/pair-40[14]/.test(m)) return 'الجهاز الآخر بإصدار أقدم — حدّث التطبيق عليه ثم أعد المحاولة';
+      if (/pair-403/.test(m)) return 'الرمز خاطئ أو انتهت صلاحيته — أظهر رمزاً جديداً';
+      if (/HTTP_401/.test(m)) return 'رُفض الاتصال — حدّث التطبيق على الجهازين وأعد الإقران';
+      return m || 'خطأ';
+    }
 
     /* هل تدعم الطبقة الأصلية المزامنة المباشرة؟ (أندرويد الجديد / Electron) */
     function _lanAvailable() {
@@ -7408,7 +7426,7 @@
       var o = JSON.parse(res || '{}');
       if (!o || !o.token || !o.id) throw new Error('bad-pair');
       LS.patch({
-        paired: true, token: String(o.token),
+        paired: true, proto: LAN_PROTO, needRepair: false, token: String(o.token),
         peerId: String(o.id), peerName: String(o.name || ''),
         peerIp: String(ip), peerPort: +port || 0, pairedAt: Date.now()
       });
@@ -7422,7 +7440,7 @@
       var code = _lanGenCode(), token = _lanGenToken();
       try { window.LanSync.setPairCode(code, token); } catch (e) { return null; }
       /* نخزّن التوكن كي نخدم به بعد نجاح الإقران (الطبقة الأصلية تبدأ الخدمة تلقائياً عند أول إقران ناجح) */
-      LS.patch({ hostCode: code, hostToken: token, hostCodeAt: Date.now() });
+      LS.patch({ hostCode: code, hostToken: token, hostCodeAt: Date.now(), proto: LAN_PROTO, needRepair: false });
       return { code: code, ips: _lanLocalIps(), port: _lanServerPort() };
     }
 
@@ -7507,7 +7525,7 @@
       } catch (e) {
         _lanLastErr = (e && e.message) || 'error';
         LS.patch({ lastErr: _lanLastErr, lastErrAt: Date.now() });
-        if (!quiet) showFb('⚠️ تعذّرت المزامنة المباشرة: ' + _lanLastErr, 1);
+        if (!quiet) showFb('⚠️ تعذّرت المزامنة المباشرة: ' + _lanErrText(_lanLastErr), 1);
         setTimeout(_lanRenderStatus, 200);
         return false;
       } finally { _lanBusy = false; }
@@ -7578,7 +7596,7 @@
           var o = await _lanPairInitiate(ip.trim(), parseInt(port, 10) || 0, code.trim());
           setMsg('✓ تم الإقران بـ ' + (o.name || 'الجهاز'));
           setTimeout(_lanRenderStatus, 400);
-        } catch (e) { setMsg('✗ فشل الإقران: ' + ((e && e.message) || 'خطأ')); }
+        } catch (e) { setMsg('✗ فشل الإقران: ' + _lanErrText(e && e.message)); }
       };
       return html`<div style="display:flex;flex-direction:column;gap:6px">
         <div style="font-size:12px;color:rgba(var(--ov),0.7)">الإقران بجهاز يُظهر رمزاً:</div>
@@ -7607,6 +7625,7 @@
           هذا الجهاز: ${_devLabel(_devKind())} — ${running ? 'الخادم يعمل على المنفذ ' + toArabic(_lanServerPort()) : 'الخادم متوقف'}
         </div>
         ${s.enabled && !s.paired ? html`<div style="display:flex;flex-direction:column;gap:10px;border-top:1px solid rgba(var(--ov),0.08);padding-top:10px">
+          ${s.needRepair ? html`<div style="font-size:12px;color:#fcd34d;line-height:1.7">🔒 أصبحت المزامنة المباشرة مشفّرة. أعد الإقران مرة واحدة على الجهازين بعد تحديثهما.</div>` : null}
           <${LanPairHost}/>
           <${LanPairJoin}/>
         </div>` : null}
@@ -7614,7 +7633,7 @@
           <div style="font-size:12px;line-height:1.8">
             <div>مقترن بـ: <b>${s.peerName || s.peerId || '—'}</b> <span dir="ltr" style="color:rgba(var(--ov),0.5)">(${s.peerIp}:${toArabic(s.peerPort || 0)})</span></div>
             <div>آخر مزامنة: ${_lanFmtWhen(s.lastSyncAt)}</div>
-            ${s.lastErr ? html`<div style="color:#fca5a5">آخر خطأ: ${s.lastErr}</div>` : null}
+            ${s.lastErr ? html`<div style="color:#fca5a5">آخر خطأ: ${_lanErrText(s.lastErr)}</div>` : null}
           </div>
           <div style="display:flex;gap:6px;flex-wrap:wrap">
             <button class="sm-btn" onClick=${function () { _lanSyncNow(false); }}>🔁 مزامنة الآن</button>
@@ -7622,7 +7641,7 @@
           </div>
         </div>` : null}
         <div style="font-size:11px;color:rgba(var(--ov),0.45);border-top:1px solid rgba(var(--ov),0.08);padding-top:8px">
-          تجريبي — يعمل والجهازان على نفس الواي فاي. يبقى GoodSync يعمل كالمعتاد؛ لا تُلغِه إلا بعد أن تثق بهذه الميزة.
+          تجريبي — يعمل والجهازان على نفس الواي فاي، والاتصال بينهما مشفّر. يبقى GoodSync يعمل كالمعتاد؛ لا تُلغِه إلا بعد أن تثق بهذه الميزة.
         </div>
       </div>`;
     }
