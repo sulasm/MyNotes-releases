@@ -11,7 +11,7 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: https://*.googleapis.com https://*.gstatic.com https://*.google.com https://*.ggpht.com https://*.googleusercontent.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https://*.googleapis.com https://*.gstatic.com https://*.google.com https://*.ggpht.com https://*.googleusercontent.com; media-src 'self' data: blob:; connect-src 'self' data: blob: https://api.open-meteo.com https://ensemble-api.open-meteo.com https://api.met.no https://raw.githubusercontent.com https://*.googleapis.com https://*.gstatic.com https://*.google.com https://*.ggpht.com https://*.googleusercontent.com; frame-src 'self' data: blob: https://*.google.com; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
   <meta name="theme-color" content="#667eea">
-  <meta name="app-version" content="1.37.0">
+  <meta name="app-version" content="1.38.0">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <title>المنظم</title>
@@ -888,6 +888,15 @@
     }
 
     /* تمييز نص البحث المطابق في النتائج */
+    /* المكرر بين ملاحظات الفئة: الخلفية (درجة الأخضر) تُحقن لكل مجموعة */
+    mark.rep-hl {
+      color: inherit;
+      border-radius: 4px;
+      padding: 0 2px;
+      box-decoration-break: clone;
+      -webkit-box-decoration-break: clone;
+    }
+
     mark.srch-hl {
       background: #facc15;
       color: #1e293b;
@@ -5688,6 +5697,9 @@
         statsEl.innerHTML = statsHtml;   /* أرقام فقط — لا محتوى مستخدم */
       }
 
+      /* تمييز المكرر: عند الفلترة على فئة (بلا بحث نصي — للبحث تمييزه الخاص) */
+      _repIdx = ((fM || fS || fSc) && !fTx && notes.length >= 2) ? _repBuild(notes) : null;
+
       /* كل مسارات النتائج تمر عبر vrender كي يبقى تتبع Preact للحاوية سليماً */
       vrender(!notes.length
         ? html`<div class="orgtbl-empty">لا توجد نتائج</div>`
@@ -5719,11 +5731,93 @@
     function badgeCls(s) { return SMAP[s]?.cls || 'badge-def'; }
     function esc(s) { return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
 
+    /* ══ تمييز المكرر بين ملاحظات الفئة ══
+       عند الفلترة على فئة: الكلمات والجمل التي ترد في أكثر من ملاحظة تُلوَّن بالأخضر، ولكل
+       مجموعة تكرار (كلمة أو جملة بعينها) درجتها. الجملة الأطول تتقدم على كلماتها، وأدوات
+       الربط وحدها لا تُعدّ تكراراً. المقارنة على نص مطبَّع (بلا تشكيل ولا تطويل، وتوحيد الألف
+       والأرقام) فتتطابق «أحمد» و«احمد». */
+    const REP_MAX_WORDS = 6;      /* أطول جملة مكررة تُكشف */
+    const _REP_STOP = new Set(('في من على الى عن مع و او ثم ان هذا هذه ذلك تلك التي الذي ما لا لم لن قد كل بعد قبل عند ' +
+      'هو هي هم كان كانت يكون تم بين حتى اذا لكن بل له لها به بها فيه فيها منه منها عليه عليها هناك هنا اي غير كما لي لك يا ' +
+      'the a an of to in on and or for is are was be with at by it this that from as').split(' '));
+    /** @type {Map<string, number> | null} مفتاح التكرار المطبَّع → رقم مجموعته (درجته) */
+    let _repIdx = null;
+    function _repNorm(w) {
+      return String(w).normalize('NFKD').replace(/[\u0300-\u036f\u064B-\u065F\u0670\u0640]/g, '').toLowerCase()
+        .replace(/[أإآٱ]/g, 'ا').replace(/[٠-٩]/g, d => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)));
+    }
+    /* كلمات النص بمواضعها: [{s, e, k}] — k المفتاح المطبَّع */
+    function _repTokens(text) {
+      const out = [], re = /[\p{L}\p{M}\p{N}_]+/gu;
+      let m;
+      while ((m = re.exec(String(text || ''))) !== null) out.push({ s: m.index, e: m.index + m[0].length, k: _repNorm(m[0]) });
+      return out;
+    }
+    function _repWordOk(k) { return k.length >= 2 && !_REP_STOP.has(k); }
+    /* يبني فهرس المكرر لقائمة ملاحظات: كل كلمة/جملة (حتى REP_MAX_WORDS) وردت في ملاحظتين مختلفتين
+       فأكثر. الجملة لا تبدأ ولا تنتهي بأداة ربط. الأرقام (المجموعات) تُسند بترتيب ثابت: الأكثر
+       وروداً ثم الأطول — فالدرجة لا تتبدل بتبدّل ترتيب العرض. */
+    function _repBuild(notes) {
+      /** @type {Map<string, Set<number>>} */
+      const seen = new Map();
+      notes.forEach((n, ni) => {
+        const t = _repTokens(n && n.text).map(x => x.k);
+        for (let i = 0; i < t.length; i++) {
+          if (!_repWordOk(t[i])) continue;               /* البداية كلمة ذات معنى */
+          let key = '';
+          for (let len = 1; len <= REP_MAX_WORDS && i + len <= t.length; len++) {
+            key = len === 1 ? t[i] : key + ' ' + t[i + len - 1];
+            if (!_repWordOk(t[i + len - 1])) continue;   /* والنهاية كذلك */
+            let set = seen.get(key);
+            if (!set) { set = new Set(); seen.set(key, set); }
+            set.add(ni);
+          }
+        }
+      });
+      const shared = [];
+      seen.forEach((set, key) => { if (set.size >= 2) shared.push({ key, n: set.size, w: key.split(' ').length }); });
+      shared.sort((a, b) => b.n - a.n || b.w - a.w || (a.key < b.key ? -1 : a.key > b.key ? 1 : 0));
+      const idx = new Map();
+      shared.forEach((g, i) => idx.set(g.key, i));
+      return idx;
+    }
+    /* درجات الأخضر: [صبغة، سطوع%] مرتبة ليتباين كل متجاورين (غامق/فاتح، زيتوني/فيروزي) — المجموعات
+       الأكثر وروداً تأخذ الأولى، وما زاد عن القائمة يدور عليها */
+    const _REP_SHADES = [[140, 30], [92, 56], [168, 44], [118, 66], [78, 36], [152, 58], [104, 26], [130, 48], [172, 30], [86, 68]];
+    function _repShade(g) {
+      const c = _REP_SHADES[g % _REP_SHADES.length];
+      return 'hsla(' + c[0] + ',70%,' + c[1] + '%,.58)';
+    }
+    /* يقسم النص المعروض إلى أجزاء مع <mark> على المكرر (الأطول أولاً عند كل موضع) */
+    function _repSplit(s, idx) {
+      const t = _repTokens(s), out = [];
+      let pos = 0, i = 0;
+      while (i < t.length) {
+        let hit = 0, g = -1;
+        if (_repWordOk(t[i].k)) {
+          for (let len = Math.min(REP_MAX_WORDS, t.length - i); len >= 1; len--) {
+            const key = len === 1 ? t[i].k : t.slice(i, i + len).map(x => x.k).join(' ');
+            const v = idx.get(key);
+            if (v !== undefined) { hit = len; g = v; break; }
+          }
+        }
+        if (!hit) { i++; continue; }
+        const s0 = t[i].s, e0 = t[i + hit - 1].e;
+        if (s0 > pos) out.push(s.slice(pos, s0));
+        out.push(html`<mark class="rep-hl" data-rep=${g} style=${'background:' + _repShade(g)}>${s.slice(s0, e0)}</mark>`);
+        pos = e0; i += hit;
+      }
+      if (!out.length) return s;
+      if (pos < s.length) out.push(s.slice(pos));
+      return out;
+    }
+
     /* تمييز نص البحث المطابق: يعيد أجزاء نصية مع <mark> حول المطابقات —
-       المكوّن يعرض نصاً حقيقياً فلا حاجة للتهريب اليدوي */
+       المكوّن يعرض نصاً حقيقياً فلا حاجة للتهريب اليدوي. بلا بحث وعند الفلترة على فئة:
+       تمييز المكرر بين ملاحظاتها (_repIdx) */
     function Hl({ raw, q }) {
       const s = String(raw || '');
-      if (!q) return s;
+      if (!q) return (_repIdx && _repIdx.size) ? _repSplit(s, _repIdx) : s;
       const low = s.toLowerCase();
       const out = []; let pos = 0, i;
       while ((i = low.indexOf(q, pos)) !== -1) {
