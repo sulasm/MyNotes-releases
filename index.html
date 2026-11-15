@@ -11,7 +11,7 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: https://*.googleapis.com https://*.gstatic.com https://*.google.com https://*.ggpht.com https://*.googleusercontent.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https://*.googleapis.com https://*.gstatic.com https://*.google.com https://*.ggpht.com https://*.googleusercontent.com; media-src 'self' data: blob:; connect-src 'self' data: blob: https://api.open-meteo.com https://ensemble-api.open-meteo.com https://api.met.no https://raw.githubusercontent.com https://*.googleapis.com https://*.gstatic.com https://*.google.com https://*.ggpht.com https://*.googleusercontent.com; frame-src 'self' data: blob: https://*.google.com; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
   <meta name="theme-color" content="#667eea">
-  <meta name="app-version" content="1.36.0">
+  <meta name="app-version" content="1.37.0">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <title>المنظم</title>
@@ -2951,7 +2951,10 @@
         if (_updHandled) return; _updHandled = true;
         if (btn) { btn.disabled = false; btn.textContent = '⬇️ تحقق وحدّث'; }
         if (err) {
-          _setUpdateStatus('❌ ' + err, '#f87171');
+          /* رفض التوقيع: التحديث المنشور لم يُوقَّع بمفتاح التطبيق (أو لم يصل توقيعه بعد) فلم يُطبَّق */
+          const msg = err === 'BAD_SIGNATURE' ? 'رُفض التحديث: توقيعه غير صحيح — لم يُطبَّق. أعد المحاولة بعد دقائق'
+            : err === 'NO_SIGNATURE' ? 'تعذّر جلب توقيع التحديث — لم يُطبَّق. أعد المحاولة بعد دقائق' : err;
+          _setUpdateStatus('❌ ' + msg, '#f87171');
           return;
         }
         /* result = 'same' (لا يوجد تحديث) أو 'updated' (تم التحديث) */
@@ -7594,9 +7597,17 @@
 
     function LanPairHost() {
       var st = useState(null), info = st[0], setInfo = st[1];
-      var start = async function () { await _lanEnsureServer(); var r = _lanPairHost(); setInfo(r || { err: 1 }); };
+      /* الرمز والتوكن أولاً ثم الخادم: _lanEnsureServer لا يشغّل الخادم بلا توكن، فأول إقران (أو بعد
+         إسقاط إقران قديم) كان يعرض المنفذ صفراً «٠» والخادم متوقف — لا يمكن الاتصال به */
+      var start = async function () {
+        var r = _lanPairHost();
+        if (r) { await _lanEnsureServer(); r.port = _lanServerPort(); }
+        setInfo(r && r.port ? r : { err: 1 });
+      };
       if (!info) return html`<button class="sm-btn" onClick=${start}>📟 إظهار رمز للإقران على هذا الجهاز</button>`;
-      if (info.err) return html`<div style="color:#fca5a5;font-size:12px">تعذّر توليد الرمز</div>`;
+      if (info.err) return html`<div style="display:flex;flex-direction:column;gap:6px">
+        <div style="color:#fca5a5;font-size:12px">تعذّر تشغيل خادم المزامنة على هذا الجهاز — أعد المحاولة</div>
+        <button class="sm-btn" onClick=${start}>📟 إعادة المحاولة</button></div>`;
       return html`<div style="background:rgba(var(--ov),0.07);border-radius:10px;padding:10px;font-size:12px;line-height:1.9">
         <div>على الجهاز الآخر اختر «الإقران بجهاز» ثم أدخل:</div>
         <div>الرمز: <b style="font-size:17px;letter-spacing:3px;color:var(--tw)">${toArabic(info.code)}</b></div>
