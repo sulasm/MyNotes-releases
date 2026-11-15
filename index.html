@@ -11,7 +11,7 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: https://*.googleapis.com https://*.gstatic.com https://*.google.com https://*.ggpht.com https://*.googleusercontent.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https://*.googleapis.com https://*.gstatic.com https://*.google.com https://*.ggpht.com https://*.googleusercontent.com; media-src 'self' data: blob:; connect-src 'self' data: blob: https://api.open-meteo.com https://ensemble-api.open-meteo.com https://api.met.no https://raw.githubusercontent.com https://*.googleapis.com https://*.gstatic.com https://*.google.com https://*.ggpht.com https://*.googleusercontent.com; frame-src 'self' data: blob: https://*.google.com; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
   <meta name="theme-color" content="#667eea">
-  <meta name="app-version" content="1.38.0">
+  <meta name="app-version" content="1.39.0">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <title>المنظم</title>
@@ -5948,6 +5948,52 @@
       hPush();
       setTimeout(() => document.getElementById('q-text').focus(), 200);
     }
+
+    /* ══════════════════════════════════════
+       استيراد ملاحظات النافذة المصغّرة (أندرويد — QuickNote.kt)
+       النافذة تطفو فوق أي تطبيق (تُفتح بإيماءة/اختصار) وتحفظ النص في طابور أصلي؛ هنا يُحوَّل
+       كل عنصر إلى ملاحظة بمسار الحفظ المعتاد (DB.add) بافتراضيات الملاحظة الجديدة وبتاريخ
+       كتابته، ثم يُؤكَّد للطبقة الأصلية فتحذفه. qid يمنع التكرار إن فشل التأكيد.
+    ══════════════════════════════════════ */
+    function _importQuickNotes() {
+      const fs = /** @type {any} */ (window.AndroidFS);
+      if (!_notesLoaded || !fs || typeof fs.quickNotesPeek !== 'function') return 0;
+      let items = [];
+      try { items = JSON.parse(fs.quickNotesPeek() || '[]'); } catch (e) { return 0; }
+      if (!Array.isArray(items) || !items.length) return 0;
+      const have = new Set();
+      DB.get().concat(_trashCache).forEach(n => { if (n && n.qid) have.add(String(n.qid)); });
+      const done = []; let added = 0;
+      items.forEach(it => {
+        if (!it || !it.id) return;
+        const text = String(it.text || '').trim();
+        if (text && !have.has(String(it.id))) {
+          const d = new Date(+it.at || Date.now());
+          let dH = '', dG = '';
+          try { dH = H.fmtH(H.toH(d)); dG = H.fmtG(d); } catch (e) { }
+          DB.add({ id: newNoteId(), main: '', sub: '', sec: '', text, num: '', status: 'مكتمل', dH, dG,
+            file: null, links: [], ts: d.toISOString(), qid: String(it.id) });
+          have.add(String(it.id)); added++;
+        }
+        done.push(String(it.id));
+      });
+      try { fs.quickNotesAck(JSON.stringify(done)); } catch (e) { }
+      if (added) {
+        try { renderNotes(); } catch (e) { }
+        showFb('📝 أُضيفت ' + toArabic(added) + (added === 1 ? ' ملاحظة سريعة' : ' ملاحظات سريعة'));
+      }
+      return added;
+    }
+    /* عند الإقلاع (بعد اكتمال تحميل الملاحظات) وعند كل عودة للتطبيق */
+    (function () {
+      let tries = 0;
+      const boot = setInterval(function () {
+        if (_notesLoaded || ++tries > 40) { clearInterval(boot); try { _importQuickNotes(); } catch (e) { } }
+      }, 500);
+      document.addEventListener('visibilitychange', function () {
+        if (document.visibilityState === 'visible') setTimeout(function () { try { _importQuickNotes(); } catch (e) { } }, 300);
+      });
+    })();
 
     /* ══════════════════════════════════════
        الإضافة الموجّهة + ربط الملاحظات
