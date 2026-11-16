@@ -11,7 +11,12 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: https://*.googleapis.com https://*.gstatic.com https://*.google.com https://*.ggpht.com https://*.googleusercontent.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https://*.googleapis.com https://*.gstatic.com https://*.google.com https://*.ggpht.com https://*.googleusercontent.com; media-src 'self' data: blob:; connect-src 'self' data: blob: https://api.open-meteo.com https://ensemble-api.open-meteo.com https://api.met.no https://raw.githubusercontent.com https://*.googleapis.com https://*.gstatic.com https://*.google.com https://*.ggpht.com https://*.googleusercontent.com; frame-src 'self' data: blob: https://*.google.com; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
   <meta name="theme-color" content="#667eea">
-  <meta name="app-version" content="1.39.2">
+  <meta name="app-version" content="1.40.0">
+  <!-- أدنى إصدار من التطبيق المثبّت (APK / مثبّت ويندوز) تحتاجه هذه الواجهة: الواجهة تتحدث تلقائياً
+       والتطبيق المثبّت لا، فإن كان المثبّت أقدم من هذا عرضت الواجهة شريط «تحديث التطبيق مطلوب».
+       يضبطهما scripts/bump-version.js آلياً عند تغيّر كود الطبقة الأصلية، ويفرضهما فحص CI. -->
+  <meta name="app-min-native-android" content="1.39.2">
+  <meta name="app-min-native-windows" content="1.40.0">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <title>المنظم</title>
@@ -3018,6 +3023,95 @@
       try { fsb.checkAndInstallApk('https://raw.githubusercontent.com/sulasm/MyNotes-releases/main/latest.json', 'window._apkManualCb'); }
       catch (e) { _setUpdateStatus('⚠️ تعذّر فحص تحديث التطبيق', '#fbbf24'); }
     }
+
+    /* ══════════════════════════════════════
+       بوابة التطبيق المثبّت
+       الواجهة تتحدث تلقائياً من قناة النشر، أما التطبيق المثبّت تحتها (APK / مثبّت ويندوز) فيحتاج
+       تثبيتاً — فكانت واجهة حديثة تعمل فوق كود أصلي قديم وتفشل ميزاتها بصمت (المزامنة المباشرة).
+       كل واجهة تعلن أدنى إصدار تحتاجه من المثبّت (وسما app-min-native-*، يضبطهما bump-version
+       آلياً عند تغيّر الكود الأصلي). هنا — والواجهة دائماً أحدث ما في الجهاز — تُقارن بالمثبّت،
+       وعند التأخر يظهر شريط ثابت يحدّثه بنقرة (وتلقائياً على ويندوز).
+    ══════════════════════════════════════ */
+    const _RELEASES_PAGE = 'https://github.com/sulasm/MyNotes-releases/releases/latest';
+    function _nativeKind() { return window._winAutoUpdate ? 'windows' : (window.AndroidFS ? 'android' : ''); }
+    /** @returns {{kind: string, have: string, need: string} | null} */
+    function _nativeBehind() {
+      const kind = _nativeKind();
+      if (!kind) return null;
+      let have = '';
+      try { have = String(/** @type {any} */ (window.AndroidFS).getAppVersion() || ''); } catch (e) { return null; }
+      const m = document.querySelector('meta[name="app-min-native-' + kind + '"]');
+      const need = m ? (m.getAttribute('content') || '') : '';
+      if (!/^\d+(\.\d+)+$/.test(have) || !need) return null;
+      return _verCmp(have, need) < 0 ? { kind, have, need } : null;
+    }
+    function _nativeGateHide() { const b = document.getElementById('native-upd-banner'); if (b) b.remove(); }
+    function _nativeGateMsg(t) { const el = document.getElementById('native-upd-msg'); if (el) el.textContent = t; }
+    /* يشغّل تحديث التطبيق المثبّت بما تتيحه الطبقة الأصلية الموجودة فعلاً */
+    function _nativeUpdateRun(b) {
+      const fsb = /** @type {any} */ (window.AndroidFS);
+      if (b.kind === 'android') {
+        if (!fsb || typeof fsb.checkAndInstallApk !== 'function') { _nativeGateMsg('ثبّت أحدث إصدار من التطبيق يدوياً من صفحة الإصدارات'); return; }
+        window._apkGateCb = function (result, err) {
+          if (result === 'downloading') _nativeGateMsg('⬇️ جارٍ تنزيل تحديث التطبيق…');
+          else if (result === 'prompt') _nativeGateMsg('📦 اضغط «تثبيت» في نافذة النظام لإكمال التحديث');
+          else if (result === 'same') _nativeGateMsg('لم يُنشر تحديث التطبيق بعد — أعد المحاولة بعد دقائق');
+          else if (err) _nativeGateMsg('تعذّر تنزيل التحديث: ' + err);
+        };
+        _nativeGateMsg('… جارٍ الفحص');
+        try { fsb.checkAndInstallApk(_APK_MANIFEST, 'window._apkGateCb'); } catch (e) { _nativeGateMsg('تعذّر بدء التحديث'); }
+        return;
+      }
+      /* ويندوز */
+      const manual = 'اخرج من المنظم تماماً (أيقونته في شريط المهام ← «خروج») ثم افتحه ليُثبَّت التحديث، أو نزّل المثبّت الأحدث.';
+      if (!fsb || typeof fsb.nativeUpdateNow !== 'function') { _nativeGateMsg(manual); return; }
+      _nativeGateMsg('… جارٍ الفحص');
+      Promise.resolve(fsb.nativeUpdateNow()).then(function (r) {
+        r = String(r || '');
+        if (r === 'installing' || r === 'downloading') _nativeGateMsg('⬇️ جارٍ تنزيل التحديث — يُعاد تشغيل المنظم تلقائياً عند اكتماله');
+        else if (r === 'none') _nativeGateMsg('لم يُنشر تحديث التطبيق بعد — أعد المحاولة بعد دقائق');
+        else _nativeGateMsg(manual);
+      }, function () { _nativeGateMsg(manual); });
+    }
+    function _nativeGateCheck() {
+      const b = _nativeBehind();
+      if (!b) { _nativeGateHide(); return null; }
+      try { if (sessionStorage.getItem('native_gate_later') === b.need) return b; } catch (e) { }
+      if (document.getElementById('native-upd-banner')) return b;
+      const bar = document.createElement('div');
+      bar.id = 'native-upd-banner';
+      bar.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99990;background:#b45309;color:#fff;padding:9px 12px;font-size:12.5px;font-weight:600;display:flex;align-items:center;gap:8px;flex-wrap:wrap;direction:rtl;box-shadow:0 4px 16px rgba(0,0,0,.4);';
+      const txt = document.createElement('span');
+      txt.style.cssText = 'flex:1;min-width:180px;line-height:1.6;';
+      const head = document.createElement('div');
+      head.textContent = '⬆️ تحديث التطبيق مطلوب: المثبّت ' + toArabic(b.have) + ' والواجهة تحتاج ' + toArabic(b.need) + ' — بعض الميزات لا تعمل قبله';
+      const msg = document.createElement('div');
+      msg.id = 'native-upd-msg'; msg.style.cssText = 'font-weight:500;opacity:.92;';
+      txt.appendChild(head); txt.appendChild(msg);
+      const btnCss = 'background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.45);color:#fff;border-radius:8px;padding:5px 12px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;flex-shrink:0;';
+      const go = document.createElement('button');
+      go.textContent = 'حدّث الآن'; go.style.cssText = btnCss;
+      go.onclick = function () { _nativeUpdateRun(b); };
+      bar.appendChild(txt); bar.appendChild(go);
+      if (b.kind === 'windows') {
+        const dl = document.createElement('button');
+        dl.textContent = 'تنزيل المثبّت'; dl.style.cssText = btnCss;
+        dl.onclick = function () { try { window.open(_RELEASES_PAGE, '_blank', 'noopener'); } catch (e) { } };
+        bar.appendChild(dl);
+      }
+      const later = document.createElement('button');
+      later.textContent = 'لاحقاً'; later.style.cssText = 'background:transparent;border:none;color:rgba(255,255,255,.85);font-size:12px;cursor:pointer;padding:4px 6px;flex-shrink:0;font-family:inherit;';
+      later.onclick = function () { try { sessionStorage.setItem('native_gate_later', b.need); } catch (e) { } _nativeGateHide(); };
+      bar.appendChild(later);
+      (document.body || document.documentElement).appendChild(bar);
+      /* ويندوز: ابدأ التحديث دون انتظار نقرة (الطبقة الأصلية الحديثة تثبّت وتعيد التشغيل) */
+      if (b.kind === 'windows' && window.AndroidFS && typeof (/** @type {any} */ (window.AndroidFS)).nativeUpdateNow === 'function') _nativeUpdateRun(b);
+      return b;
+    }
+    setTimeout(function () { try { _nativeGateCheck(); } catch (e) { } }, 5000);
+    document.addEventListener('visibilitychange', function () {
+      if (!document.hidden) setTimeout(function () { try { _nativeGateCheck(); } catch (e) { } }, 800);
+    });
 
     function clearUpdate() {
       if (!window.AndroidFS || typeof window.AndroidFS.clearLocalUpdate !== 'function') return;
