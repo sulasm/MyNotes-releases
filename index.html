@@ -11,7 +11,7 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: https://*.googleapis.com https://*.gstatic.com https://*.google.com https://*.ggpht.com https://*.googleusercontent.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https://*.googleapis.com https://*.gstatic.com https://*.google.com https://*.ggpht.com https://*.googleusercontent.com; media-src 'self' data: blob:; connect-src 'self' data: blob: https://api.open-meteo.com https://ensemble-api.open-meteo.com https://api.met.no https://raw.githubusercontent.com https://*.googleapis.com https://*.gstatic.com https://*.google.com https://*.ggpht.com https://*.googleusercontent.com; frame-src 'self' data: blob: https://*.google.com; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
   <meta name="theme-color" content="#667eea">
-  <meta name="app-version" content="1.39.0">
+  <meta name="app-version" content="1.39.1">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <title>المنظم</title>
@@ -5952,8 +5952,10 @@
     /* ══════════════════════════════════════
        استيراد ملاحظات النافذة المصغّرة (أندرويد — QuickNote.kt)
        النافذة تطفو فوق أي تطبيق (تُفتح بإيماءة/اختصار) وتحفظ النص في طابور أصلي؛ هنا يُحوَّل
-       كل عنصر إلى ملاحظة بمسار الحفظ المعتاد (DB.add) بافتراضيات الملاحظة الجديدة وبتاريخ
-       كتابته، ثم يُؤكَّد للطبقة الأصلية فتحذفه. qid يمنع التكرار إن فشل التأكيد.
+       كل عنصر إلى ملاحظة بمسار الحفظ المعتاد (DB.add) بتاريخ كتابته، ثم يُؤكَّد للطبقة الأصلية
+       فتحذفه. qid يمنع التكرار إن فشل التأكيد. الحالة «قيد التنفيذ» لا افتراضي النموذج «مكتمل»:
+       ملاحظة سريعة بلا فئة تنتظر الفرز، ويجب أن تظهر فوراً في العرض الافتراضي (المهام الحالية
+       = قيد التنفيذ) — بـ«مكتمل» كانت لا تُرى إلا بالبحث عن نصها.
     ══════════════════════════════════════ */
     function _importQuickNotes() {
       const fs = /** @type {any} */ (window.AndroidFS);
@@ -5971,7 +5973,7 @@
           const d = new Date(+it.at || Date.now());
           let dH = '', dG = '';
           try { dH = H.fmtH(H.toH(d)); dG = H.fmtG(d); } catch (e) { }
-          DB.add({ id: newNoteId(), main: '', sub: '', sec: '', text, num: '', status: 'مكتمل', dH, dG,
+          DB.add({ id: newNoteId(), main: '', sub: '', sec: '', text, num: '', status: 'قيد التنفيذ', dH, dG,
             file: null, links: [], ts: d.toISOString(), qid: String(it.id) });
           have.add(String(it.id)); added++;
         }
