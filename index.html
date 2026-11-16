@@ -11,7 +11,7 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: https://*.googleapis.com https://*.gstatic.com https://*.google.com https://*.ggpht.com https://*.googleusercontent.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https://*.googleapis.com https://*.gstatic.com https://*.google.com https://*.ggpht.com https://*.googleusercontent.com; media-src 'self' data: blob:; connect-src 'self' data: blob: https://api.open-meteo.com https://ensemble-api.open-meteo.com https://api.met.no https://raw.githubusercontent.com https://*.googleapis.com https://*.gstatic.com https://*.google.com https://*.ggpht.com https://*.googleusercontent.com; frame-src 'self' data: blob: https://*.google.com; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
   <meta name="theme-color" content="#667eea">
-  <meta name="app-version" content="1.39.1">
+  <meta name="app-version" content="1.39.2">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <title>المنظم</title>
@@ -7493,7 +7493,10 @@
     /* رسالة مفهومة لأخطاء عدم تطابق الإصدار بين الجهازين */
     function _lanErrText(m) {
       m = String(m || '');
-      if (/pair-40[14]/.test(m)) return 'الجهاز الآخر بإصدار أقدم — حدّث التطبيق عليه ثم أعد المحاولة';
+      if (_lanNativeStale()) return 'التطبيق المثبّت على هذا الجهاز قديم — حدّثه أولاً (التفاصيل أعلاه)';
+      if (/pair-40[14]/.test(m)) return 'التطبيق المثبّت على الجهاز الآخر قديم (لا واجهته) — حدّثه ثم أعد المحاولة';
+      if (/cleartext/i.test(m)) return 'تطبيق أندرويد المثبّت قديم ويمنع الاتصال المحلي — حدّث التطبيق (APK) ثم أعد المحاولة';
+      if (/ECONNREFUSED|ETIMEDOUT|EHOSTUNREACH|timeout|failed to connect|unreachable/i.test(m)) return 'تعذّر الوصول للجهاز الآخر — تأكد أن الجهازين على الشبكة نفسها وأن العنوان والمنفذ كما يظهران عنده';
       if (/pair-403/.test(m)) return 'الرمز خاطئ أو انتهت صلاحيته — أظهر رمزاً جديداً';
       if (/HTTP_401/.test(m)) return 'رُفض الاتصال — حدّث التطبيق على الجهازين وأعد الإقران';
       return m || 'خطأ';
@@ -7526,6 +7529,18 @@
           }
         } catch (e) { fin(false, e); }
       });
+    }
+
+    /* إصدار بروتوكول الطبقة الأصلية المثبّتة على هذا الجهاز (٠ = قديمة لا تعرّفه). الواجهة تتحدث
+       تلقائياً من قناة النشر، أما التطبيق المثبّت (APK / مثبّت ويندوز) فلا — فقد تكون الواجهة
+       حديثة فوق طبقة أصلية قديمة تتحدث بالبروتوكول ١ الذي يرفضه النظير. */
+    function _lanNativeProto() {
+      try { return +(/** @type {any} */ (window.LanSync).protoVersion()) || 0; } catch (e) { return 0; }
+    }
+    function _lanNativeStale() { return _lanAvailable() && _lanNativeProto() < LAN_PROTO; }
+    /* إصدار التطبيق المثبّت (لا الواجهة) */
+    function _lanNativeVersion() {
+      try { return String(/** @type {any} */ (window.AndroidFS).getAppVersion() || ''); } catch (e) { return ''; }
     }
 
     /* هوية هذا الجهاز (ثابتة لكل تثبيت؛ الطبقة الأصلية تحفظها) */
@@ -7790,6 +7805,17 @@
         return html`<div style="font-size:12px;color:rgba(var(--ov),0.6)">
           المزامنة المباشرة متاحة في تطبيق أندرويد وويندوز بعد هذا التحديث. حدّث التطبيق على الجهازين.</div>`;
       }
+      var nv = _lanNativeVersion();
+      /* طبقة أصلية قديمة تحت واجهة حديثة: الإقران لن ينجح — قل ذلك صراحةً بدل فشل غامض */
+      if (_lanNativeStale()) {
+        var win = _devKind() === 'windows';
+        return html`<div style="font-size:12px;line-height:1.9;color:#fcd34d">
+          <div><b>التطبيق المثبّت على هذا الجهاز قديم${nv ? ' (' + toArabic(nv) + ')' : ''}</b> ولا يدعم المزامنة المشفّرة، وإن كانت الواجهة محدَّثة.</div>
+          <div>${win
+            ? 'للتحديث: اخرج من المنظم تماماً (أيقونته في شريط المهام ← «خروج») ثم افتحه من جديد؛ يُثبَّت التحديث عند الخروج. إن لم يتغيّر، نزّل المثبّت الأحدث وثبّته.'
+            : 'للتحديث: من الإعدادات اضغط «تحقق وحدّث» وثبّت تحديث التطبيق (APK) حين يُعرض.'}</div>
+        </div>`;
+      }
       var running = _lanServerRunning();
       return html`<div style="display:flex;flex-direction:column;gap:10px">
         <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
@@ -7797,7 +7823,7 @@
           <span>تفعيل المزامنة المباشرة على الشبكة المحلية</span>
         </label>
         <div style="font-size:11px;color:rgba(var(--ov),0.5)">
-          هذا الجهاز: ${_devLabel(_devKind())} — ${running ? 'الخادم يعمل على المنفذ ' + toArabic(_lanServerPort()) : 'الخادم متوقف'}
+          هذا الجهاز: ${_devLabel(_devKind())}${nv ? ' (التطبيق ' + toArabic(nv) + ')' : ''} — ${running ? 'الخادم يعمل على المنفذ ' + toArabic(_lanServerPort()) : 'الخادم متوقف'}
         </div>
         ${s.enabled && !s.paired ? html`<div style="display:flex;flex-direction:column;gap:10px;border-top:1px solid rgba(var(--ov),0.08);padding-top:10px">
           ${s.needRepair ? html`<div style="font-size:12px;color:#fcd34d;line-height:1.7">🔒 أصبحت المزامنة المباشرة مشفّرة. أعد الإقران مرة واحدة على الجهازين بعد تحديثهما.</div>` : null}
