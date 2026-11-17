@@ -11,12 +11,12 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: https://*.googleapis.com https://*.gstatic.com https://*.google.com https://*.ggpht.com https://*.googleusercontent.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https://*.googleapis.com https://*.gstatic.com https://*.google.com https://*.ggpht.com https://*.googleusercontent.com; media-src 'self' data: blob:; connect-src 'self' data: blob: https://api.open-meteo.com https://ensemble-api.open-meteo.com https://api.met.no https://raw.githubusercontent.com https://*.googleapis.com https://*.gstatic.com https://*.google.com https://*.ggpht.com https://*.googleusercontent.com; frame-src 'self' data: blob: https://*.google.com; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
   <meta name="theme-color" content="#667eea">
-  <meta name="app-version" content="1.41.1">
+  <meta name="app-version" content="1.41.2">
   <!-- أدنى إصدار من التطبيق المثبّت (APK / مثبّت ويندوز) تحتاجه هذه الواجهة: الواجهة تتحدث تلقائياً
        والتطبيق المثبّت لا، فإن كان المثبّت أقدم من هذا عرضت الواجهة شريط «تحديث التطبيق مطلوب».
        يضبطهما scripts/bump-version.js آلياً عند تغيّر كود الطبقة الأصلية، ويفرضهما فحص CI. -->
-  <meta name="app-min-native-android" content="1.41.0">
-  <meta name="app-min-native-windows" content="1.41.0">
+  <meta name="app-min-native-android" content="1.41.2">
+  <meta name="app-min-native-windows" content="1.41.2">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <title>المنظم</title>
@@ -7580,6 +7580,11 @@
     /* البروتوكول ٢ (مشفّر): إقران أُجري بالبروتوكول ١ تبادل توكنه نصاً صريحاً على
        الشبكة — لا يُؤتمن بعد اليوم، فيُسقَط ويُطلب إقران جديد (مرة واحدة). */
     var LAN_PROTO = 2;
+    /* المنفذ الثابت للطبقة الأصلية من 1.41.2 (FIXED_PORT): كان عشوائياً عند كل تشغيل فيبطل المنفذ
+       المحفوظ هنا بعد أي إعادة تشغيل للنظير. عند فشل الوصول بالمنفذ المحفوظ يُجرَّب الثابت ويُحفظ. */
+    var LAN_FIXED_PORT = 47231;
+    /* خطأ شبكة (لا ردّ من النظير) لا رفض منه */
+    function _lanNetErr(m) { return !/HTTP_\d+|bad-auth|truncated|bad-manifest|too-large|pair-/.test(String(m || '')); }
     (function () {
       var s = LS.get();
       if ((s.token || s.hostToken) && s.proto !== LAN_PROTO) LS.save({ enabled: !!s.enabled, needRepair: true });
@@ -7765,7 +7770,15 @@
       try {
         await _lanEnsureServer();
         /* ١) بيان النظير */
-        var manRaw = await _lanCall('httpJson', [base + '/manifest', token]);
+        var manRaw;
+        try { manRaw = await _lanCall('httpJson', [base + '/manifest', token]); }
+        catch (e0) {
+          /* المنفذ المحفوظ لم يعد صحيحاً (النظير أُعيد تشغيله): جرّب المنفذ الثابت وصحّح المحفوظ */
+          if (+s.peerPort === LAN_FIXED_PORT || !_lanNetErr(e0 && e0.message)) throw e0;
+          var alt = _lanBase(s.peerIp, LAN_FIXED_PORT);
+          manRaw = await _lanCall('httpJson', [alt + '/manifest', token], 15000);
+          base = alt; LS.patch({ peerPort: LAN_FIXED_PORT }); s = LS.get();
+        }
         var man = JSON.parse(manRaw || '{}');
         if (!man || !Array.isArray(man.files)) throw new Error('bad-manifest');
         /* ٢) المرفقات الناقصة (تُسحب إلى القرص مباشرةً — الفيديو لا يمرّ عبر JS) */
@@ -8114,6 +8127,34 @@
       </div>`;
     }
 
+    /* تعديل عنوان الجهاز الآخر ومنفذه دون إعادة الإقران (تغيّر عنوان الشبكة أو المنفذ) */
+    function LanPeerAddr() {
+      var s = LS.get();
+      var a = useState(false), open = a[0], setOpen = a[1];
+      var b = useState(String(s.peerIp || '')), ip = b[0], setIp = b[1];
+      var c = useState(String(s.peerPort || '')), port = c[0], setPort = c[1];
+      var d = useState(''), msg = d[0], setMsg = d[1];
+      if (!open) return html`<span style="cursor:pointer;color:#93c5fd;font-size:11px" onClick=${function () {
+        var t = LS.get(); setIp(String(t.peerIp || '')); setPort(String(t.peerPort || '')); setMsg(''); setOpen(true); }}>✏️ تعديل العنوان</span>`;
+      var save = function () {
+        var i = String(ip || '').trim(), p = parseInt(String(port || '').replace(/[٠-٩]/g, function (x) { return String('٠١٢٣٤٥٦٧٨٩'.indexOf(x)); }), 10);
+        if (!/^[0-9a-zA-Z.:\-]{3,64}$/.test(i)) { setMsg('عنوان غير صالح'); return; }
+        if (!(p > 0 && p < 65536)) { setMsg('منفذ غير صالح'); return; }
+        LS.patch({ peerIp: i, peerPort: p, lastErr: '' });
+        setOpen(false);
+        _lanRenderStatus();
+        _lanSyncNow(false);
+      };
+      return html`<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:4px">
+        <input class="edit-inp" dir="ltr" placeholder="عنوان IP" value=${ip} onInput=${function (e) { setIp(e.target.value); }} style="flex:2;min-width:120px;padding:5px 8px;font-size:12px"/>
+        <input class="edit-inp" dir="ltr" placeholder="المنفذ" value=${port} onInput=${function (e) { setPort(e.target.value); }} style="flex:1;min-width:70px;padding:5px 8px;font-size:12px"/>
+        <button class="sm-btn" style="padding:4px 10px" onClick=${save}>حفظ وتجربة</button>
+        <button class="sm-btn" style="padding:4px 10px" onClick=${function () { setOpen(false); }}>إلغاء</button>
+        ${msg ? html`<span style="font-size:11px;color:#fca5a5">${msg}</span>` : null}
+        <div style="width:100%;font-size:10.5px;color:rgba(var(--ov),0.5)">العنوان والمنفذ كما يظهران في لوحة المزامنة على الجهاز الآخر («هذا الجهاز … المنفذ»).</div>
+      </div>`;
+    }
+
     function LanSyncPanel() {
       var s = LS.get();
       var avail = _lanAvailable();
@@ -8148,7 +8189,7 @@
         </div>` : null}
         ${s.enabled && s.paired ? html`<div style="display:flex;flex-direction:column;gap:7px;border-top:1px solid rgba(var(--ov),0.08);padding-top:10px">
           <div style="font-size:12px;line-height:1.8">
-            <div>مقترن بـ: <b>${s.peerName || s.peerId || '—'}</b> <span dir="ltr" style="color:rgba(var(--ov),0.5)">(${s.peerIp}:${toArabic(s.peerPort || 0)})</span></div>
+            <div>مقترن بـ: <b>${s.peerName || s.peerId || '—'}</b> <span dir="ltr" style="color:rgba(var(--ov),0.5)">(${s.peerIp}:${toArabic(s.peerPort || 0)})</span> <${LanPeerAddr}/></div>
             <div>آخر مزامنة: ${_lanFmtWhen(s.lastSyncAt)}</div>
             ${s.lastErr ? html`<div style="color:#fca5a5">آخر خطأ: ${_lanErrText(s.lastErr)}</div>` : null}
           </div>
