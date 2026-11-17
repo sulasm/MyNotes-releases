@@ -11,7 +11,7 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: https://*.googleapis.com https://*.gstatic.com https://*.google.com https://*.ggpht.com https://*.googleusercontent.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https://*.googleapis.com https://*.gstatic.com https://*.google.com https://*.ggpht.com https://*.googleusercontent.com; media-src 'self' data: blob:; connect-src 'self' data: blob: https://api.open-meteo.com https://ensemble-api.open-meteo.com https://api.met.no https://raw.githubusercontent.com https://*.googleapis.com https://*.gstatic.com https://*.google.com https://*.ggpht.com https://*.googleusercontent.com; frame-src 'self' data: blob: https://*.google.com; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
   <meta name="theme-color" content="#667eea">
-  <meta name="app-version" content="1.41.0">
+  <meta name="app-version" content="1.41.1">
   <!-- أدنى إصدار من التطبيق المثبّت (APK / مثبّت ويندوز) تحتاجه هذه الواجهة: الواجهة تتحدث تلقائياً
        والتطبيق المثبّت لا، فإن كان المثبّت أقدم من هذا عرضت الواجهة شريط «تحديث التطبيق مطلوب».
        يضبطهما scripts/bump-version.js آلياً عند تغيّر كود الطبقة الأصلية، ويفرضهما فحص CI. -->
@@ -7927,8 +7927,29 @@
           tot.pulled += r.pulled; tot.failed += r.failed;
         } catch (e) { results[n] = { err: String((e && e.message) || 'error').slice(0, 60), at: Date.now() }; tot.failed++; }
       }
-      LS.patch({ xPeerFolders: peerNames, xPeerOld: false, xResults: results });
+      LS.patch({ xPeerFolders: peerNames, xPeerOld: false, xPeerErr: '', xPeerAt: Date.now(), xResults: results });
       return tot;
+    }
+
+    /* يجلب أسماء مجلدات النظير فوراً (دون مزامنة كاملة) — كانت لا تُعرف إلا بعد دورة المزامنة
+       التالية (كل ٣ دقائق أو بالزر)، فمجلد أُضيف على ويندوز لا يظهر على الهاتف عند فتح الإعدادات.
+       يُحدَّث مرة كل ١٥ ثانية على الأكثر. */
+    var _lanXPeerAt = 0, _lanXPeerBusy = false;
+    async function _lanXRefreshPeer(force) {
+      var s = LS.get();
+      if (!_lanXAvailable() || !s.enabled || !s.paired || !s.peerIp || !s.token || _lanXPeerBusy) return false;
+      if (!force && Date.now() - _lanXPeerAt < 15000) return false;
+      _lanXPeerBusy = true; _lanXPeerAt = Date.now();
+      try {
+        var o = JSON.parse(await _lanCall('httpJson', [_lanBase(s.peerIp, s.peerPort) + '/xfolders', s.token], 15000) || '{}');
+        LS.patch({ xPeerFolders: Array.isArray(o.folders) ? o.folders.map(String) : [], xPeerOld: false, xPeerErr: '', xPeerAt: Date.now() });
+      } catch (e) {
+        var m = String((e && e.message) || 'error');
+        if (/HTTP_404/.test(m)) LS.patch({ xPeerOld: true, xPeerErr: '' });
+        else LS.patch({ xPeerErr: m.slice(0, 60) });
+      } finally { _lanXPeerBusy = false; }
+      setTimeout(_lanRenderStatus, 0);
+      return true;
     }
 
     async function _lanXAdd(name) {
@@ -7945,6 +7966,8 @@
       var peer = Array.isArray(s.xPeerFolders) ? s.xPeerFolders : [];
       var unlinked = peer.filter(function (n) { return localNames.indexOf(n) < 0; });
       var res = s.xResults || {};
+      /* عند ظهور اللوحة: اسأل النظير عن مجلداته فوراً */
+      preactHooks.useEffect(function () { _lanXRefreshPeer(false); }, []);
       var add = async function (name) {
         name = String(name || '').trim();
         if (!name) { setMsg('اكتب اسماً للمجلد'); return; }
@@ -7988,7 +8011,13 @@
             <button class="sm-btn" style="padding:3px 8px" onClick=${function () { add(n); }}>ربط مجلد هنا</button>
           </div>`;
         })}
-        ${s.xPeerOld ? html`<div style="font-size:11px;color:#fcd34d">التطبيق على الجهاز الآخر لا يدعم المجلدات الإضافية — حدّثه.</div>` : null}
+        ${s.xPeerOld ? html`<div style="font-size:11px;color:#fcd34d">التطبيق المثبّت على الجهاز الآخر لا يدعم المجلدات الإضافية — حدّثه إلى ${toArabic('1.41.0')} فأحدث.</div>`
+          : s.xPeerErr ? html`<div style="font-size:11px;color:#fca5a5">تعذّر سؤال الجهاز الآخر عن مجلداته: ${_lanErrText(s.xPeerErr)}</div>`
+          : !Array.isArray(s.xPeerFolders) ? html`<div style="font-size:11px;color:rgba(var(--ov),0.55)">… جارٍ سؤال الجهاز الآخر عن مجلداته</div>`
+          : (!peer.length ? html`<div style="font-size:11px;color:rgba(var(--ov),0.55)">لا مجلدات إضافية على الجهاز الآخر بعد.</div>` : null)}
+        ${Array.isArray(s.xPeerFolders) && !s.xPeerOld ? html`<div style="font-size:10.5px;color:rgba(var(--ov),0.45)">
+          مجلدات الجهاز الآخر: ${s.xPeerAt ? _lanFmtWhen(s.xPeerAt) : '—'}
+          <span style="cursor:pointer;color:#93c5fd;margin-inline-start:6px" onClick=${function () { _lanXRefreshPeer(true); }}>تحديث</span></div>` : null}
         <div style="display:flex;gap:6px">
           <input class="edit-inp" placeholder="اسم المجلد (مثل: صور)" value=${nm} onInput=${function (e) { setNm(e.target.value); }} style="flex:1;padding:6px 10px;font-size:13px"/>
           <button class="sm-btn" onClick=${function () { add(nm); }}>➕ إضافة</button>
@@ -8127,7 +8156,10 @@
             <button class="sm-btn" onClick=${function () { _lanSyncNow(false); }}>🔁 مزامنة الآن</button>
             <button class="sm-btn danger" onClick=${function () { if (confirm('فك الإقران وإيقاف المزامنة المباشرة؟')) _lanUnpair(); }}>فك الإقران</button>
           </div>
-          ${_lanXAvailable() ? html`<${LanXFoldersBox}/>` : null}
+          ${_lanXAvailable() ? html`<${LanXFoldersBox}/>`
+            : html`<div style="font-size:11.5px;color:#fcd34d;border-top:1px solid rgba(var(--ov),0.08);padding-top:8px;line-height:1.7">
+                📁 المجلدات الإضافية تحتاج التطبيق المثبّت ${toArabic('1.41.0')} فأحدث على هذا الجهاز${nv ? ' (المثبّت ' + toArabic(nv) + ')' : ''} — حدّثه من شريط التحديث أو «تحقق وحدّث».
+              </div>`}
         </div>` : null}
         <div style="font-size:11px;color:rgba(var(--ov),0.45);border-top:1px solid rgba(var(--ov),0.08);padding-top:8px">
           تجريبي — يعمل والجهازان على نفس الواي فاي، والاتصال بينهما مشفّر. يبقى GoodSync يعمل كالمعتاد؛ لا تُلغِه إلا بعد أن تثق بهذه الميزة.
