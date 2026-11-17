@@ -11,12 +11,12 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: https://*.googleapis.com https://*.gstatic.com https://*.google.com https://*.ggpht.com https://*.googleusercontent.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https://*.googleapis.com https://*.gstatic.com https://*.google.com https://*.ggpht.com https://*.googleusercontent.com; media-src 'self' data: blob:; connect-src 'self' data: blob: https://api.open-meteo.com https://ensemble-api.open-meteo.com https://api.met.no https://raw.githubusercontent.com https://*.googleapis.com https://*.gstatic.com https://*.google.com https://*.ggpht.com https://*.googleusercontent.com; frame-src 'self' data: blob: https://*.google.com; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
   <meta name="theme-color" content="#667eea">
-  <meta name="app-version" content="1.40.0">
+  <meta name="app-version" content="1.41.0">
   <!-- أدنى إصدار من التطبيق المثبّت (APK / مثبّت ويندوز) تحتاجه هذه الواجهة: الواجهة تتحدث تلقائياً
        والتطبيق المثبّت لا، فإن كان المثبّت أقدم من هذا عرضت الواجهة شريط «تحديث التطبيق مطلوب».
        يضبطهما scripts/bump-version.js آلياً عند تغيّر كود الطبقة الأصلية، ويفرضهما فحص CI. -->
-  <meta name="app-min-native-android" content="1.39.2">
-  <meta name="app-min-native-windows" content="1.40.0">
+  <meta name="app-min-native-android" content="1.41.0">
+  <meta name="app-min-native-windows" content="1.41.0">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <title>المنظم</title>
@@ -7604,8 +7604,9 @@
     /* نداء أصلي غير متزامن بنمط «اسم ردّ عام»: يحوّله إلى وعد */
     var _lanCbSeq = 0;
     /* يدعم نمطَي الطبقة الأصلية: أندرويد (ردّ باسم عام) وElectron (وعد مُعاد).
-       @param {string} method @param {any[]} args @returns {Promise<string>} */
-    function _lanCall(method, args) {
+       @param {string} method @param {any[]} args @param {number} [ms] مهلة الرد (افتراضياً ٤٥ ثانية)
+       @returns {Promise<string>} */
+    function _lanCall(method, args, ms) {
       return new Promise(function (resolve, reject) {
         var cb = '_lanCb' + (++_lanCbSeq);
         var w = /** @type {any} */ (window);
@@ -7614,7 +7615,7 @@
           if (done) return; done = true; clearTimeout(t); delete w[cb];
           if (ok) resolve(String(val == null ? '' : val)); else reject(val instanceof Error ? val : new Error(String(val)));
         }
-        var t = setTimeout(function () { fin(false, 'timeout'); }, 45000);
+        var t = setTimeout(function () { fin(false, 'timeout'); }, ms || 45000);
         w[cb] = function (res, err) { fin(!err, err ? err : res); };
         try {
           var r = window.LanSync[method].apply(window.LanSync, args.concat(['window.' + cb]));
@@ -7789,12 +7790,17 @@
           }
         } catch (e) { /* قد لا يكون للنظير ملف بعد */ }
 
+        /* ٤) مجلدات المزامنة الإضافية — فشلها لا يُفشل مزامنة الملاحظات */
+        var xr = { pulled: 0, failed: 0 };
+        try { xr = await _lanXSyncAll(base, token, String(man.id || s.peerId || '')); } catch (e) { }
+
         LS.patch({ lastSyncAt: Date.now(), lastPeerName: String(man.name || s.peerName || ''), lastErr: '' });
         _lanLastErr = '';
         if (mergedNotes && typeof renderNotes === 'function') renderNotes();
         if (!quiet) {
           showFb('🔁 تمت المزامنة المباشرة' + (pulledCount ? ' — ' + toArabic(pulledCount) + ' مرفق' : '')
-            + (mergedNotes ? ' + ملاحظات' : ''));
+            + (mergedNotes ? ' + ملاحظات' : '') + (xr.pulled ? ' + ' + toArabic(xr.pulled) + ' ملف من المجلدات' : '')
+            + (xr.failed ? ' (تعذّر ' + toArabic(xr.failed) + ')' : ''));
         }
         setTimeout(_lanRenderStatus, 200);
         return true;
@@ -7805,6 +7811,193 @@
         setTimeout(_lanRenderStatus, 200);
         return false;
       } finally { _lanBusy = false; }
+    }
+
+    /* ══════════════════════════════════════════════════════════════════
+       مجلدات المزامنة الإضافية (مثل GoodSync)
+       مجلد يُختار على كل جهاز ويُربط بالاسم («صور» هنا ⇄ «صور» هناك)، بمجلداته الفرعية.
+       كل جهاز يسحب من النظير ما جدّ أو تغيّر عنده، فالاتجاهان يتحققان بدورتي الجهازين.
+       القرار بسجل حالة لكل ملف (حجم وزمن الطرفين عند آخر مزامنة) لا بمقارنة الأزمنة وحدها:
+       أندرويد لا يستطيع ضبط زمن تعديل ما ينزّله، فكان ملف منسوخ يبدو «أحدث» فيرتدّ ذهاباً وإياباً.
+       • جديد عند النظير ← يُسحب.   • تغيّر عند النظير وحده ← يُسحب.
+       • تغيّر عند الطرفين ← الأحدث زمناً يفوز (يُعدّ تعارضاً).
+       • حُذف هنا بعد مزامنة سابقة ← لا يُعاد (الحذف لا ينتقل للنظير في هذه المرحلة).
+    ══════════════════════════════════════════════════════════════════ */
+    var LANX_STATE = 'lansync_xstate_v1';
+    var LANX_SLACK = 2000;            /* فرق زمن يُعدّ تطابقاً (دقة أنظمة الملفات تختلف) */
+    function _lanXAvailable() {
+      return _lanAvailable() && typeof (/** @type {any} */ (window.LanSync)).xFolders === 'function';
+    }
+    /** @returns {{name: string, label: string}[]} */
+    function _lanXLocal() {
+      if (!_lanXAvailable()) return [];
+      try { var a = JSON.parse(/** @type {any} */ (window.LanSync).xFolders() || '[]'); return Array.isArray(a) ? a : []; }
+      catch (e) { return []; }
+    }
+    function _lanXStateAll() {
+      try { var o = JSON.parse(localStorage.getItem(LANX_STATE) || '{}'); return (o && typeof o === 'object') ? o : {}; }
+      catch (e) { return {}; }
+    }
+    function _lanXStateSave(all) { try { localStorage.setItem(LANX_STATE, JSON.stringify(all)); } catch (e) { } }
+    function _lanXKey(peerId, name) { return String(peerId) + '\u0001' + String(name); }
+
+    /* خطة مجلد: ما يُسحب من النظير. local/peer: [{p,size,mt}]، st: {p: {ps,pm,ls,lm}} */
+    function _lanXPlan(localFiles, peerFiles, st) {
+      var loc = _lanManifestMap(localFiles), peer = _lanManifestMap(peerFiles);
+      st = st || {};
+      var pull = [], conflicts = 0, keptDeleted = 0;
+      Object.keys(peer).forEach(function (p) {
+        var r = peer[p], l = loc[p], s = st[p];
+        var peerChanged = !s || s.pm !== r.mt || s.ps !== r.size;
+        if (!l) {
+          if (!s || peerChanged) pull.push({ p: p, size: r.size, mt: r.mt });
+          else keptDeleted++;                 /* حُذف هنا ولم يتغيّر هناك: لا يُعاد */
+          return;
+        }
+        if (!s) {
+          /* أول لقاء: متطابقان ⇒ لا شيء؛ وإلا فالأحدث بوضوح يفوز (والأقدم يسحبه النظير) */
+          if (l.size === r.size && Math.abs(l.mt - r.mt) <= LANX_SLACK) return;
+          if (r.mt > l.mt + LANX_SLACK) pull.push({ p: p, size: r.size, mt: r.mt });
+          return;
+        }
+        var localChanged = s.lm !== l.mt || s.ls !== l.size;
+        if (!peerChanged) return;
+        if (!localChanged) { pull.push({ p: p, size: r.size, mt: r.mt }); return; }
+        conflicts++;
+        if (r.mt > l.mt) pull.push({ p: p, size: r.size, mt: r.mt });
+      });
+      return { pull: pull, conflicts: conflicts, keptDeleted: keptDeleted };
+    }
+
+    /* سجل الحالة بعد المزامنة: كل ملف موجود عند الطرفين ولم يفشل سحبه يُسجَّل بقيمه الحالية */
+    function _lanXNextState(st, localAfter, peerFiles, failed) {
+      var loc = _lanManifestMap(localAfter), peer = _lanManifestMap(peerFiles), out = {};
+      Object.keys(st || {}).forEach(function (p) { if (!loc[p] && peer[p]) out[p] = st[p]; });   /* المحذوف هنا يبقى شاهداً */
+      Object.keys(peer).forEach(function (p) {
+        if (!loc[p] || failed[p]) return;
+        out[p] = { ps: peer[p].size, pm: peer[p].mt, ls: loc[p].size, lm: loc[p].mt };
+      });
+      return out;
+    }
+
+    async function _lanXSyncFolder(base, token, peerId, name) {
+      var res = { pulled: 0, failed: 0, conflicts: 0, err: '' };
+      var q = '?f=' + encodeURIComponent(name);
+      var man = JSON.parse(await _lanCall('httpJson', [base + '/xmanifest' + q, token], 120000) || '{}');
+      if (!man || !Array.isArray(man.files)) throw new Error('bad-manifest');
+      var local = JSON.parse(await _lanCall('xList', [name], 120000) || '[]');
+      var all = _lanXStateAll(), key = _lanXKey(peerId, name);
+      var plan = _lanXPlan(local, man.files, all[key]);
+      res.conflicts = plan.conflicts;
+      var failed = {};
+      for (var i = 0; i < plan.pull.length; i++) {
+        var f = plan.pull[i];
+        try {
+          var r = await _lanCall('xPull', [base + '/xfile' + q + '&p=' + encodeURIComponent(f.p), token, name, f.p, String(f.mt)], 30 * 60000);
+          if (r === 'ok') res.pulled++; else { failed[f.p] = 1; res.failed++; }
+        } catch (e) { failed[f.p] = 1; res.failed++; }
+      }
+      var after = plan.pull.length ? JSON.parse(await _lanCall('xList', [name], 120000) || '[]') : local;
+      all = _lanXStateAll();
+      all[key] = _lanXNextState(all[key], after, man.files, failed);
+      _lanXStateSave(all);
+      return res;
+    }
+
+    /* كل المجلدات المربوطة على الجهازين؛ يحفظ أسماء مجلدات النظير ونتيجة كل مجلد للعرض */
+    async function _lanXSyncAll(base, token, peerId) {
+      var tot = { pulled: 0, failed: 0 };
+      if (!_lanXAvailable()) return tot;
+      var peerNames = null;
+      try {
+        var o = JSON.parse(await _lanCall('httpJson', [base + '/xfolders', token]) || '{}');
+        peerNames = Array.isArray(o.folders) ? o.folders.map(String) : [];
+      } catch (e) {
+        LS.patch({ xPeerFolders: null, xPeerOld: /HTTP_404/.test(String(e && e.message)) });
+        return tot;
+      }
+      var results = {};
+      var locals = _lanXLocal();
+      for (var i = 0; i < locals.length; i++) {
+        var n = locals[i].name;
+        if (peerNames.indexOf(n) < 0) { results[n] = { missing: true }; continue; }
+        try {
+          var r = await _lanXSyncFolder(base, token, peerId, n);
+          results[n] = { pulled: r.pulled, failed: r.failed, conflicts: r.conflicts, at: Date.now() };
+          tot.pulled += r.pulled; tot.failed += r.failed;
+        } catch (e) { results[n] = { err: String((e && e.message) || 'error').slice(0, 60), at: Date.now() }; tot.failed++; }
+      }
+      LS.patch({ xPeerFolders: peerNames, xPeerOld: false, xResults: results });
+      return tot;
+    }
+
+    async function _lanXAdd(name) {
+      var r = await _lanCall('xAdd', [name], 10 * 60000);   /* ينتظر اختيار المستخدم للمجلد */
+      return r ? JSON.parse(r) : null;
+    }
+
+    /* ── واجهة: المجلدات المربوطة، ومجلدات النظير غير المربوطة هنا، وإضافة مجلد ── */
+    function LanXFoldersBox() {
+      var a = useState(''), nm = a[0], setNm = a[1];
+      var b = useState(''), msg = b[0], setMsg = b[1];
+      var s = LS.get();
+      var locals = _lanXLocal(), localNames = locals.map(function (f) { return f.name; });
+      var peer = Array.isArray(s.xPeerFolders) ? s.xPeerFolders : [];
+      var unlinked = peer.filter(function (n) { return localNames.indexOf(n) < 0; });
+      var res = s.xResults || {};
+      var add = async function (name) {
+        name = String(name || '').trim();
+        if (!name) { setMsg('اكتب اسماً للمجلد'); return; }
+        if (name.length > 60 || /[\\/]/.test(name)) { setMsg('اسم غير صالح'); return; }
+        setMsg('… اختر المجلد');
+        try {
+          var r = await _lanXAdd(name);
+          setMsg(r ? '✓ رُبط «' + name + '» — اربط مجلداً بالاسم نفسه على الجهاز الآخر' : '');
+          setNm('');
+        } catch (e) { setMsg('✗ ' + ((e && e.message) || 'تعذّر')); }
+        _lanRenderStatus();
+      };
+      var del = function (name) {
+        if (!confirm('إيقاف مزامنة «' + name + '» على هذا الجهاز؟ لا يُحذف أي ملف.')) return;
+        try { /** @type {any} */ (window.LanSync).xRemove(name); } catch (e) { }
+        var all = _lanXStateAll(); Object.keys(all).forEach(function (k) { if (k.split('\u0001')[1] === name) delete all[k]; });
+        _lanXStateSave(all);
+        _lanRenderStatus();
+      };
+      var resTxt = function (r) {
+        if (!r) return 'لم يُزامَن بعد';
+        if (r.missing) return 'غير مربوط على الجهاز الآخر';
+        if (r.err) return '✗ ' + _lanErrText(r.err);
+        return _lanFmtWhen(r.at) + (r.pulled ? ' — سُحب ' + toArabic(r.pulled) : ' — متطابق')
+          + (r.conflicts ? ' — ' + toArabic(r.conflicts) + ' تعارض (فاز الأحدث)' : '') + (r.failed ? ' — تعذّر ' + toArabic(r.failed) : '');
+      };
+      return html`<div style="display:flex;flex-direction:column;gap:7px;border-top:1px solid rgba(var(--ov),0.08);padding-top:10px">
+        <div style="font-size:12px;font-weight:700">📁 مجلدات إضافية</div>
+        ${locals.length ? locals.map(function (f) {
+          return html`<div key=${f.name} style="display:flex;align-items:center;gap:8px;font-size:12px;background:rgba(var(--ov),0.05);border-radius:8px;padding:6px 8px">
+            <div style="flex:1;min-width:0;line-height:1.6">
+              <div><b>${f.name}</b> <span style="color:rgba(var(--ov),0.5);font-size:11px" dir="auto">${f.label}</span></div>
+              <div style="font-size:11px;color:rgba(var(--ov),0.6)">${resTxt(res[f.name])}</div>
+            </div>
+            <button class="sm-btn danger" style="padding:3px 8px" onClick=${function () { del(f.name); }}>إزالة</button>
+          </div>`;
+        }) : html`<div style="font-size:11px;color:rgba(var(--ov),0.55)">لا مجلدات بعد. أضف مجلداً باسم، ثم اربط مجلداً بالاسم نفسه على الجهاز الآخر.</div>`}
+        ${unlinked.map(function (n) {
+          return html`<div key=${'u' + n} style="display:flex;align-items:center;gap:8px;font-size:12px">
+            <span style="flex:1">على الجهاز الآخر: <b>${n}</b></span>
+            <button class="sm-btn" style="padding:3px 8px" onClick=${function () { add(n); }}>ربط مجلد هنا</button>
+          </div>`;
+        })}
+        ${s.xPeerOld ? html`<div style="font-size:11px;color:#fcd34d">التطبيق على الجهاز الآخر لا يدعم المجلدات الإضافية — حدّثه.</div>` : null}
+        <div style="display:flex;gap:6px">
+          <input class="edit-inp" placeholder="اسم المجلد (مثل: صور)" value=${nm} onInput=${function (e) { setNm(e.target.value); }} style="flex:1;padding:6px 10px;font-size:13px"/>
+          <button class="sm-btn" onClick=${function () { add(nm); }}>➕ إضافة</button>
+        </div>
+        ${msg ? html`<div style="font-size:11px;color:var(--tw)">${msg}</div>` : null}
+        <div style="font-size:10.5px;color:rgba(var(--ov),0.45);line-height:1.6">
+          يُسحب الجديد والمعدَّل في الاتجاهين مع المجلدات الفرعية، وعند تعديل الملف على الجهازين يفوز الأحدث. الحذف لا ينتقل للجهاز الآخر.
+        </div>
+      </div>`;
     }
 
     /* بعد الدمج: اكتب الحالة المدموجة إلى المجلد كي يسحبها النظير في دورته */
@@ -7934,6 +8127,7 @@
             <button class="sm-btn" onClick=${function () { _lanSyncNow(false); }}>🔁 مزامنة الآن</button>
             <button class="sm-btn danger" onClick=${function () { if (confirm('فك الإقران وإيقاف المزامنة المباشرة؟')) _lanUnpair(); }}>فك الإقران</button>
           </div>
+          ${_lanXAvailable() ? html`<${LanXFoldersBox}/>` : null}
         </div>` : null}
         <div style="font-size:11px;color:rgba(var(--ov),0.45);border-top:1px solid rgba(var(--ov),0.08);padding-top:8px">
           تجريبي — يعمل والجهازان على نفس الواي فاي، والاتصال بينهما مشفّر. يبقى GoodSync يعمل كالمعتاد؛ لا تُلغِه إلا بعد أن تثق بهذه الميزة.
