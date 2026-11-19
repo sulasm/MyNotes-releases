@@ -11,12 +11,12 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: https://*.googleapis.com https://*.gstatic.com https://*.google.com https://*.ggpht.com https://*.googleusercontent.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https://*.googleapis.com https://*.gstatic.com https://*.google.com https://*.ggpht.com https://*.googleusercontent.com; media-src 'self' data: blob:; connect-src 'self' data: blob: https://api.open-meteo.com https://ensemble-api.open-meteo.com https://api.met.no https://raw.githubusercontent.com https://*.googleapis.com https://*.gstatic.com https://*.google.com https://*.ggpht.com https://*.googleusercontent.com; frame-src 'self' data: blob: https://*.google.com; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
   <meta name="theme-color" content="#667eea">
-  <meta name="app-version" content="1.43.0">
+  <meta name="app-version" content="1.44.0">
   <!-- أدنى إصدار من التطبيق المثبّت (APK / مثبّت ويندوز) تحتاجه هذه الواجهة: الواجهة تتحدث تلقائياً
        والتطبيق المثبّت لا، فإن كان المثبّت أقدم من هذا عرضت الواجهة شريط «تحديث التطبيق مطلوب».
        يضبطهما scripts/bump-version.js آلياً عند تغيّر كود الطبقة الأصلية، ويفرضهما فحص CI. -->
-  <meta name="app-min-native-android" content="1.43.0">
-  <meta name="app-min-native-windows" content="1.43.0">
+  <meta name="app-min-native-android" content="1.44.0">
+  <meta name="app-min-native-windows" content="1.44.0">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <title>المنظم</title>
@@ -7894,7 +7894,7 @@
     /* ── مزامنة جهاز واحد: بيان → سحب المرفقات الناقصة → سحب ملف الملاحظات ودمجه → المجلدات الإضافية ── */
     async function _lanSyncPeer(p, manual) {
       var token = p.token, base = _lanBase(p.ip, p.port);
-      var out = { pulled: 0, merged: false, x: { pulled: 0, failed: 0 } };
+      var out = { pulled: 0, merged: false, x: { pulled: 0, failed: 0, deleted: 0 } };
       /* ١) بيان النظير — وإن لم يُجب عنوانه المحفوظ: المنفذ الثابت، ثم مكانه الجديد في الشبكة */
       var manRaw;
       try { manRaw = await _lanCall('httpJson', [base + '/manifest', token]); }
@@ -7957,13 +7957,13 @@
         var peers = _lanPeers();
         if (!peers.length) { if (!quiet) showFb('⚠️ لم يتم الإقران بجهاز بعد', 1); return false; }
         if (!_notesLoaded) { if (!quiet) showFb('⚠️ لم يكتمل تحميل الملاحظات بعد', 1); return false; }
-        var tot = { ok: 0, att: 0, merged: false, x: 0, xf: 0 }, errs = [];
+        var tot = { ok: 0, att: 0, merged: false, x: 0, xf: 0, xd: 0 }, errs = [];
         for (var i = 0; i < peers.length; i++) {
           var p = _lanPeer(peers[i].id);
           if (!p) continue;
           try {
             var r = await _lanSyncPeer(p, !quiet);
-            tot.ok++; tot.att += r.pulled; tot.merged = tot.merged || r.merged; tot.x += r.x.pulled; tot.xf += r.x.failed;
+            tot.ok++; tot.att += r.pulled; tot.merged = tot.merged || r.merged; tot.x += r.x.pulled; tot.xf += r.x.failed; tot.xd += r.x.deleted || 0;
           } catch (e) {
             var m = (e && e.message) || 'error';
             _lanPeerPatch(p.id, { lastErr: m, lastErrAt: Date.now() });
@@ -7976,7 +7976,7 @@
           if (tot.ok) {
             showFb('🔁 تمت المزامنة المباشرة' + (peers.length > 1 ? ' مع ' + toArabic(tot.ok) + ' من ' + toArabic(peers.length) + ' أجهزة' : '')
               + (tot.att ? ' — ' + toArabic(tot.att) + ' مرفق' : '') + (tot.merged ? ' + ملاحظات' : '')
-              + (tot.x ? ' + ' + toArabic(tot.x) + ' ملف من المجلدات' : '') + (tot.xf ? ' (تعذّر ' + toArabic(tot.xf) + ')' : '')
+              + (tot.x ? ' + ' + toArabic(tot.x) + ' ملف من المجلدات' : '') + (tot.xd ? ' + حذف ' + toArabic(tot.xd) : '') + (tot.xf ? ' (تعذّر ' + toArabic(tot.xf) + ')' : '')
               + (errs.length ? ' — تعذّر: ' + errs.join('، ') : ''), errs.length ? 1 : 0);
           } else showFb('⚠️ تعذّرت المزامنة المباشرة: ' + errs.join('، '), 1);
         }
@@ -7994,10 +7994,20 @@
        أندرويد لا يستطيع ضبط زمن تعديل ما ينزّله، فكان ملف منسوخ يبدو «أحدث» فيرتدّ ذهاباً وإياباً.
        • جديد عند النظير ← يُسحب.   • تغيّر عند النظير وحده ← يُسحب.
        • تغيّر عند الطرفين ← الأحدث زمناً يفوز (يُعدّ تعارضاً).
-       • حُذف هنا بعد مزامنة سابقة ← لا يُعاد (الحذف لا ينتقل للنظير في هذه المرحلة).
+       • حُذف هنا بعد مزامنة سابقة ← لا يُعاد (يبقى سجله «شاهداً» d).
+       • حُذف هناك بعد مزامنة سابقة ولم يتغيّر هنا ← يُحذف هنا أيضاً (المزامنة تعني ذلك)، إلى السلة
+         لا محواً: سلة محذوفات ويندوز، أو ‎.sync-trash داخل المجلد على أندرويد لثلاثين يوماً.
+         وإن عُدّل هنا بعد المزامنة فالتعديل يفوز على الحذف (يبقى، ويسحبه النظير من جديد).
+       الحذف يُبنى على «غياب» الملف عن بيان النظير، فشروطه صارمة: البيان كامل يقيناً (complete)،
+       وربط النظير هو نفسه الذي سُجّلت معه الحالة (gen — وإلا تغيّر مكان مجلده فيُبدأ السجل من جديد)،
+       والطبقة الأصلية هنا تدعم xDelete. وحذف دفعة كبيرة يُعلَّق حتى يؤكده المستخدم.
     ══════════════════════════════════════════════════════════════════ */
     var LANX_STATE = 'lansync_xstate_v1';
+    var LANX_GEN = 'lansync_xgen_v1';     /* معرّف ربط النظير الذي سُجّلت معه الحالة: {مفتاح: gen} */
     var LANX_SLACK = 2000;            /* فرق زمن يُعدّ تطابقاً (دقة أنظمة الملفات تختلف) */
+    var LANX_DEL_MAX = 50;            /* حذف أكثر من هذا دفعةً واحدة — أو أكثر من نصف المجلد — يطلب تأكيداً */
+    /* قرار المستخدم في حذف معلَّق: {مفتاح: 'ok' | 'keep'} — يُستهلك في المزامنة التالية للمجلد */
+    var _lanXDelDecision = {};
     function _lanXAvailable() {
       return _lanAvailable() && typeof (/** @type {any} */ (window.LanSync)).xFolders === 'function';
     }
@@ -8013,12 +8023,26 @@
     }
     function _lanXStateSave(all) { try { localStorage.setItem(LANX_STATE, JSON.stringify(all)); } catch (e) { } }
     function _lanXKey(peerId, name) { return String(peerId) + '\u0001' + String(name); }
+    function _lanXGens() {
+      try { var o = JSON.parse(localStorage.getItem(LANX_GEN) || '{}'); return (o && typeof o === 'object') ? o : {}; }
+      catch (e) { return {}; }
+    }
+    function _lanXGensSave(g) { try { localStorage.setItem(LANX_GEN, JSON.stringify(g)); } catch (e) { } }
+    /* هل تستطيع الطبقة الأصلية هنا إزالة ملف (إلى السلة)؟ تطبيق مثبّت أقدم ⇒ لا حذف، والباقي يعمل */
+    function _lanXCanDelete() {
+      return _lanXAvailable() && typeof (/** @type {any} */ (window.LanSync)).xDelete === 'function';
+    }
+    /* دفعة حذف كبيرة تستحق تأكيداً: أكثر من LANX_DEL_MAX، أو عشرة فأكثر تتجاوز نصف ملفات المجلد */
+    function _lanXDelBig(n, localCount) {
+      return n > LANX_DEL_MAX || (n >= 10 && n * 2 > localCount);
+    }
 
-    /* خطة مجلد: ما يُسحب من النظير. local/peer: [{p,size,mt}]، st: {p: {ps,pm,ls,lm}} */
+    /* خطة مجلد: ما يُسحب من النظير وما يُحذف هنا. local/peer: [{p,size,mt}]، st: {p: {ps,pm,ls,lm,d?}}
+       del يفترض أن بيان النظير كامل — من يستعمله يتحقق من ذلك (انظر _lanXSyncFolder). */
     function _lanXPlan(localFiles, peerFiles, st) {
       var loc = _lanManifestMap(localFiles), peer = _lanManifestMap(peerFiles);
       st = st || {};
-      var pull = [], conflicts = 0, keptDeleted = 0;
+      var pull = [], del = [], conflicts = 0, keptDeleted = 0, keptEdited = 0;
       Object.keys(peer).forEach(function (p) {
         var r = peer[p], l = loc[p], s = st[p];
         var peerChanged = !s || s.pm !== r.mt || s.ps !== r.size;
@@ -8039,13 +8063,32 @@
         conflicts++;
         if (r.mt > l.mt) pull.push({ p: p, size: r.size, mt: r.mt });
       });
-      return { pull: pull, conflicts: conflicts, keptDeleted: keptDeleted };
+      /* كان عند الطرفين وغاب عن النظير: حُذف هناك. «شاهد» حذف محلي (d) عاد ملفه هنا ليس مرشحاً:
+         هو ملف أعاده المستخدم (من السلة مثلاً) لا نسخة قديمة تنتظر الحذف. */
+      Object.keys(st).forEach(function (p) {
+        var s = st[p], l = loc[p];
+        if (peer[p] || !l || !s || s.d) return;
+        if (s.lm === l.mt && s.ls === l.size) del.push({ p: p, size: l.size, mt: l.mt });
+        else keptEdited++;                    /* عُدّل هنا بعد المزامنة: التعديل يفوز على الحذف */
+      });
+      return { pull: pull, del: del, conflicts: conflicts, keptDeleted: keptDeleted, keptEdited: keptEdited };
     }
 
-    /* سجل الحالة بعد المزامنة: كل ملف موجود عند الطرفين ولم يفشل سحبه يُسجَّل بقيمه الحالية */
-    function _lanXNextState(st, localAfter, peerFiles, failed) {
+    /* سجل الحالة بعد المزامنة: كل ملف موجود عند الطرفين ولم يفشل سحبه يُسجَّل بقيمه الحالية.
+       opt.complete=false (بيان النظير ناقص): ما غاب عنه لا يُستنتج منه شيء فيبقى سجله كما هو.
+       opt.retain: مسارات حذفٍ لم يُنفَّذ (معلَّق أو تعذّر أو غير مدعوم) تبقى مرشحة للدورة التالية. */
+    function _lanXNextState(st, localAfter, peerFiles, failed, opt) {
       var loc = _lanManifestMap(localAfter), peer = _lanManifestMap(peerFiles), out = {};
-      Object.keys(st || {}).forEach(function (p) { if (!loc[p] && peer[p]) out[p] = st[p]; });   /* المحذوف هنا يبقى شاهداً */
+      var complete = !opt || opt.complete !== false, retain = (opt && opt.retain) || {};
+      Object.keys(st || {}).forEach(function (p) {
+        var s = st[p];
+        if (peer[p]) {                        /* المحذوف هنا يبقى شاهداً */
+          if (!loc[p]) out[p] = { ps: s.ps, pm: s.pm, ls: s.ls, lm: s.lm, d: 1 };
+          return;
+        }
+        if (!complete) { out[p] = s; return; }
+        if (loc[p] && retain[p]) out[p] = s;
+      });
       Object.keys(peer).forEach(function (p) {
         if (!loc[p] || failed[p]) return;
         out[p] = { ps: peer[p].size, pm: peer[p].mt, ls: loc[p].size, lm: loc[p].mt };
@@ -8054,14 +8097,44 @@
     }
 
     async function _lanXSyncFolder(base, token, peerId, name) {
-      var res = { pulled: 0, failed: 0, conflicts: 0, err: '' };
+      var res = { pulled: 0, failed: 0, conflicts: 0, deleted: 0, delFailed: 0, held: 0, delOff: '', err: '' };
       var q = '?f=' + encodeURIComponent(name);
       var man = JSON.parse(await _lanCall('httpJson', [base + '/xmanifest' + q, token], 120000) || '{}');
       if (!man || !Array.isArray(man.files)) throw new Error('bad-manifest');
       var local = JSON.parse(await _lanCall('xList', [name], 120000) || '[]');
-      var all = _lanXStateAll(), key = _lanXKey(peerId, name);
-      var plan = _lanXPlan(local, man.files, all[key]);
+      var all = _lanXStateAll(), key = _lanXKey(peerId, name), gens = _lanXGens();
+      var gen = typeof man.gen === 'string' ? man.gen : '';
+      var st = all[key];
+      /* النظير ربط الاسم بمكان آخر: سجلنا يصف مجلده القديم — يُبدأ من جديد (اتحاد الطرفين، لا حذف) */
+      if (gen && gens[key] && gens[key] !== gen) st = undefined;
+      var plan = _lanXPlan(local, man.files, st);
       res.conflicts = plan.conflicts;
+
+      /* ── الحذف أولاً (سريع)، بشروطه ── */
+      var canDel = man.complete === true && !!gen && _lanXCanDelete();
+      var dels = plan.del, retain = {};
+      var keepAll = function () { dels.forEach(function (d) { retain[d.p] = 1; }); dels = []; };
+      if (!canDel) {
+        if (plan.del.length) res.delOff = !_lanXCanDelete() ? 'local' : (!gen ? 'peer' : 'partial');
+        keepAll();
+      } else {
+        /* القرار يخص الدفعة المعلَّقة الآن: يُستهلك في هذه الدورة ولا يبقى لدفعة لاحقة */
+        var dec = _lanXDelDecision[key];
+        delete _lanXDelDecision[key];
+        if (_lanXDelBig(dels.length, local.length)) {
+          if (dec === 'keep') dels = [];                    /* يُنسى سجلها: تبقى هنا ولا تُحذف لاحقاً */
+          else if (dec !== 'ok') { res.held = dels.length; keepAll(); }
+        }
+      }
+      for (var k = 0; k < dels.length; k++) {
+        var d = dels[k];
+        try {
+          var dr = await _lanCall('xDelete', [name, d.p, String(d.size), String(d.mt)], 60000);
+          if (dr === 'ok' || dr === 'gone') res.deleted++;
+          else if (dr !== 'changed') { retain[d.p] = 1; res.delFailed++; }   /* changed: عُدّل للتوّ فيبقى ويسحبه النظير */
+        } catch (e) { retain[d.p] = 1; res.delFailed++; }
+      }
+
       var failed = {};
       for (var i = 0; i < plan.pull.length; i++) {
         var f = plan.pull[i];
@@ -8070,17 +8143,18 @@
           if (r === 'ok') res.pulled++; else { failed[f.p] = 1; res.failed++; }
         } catch (e) { failed[f.p] = 1; res.failed++; }
       }
-      var after = plan.pull.length ? JSON.parse(await _lanCall('xList', [name], 120000) || '[]') : local;
+      var after = (plan.pull.length || res.deleted) ? JSON.parse(await _lanCall('xList', [name], 120000) || '[]') : local;
       all = _lanXStateAll();
-      all[key] = _lanXNextState(all[key], after, man.files, failed);
+      all[key] = _lanXNextState(st, after, man.files, failed, { complete: man.complete !== false, retain: retain });
       _lanXStateSave(all);
+      if (gen) { gens = _lanXGens(); gens[key] = gen; _lanXGensSave(gens); }
       return res;
     }
 
     /* كل المجلدات المربوطة على هذا الجهاز وعلى جهاز peerId؛ يحفظ في سجل الجهاز أسماء مجلداته
        ونتيجة كل مجلد للعرض */
     async function _lanXSyncAll(base, token, peerId) {
-      var tot = { pulled: 0, failed: 0 };
+      var tot = { pulled: 0, failed: 0, deleted: 0 };
       if (!_lanXAvailable()) return tot;
       var peerNames = null;
       try {
@@ -8092,13 +8166,19 @@
       }
       var results = {};
       var locals = _lanXLocal();
+      var prev = (_lanPeer(peerId) || {}).xResults || {};
       for (var i = 0; i < locals.length; i++) {
         var n = locals[i].name;
         if (peerNames.indexOf(n) < 0) { results[n] = { missing: true }; continue; }
         try {
           var r = await _lanXSyncFolder(base, token, peerId, n);
-          results[n] = { pulled: r.pulled, failed: r.failed, conflicts: r.conflicts, at: Date.now() };
-          tot.pulled += r.pulled; tot.failed += r.failed;
+          results[n] = { pulled: r.pulled, failed: r.failed, conflicts: r.conflicts, deleted: r.deleted, delFailed: r.delFailed,
+            held: r.held, delOff: r.delOff, at: Date.now() };
+          tot.pulled += r.pulled; tot.failed += r.failed + r.delFailed; tot.deleted += r.deleted;
+          /* حذف كبير عُلّق: يُنبَّه المستخدم مرة عند ظهوره (المزامنة الدورية صامتة) */
+          if (r.held && !(prev[n] && prev[n].held)) {
+            showFb('⚠️ حُذف ' + toArabic(r.held) + ' ملفاً من «' + n + '» على الجهاز الآخر — أكّد حذفها هنا من الإعدادات ← المزامنة المباشرة', 1);
+          }
         } catch (e) { results[n] = { err: String((e && e.message) || 'error').slice(0, 60), at: Date.now() }; tot.failed++; }
       }
       _lanPeerPatch(peerId, { xFolders: peerNames, xOld: false, xErr: '', xAt: Date.now(), xResults: results });
@@ -8163,6 +8243,9 @@
       var all = _lanXStateAll();
       Object.keys(all).forEach(function (k) { if (k.split('\u0001')[1] === name) delete all[k]; });
       _lanXStateSave(all);
+      var g = _lanXGens();
+      Object.keys(g).forEach(function (k) { if (k.split('\u0001')[1] === name) { delete g[k]; delete _lanXDelDecision[k]; } });
+      _lanXGensSave(g);
     }
 
     /* ── واجهة: المجلدات المربوطة (مع تغيير المكان)، ومجلدات الأجهزة الأخرى غير المربوطة هنا، وإضافة مجلد ── */
@@ -8184,10 +8267,12 @@
       preactHooks.useEffect(function () { _lanXRefreshPeer(false); }, []);
       var addDl = async function () {
         if (!confirm('مزامنة مجلد «التنزيلات» على هذا الجهاز مع مجلد التنزيلات على الجهاز الآخر؟\n\n'
-          + 'يُنسخ كل ما في تنزيلات كل جهاز إلى الآخر (قد يكون الحجم كبيراً في أول مرة). الحذف لا ينتقل.')) return;
+          + 'يُنسخ كل ما في تنزيلات كل جهاز إلى الآخر (قد يكون الحجم كبيراً في أول مرة). '
+          + 'وبعدها ما تحذفه من جهاز يُحذف من الآخر أيضاً (إلى السلة لا نهائياً).')) return;
         setMsg('…');
         try {
           var r = await _lanXAddDownloads();
+          if (r) _lanXForget(LANX_DL_NAME);                  /* ربط جديد: أي سجل سابق للاسم يصف مجلداً آخر */
           setMsg(r ? '✓ رُبط مجلد التنزيلات (' + (r.label || '') + ') — اضغط الزر نفسه على الجهاز الآخر إن لم يكن مربوطاً هناك' : '');
           if (r) _lanSyncNow(true).then(function () { _lanRenderStatus(); });
         } catch (e) { setMsg('✗ ' + _lanXDlErrText(e && e.message)); }
@@ -8201,6 +8286,7 @@
         setMsg('… اختر المجلد');
         try {
           var r = await _lanXAdd(name);
+          if (r) _lanXForget(name);                          /* ربط جديد (أو كتابة اسم مربوط): السجل السابق لا يصفه */
           setMsg(r ? '✓ رُبط «' + name + '» — اربط مجلداً بالاسم نفسه على الجهاز الآخر' : '');
           setNm('');
         } catch (e) { setMsg('✗ ' + ((e && e.message) || 'تعذّر')); }
@@ -8230,8 +8316,19 @@
         if (!r) return 'لم يُزامَن بعد';
         if (r.missing) return 'غير مربوط هناك';
         if (r.err) return '✗ ' + _lanErrText(r.err);
-        return _lanFmtWhen(r.at) + (r.pulled ? ' — سُحب ' + toArabic(r.pulled) : ' — متطابق')
-          + (r.conflicts ? ' — ' + toArabic(r.conflicts) + ' تعارض (فاز الأحدث)' : '') + (r.failed ? ' — تعذّر ' + toArabic(r.failed) : '');
+        return _lanFmtWhen(r.at) + (r.pulled ? ' — سُحب ' + toArabic(r.pulled) : '') + (r.deleted ? ' — حُذف ' + toArabic(r.deleted) : '')
+          + (!r.pulled && !r.deleted && !r.held ? ' — متطابق' : '')
+          + (r.conflicts ? ' — ' + toArabic(r.conflicts) + ' تعارض (فاز الأحدث)' : '') + (r.failed ? ' — تعذّر ' + toArabic(r.failed) : '')
+          + (r.delFailed ? ' — تعذّر حذف ' + toArabic(r.delFailed) : '')
+          + (r.delOff === 'peer' ? ' — المحذوف هناك لا يُحذف هنا حتى يُحدَّث التطبيق المثبّت على الجهاز الآخر'
+            : r.delOff === 'local' ? ' — المحذوف هناك لا يُحذف هنا حتى يُحدَّث التطبيق المثبّت على هذا الجهاز'
+              : r.delOff === 'partial' ? ' — تعذّر سرد مجلد الجهاز الآخر كاملاً، فأُجّل نقل الحذف' : '');
+      };
+      /* حذف كبير معلَّق: القرار للمستخدم — يُنفَّذ في مزامنة فورية */
+      var decide = function (peerId, name, d) {
+        _lanXDelDecision[_lanXKey(peerId, name)] = d;
+        setMsg('…');
+        _lanSyncNow(true).then(function () { setMsg(''); _lanRenderStatus(); });
       };
       var status = peers.map(function (p) {
         var who = many ? ' «' + pName(p) + '»' : '';
@@ -8250,6 +8347,16 @@
               <div><b>${f.name}</b> <span style="color:rgba(var(--ov),0.5);font-size:11px" dir="auto">${f.label}</span></div>
               ${peers.map(function (p) {
                 return html`<div key=${p.id} style="font-size:11px;color:rgba(var(--ov),0.6)">${many ? pName(p) + ': ' : ''}${resTxt((p.xResults || {})[f.name])}</div>`;
+              })}
+              ${peers.map(function (p) {
+                var r = (p.xResults || {})[f.name];
+                return r && r.held ? html`<div key=${'h' + p.id} class="lanx-held" style="font-size:11.5px;color:#fcd34d;margin-top:4px;line-height:1.7">
+                  ⚠️ حُذف ${toArabic(r.held)} ملفاً من هذا المجلد على ${many ? '«' + pName(p) + '»' : 'الجهاز الآخر'} — لم يُحذف شيء هنا بعد.
+                  <div style="display:flex;gap:6px;margin-top:3px;flex-wrap:wrap">
+                    <button class="sm-btn danger" style="padding:3px 8px" onClick=${function () { decide(p.id, f.name, 'ok'); }}>احذفها هنا أيضاً</button>
+                    <button class="sm-btn" style="padding:3px 8px" onClick=${function () { decide(p.id, f.name, 'keep'); }}>أبقِها هنا</button>
+                  </div>
+                </div>` : null;
               })}
             </div>
             <button class="sm-btn" style="padding:3px 8px" onClick=${function () { move(f.name); }}>📂 تغيير المكان</button>
@@ -8273,7 +8380,10 @@
         </div>
         ${msg ? html`<div style="font-size:11px;color:var(--tw)">${msg}</div>` : null}
         <div style="font-size:10.5px;color:rgba(var(--ov),0.45);line-height:1.6">
-          يُسحب الجديد والمعدَّل في الاتجاهين مع المجلدات الفرعية، وعند تعديل الملف على جهازين يفوز الأحدث. الحذف لا ينتقل للأجهزة الأخرى.
+          يُسحب الجديد والمعدَّل في الاتجاهين مع المجلدات الفرعية، وعند تعديل الملف على جهازين يفوز الأحدث.
+          الحذف ينتقل أيضاً: ما تحذفه من جهاز يُحذف من الآخر في المزامنة التالية — إلى سلة المحذوفات على ويندوز،
+          وإلى مجلد <span dir="ltr">.sync-trash</span> المخفي داخل المجلد نفسه على أندرويد (يُفرَّغ بعد ${toArabic(30)} يوماً).
+          حذف أكثر من ${toArabic(LANX_DEL_MAX)} ملفاً دفعة واحدة يطلب تأكيدك أولاً.
           مكان المجلد يختلف من جهاز لآخر؛ الربط بالاسم.
         </div>
       </div>`;
@@ -8296,6 +8406,9 @@
       var all = _lanXStateAll();
       Object.keys(all).forEach(function (k) { if (k.split('\u0001')[0] === id) delete all[k]; });
       _lanXStateSave(all);
+      var g = _lanXGens();
+      Object.keys(g).forEach(function (k) { if (k.split('\u0001')[0] === id) delete g[k]; });
+      _lanXGensSave(g);
       _lanApplyTokens();
       showFb('أُزيل الجهاز من المزامنة المباشرة');
       _lanRenderStatus();
