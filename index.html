@@ -11,12 +11,12 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: https://*.googleapis.com https://*.gstatic.com https://*.google.com https://*.ggpht.com https://*.googleusercontent.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https://*.googleapis.com https://*.gstatic.com https://*.google.com https://*.ggpht.com https://*.googleusercontent.com; media-src 'self' data: blob:; connect-src 'self' data: blob: https://api.open-meteo.com https://ensemble-api.open-meteo.com https://api.met.no https://raw.githubusercontent.com https://*.googleapis.com https://*.gstatic.com https://*.google.com https://*.ggpht.com https://*.googleusercontent.com; frame-src 'self' data: blob: https://*.google.com; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
   <meta name="theme-color" content="#667eea">
-  <meta name="app-version" content="1.42.0">
+  <meta name="app-version" content="1.43.0">
   <!-- أدنى إصدار من التطبيق المثبّت (APK / مثبّت ويندوز) تحتاجه هذه الواجهة: الواجهة تتحدث تلقائياً
        والتطبيق المثبّت لا، فإن كان المثبّت أقدم من هذا عرضت الواجهة شريط «تحديث التطبيق مطلوب».
        يضبطهما scripts/bump-version.js آلياً عند تغيّر كود الطبقة الأصلية، ويفرضهما فحص CI. -->
-  <meta name="app-min-native-android" content="1.42.0">
-  <meta name="app-min-native-windows" content="1.42.0">
+  <meta name="app-min-native-android" content="1.43.0">
+  <meta name="app-min-native-windows" content="1.43.0">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <title>المنظم</title>
@@ -8133,6 +8133,25 @@
       return true;
     }
 
+    /* مجلد «التنزيلات»: يُربط بنقرة على كل جهاز بالاسم الثابت نفسه. على أندرويد منتقي النظام يمنع
+       اختيار هذا المجلد (منذ أندرويد ١١) فتصل إليه الطبقة الأصلية بمساره بعد منح «الوصول إلى كل
+       الملفات»؛ وعلى ويندوز يُؤخذ مجلد تنزيلات المستخدم دون نافذة اختيار. */
+    var LANX_DL_NAME = 'التنزيلات';
+    function _lanXDlAvailable() {
+      return _lanXAvailable() && typeof (/** @type {any} */ (window.LanSync)).xAddDownloads === 'function';
+    }
+    async function _lanXAddDownloads() {
+      var r = await _lanCall('xAddDownloads', [LANX_DL_NAME], 60000);
+      return r ? JSON.parse(r) : null;
+    }
+    function _lanXDlErrText(m) {
+      m = String(m || '');
+      if (/need-access/.test(m)) return 'فُتحت صفحة الإعدادات: فعّل «السماح بالوصول إلى كل الملفات» لتطبيق المنظم، ثم ارجع واضغط الزر مرة أخرى. (أندرويد يمنع اختيار مجلد التنزيلات بالطريقة العادية)';
+      if (/unsupported/.test(m)) return 'مزامنة مجلد التنزيلات تتطلب أندرويد ١١ فأحدث';
+      if (/no-folder/.test(m)) return 'تعذّر الوصول إلى مجلد التنزيلات على هذا الجهاز';
+      return m || 'تعذّر';
+    }
+
     async function _lanXAdd(name) {
       var r = await _lanCall('xAdd', [name], 10 * 60000);   /* ينتظر اختيار المستخدم للمجلد */
       return r ? JSON.parse(r) : null;
@@ -8163,10 +8182,22 @@
       });
       /* عند ظهور اللوحة: اسأل الأجهزة عن مجلداتها فوراً */
       preactHooks.useEffect(function () { _lanXRefreshPeer(false); }, []);
+      var addDl = async function () {
+        if (!confirm('مزامنة مجلد «التنزيلات» على هذا الجهاز مع مجلد التنزيلات على الجهاز الآخر؟\n\n'
+          + 'يُنسخ كل ما في تنزيلات كل جهاز إلى الآخر (قد يكون الحجم كبيراً في أول مرة). الحذف لا ينتقل.')) return;
+        setMsg('…');
+        try {
+          var r = await _lanXAddDownloads();
+          setMsg(r ? '✓ رُبط مجلد التنزيلات (' + (r.label || '') + ') — اضغط الزر نفسه على الجهاز الآخر إن لم يكن مربوطاً هناك' : '');
+          if (r) _lanSyncNow(true).then(function () { _lanRenderStatus(); });
+        } catch (e) { setMsg('✗ ' + _lanXDlErrText(e && e.message)); }
+        _lanRenderStatus();
+      };
       var add = async function (name) {
         name = String(name || '').trim();
         if (!name) { setMsg('اكتب اسماً للمجلد'); return; }
         if (name.length > 60 || /[\\/]/.test(name)) { setMsg('اسم غير صالح'); return; }
+        if (name === LANX_DL_NAME && _lanXDlAvailable()) return addDl();
         setMsg('… اختر المجلد');
         try {
           var r = await _lanXAdd(name);
@@ -8235,6 +8266,7 @@
         ${lastAt ? html`<div style="font-size:10.5px;color:rgba(var(--ov),0.45)">
           مجلدات ${many ? 'الأجهزة الأخرى' : 'الجهاز الآخر'}: ${_lanFmtWhen(lastAt)}
           <span style="cursor:pointer;color:#93c5fd;margin-inline-start:6px" onClick=${function () { _lanXRefreshPeer(true); }}>تحديث</span></div>` : null}
+        ${_lanXDlAvailable() && localNames.indexOf(LANX_DL_NAME) < 0 ? html`<button class="sm-btn" id="lanx-dl-btn" onClick=${addDl}>📥 مزامنة مجلد التنزيلات</button>` : null}
         <div style="display:flex;gap:6px">
           <input class="edit-inp" placeholder="اسم المجلد (مثل: صور)" value=${nm} onInput=${function (e) { setNm(e.target.value); }} style="flex:1;padding:6px 10px;font-size:13px"/>
           <button class="sm-btn" onClick=${function () { add(nm); }}>➕ إضافة</button>
