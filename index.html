@@ -11,12 +11,12 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: https://*.googleapis.com https://*.gstatic.com https://*.google.com https://*.ggpht.com https://*.googleusercontent.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https://*.googleapis.com https://*.gstatic.com https://*.google.com https://*.ggpht.com https://*.googleusercontent.com; media-src 'self' data: blob:; connect-src 'self' data: blob: https://api.open-meteo.com https://ensemble-api.open-meteo.com https://api.met.no https://raw.githubusercontent.com https://*.googleapis.com https://*.gstatic.com https://*.google.com https://*.ggpht.com https://*.googleusercontent.com; frame-src 'self' data: blob: https://*.google.com; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
   <meta name="theme-color" content="#667eea">
-  <meta name="app-version" content="1.44.0">
+  <meta name="app-version" content="1.45.0">
   <!-- أدنى إصدار من التطبيق المثبّت (APK / مثبّت ويندوز) تحتاجه هذه الواجهة: الواجهة تتحدث تلقائياً
        والتطبيق المثبّت لا، فإن كان المثبّت أقدم من هذا عرضت الواجهة شريط «تحديث التطبيق مطلوب».
        يضبطهما scripts/bump-version.js آلياً عند تغيّر كود الطبقة الأصلية، ويفرضهما فحص CI. -->
-  <meta name="app-min-native-android" content="1.44.0">
-  <meta name="app-min-native-windows" content="1.44.0">
+  <meta name="app-min-native-android" content="1.45.0">
+  <meta name="app-min-native-windows" content="1.45.0">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <title>المنظم</title>
@@ -7983,8 +7983,54 @@
         if (tot.ok && !errs.length) _lanLastErr = '';
         setTimeout(_lanRenderStatus, 200);
         return tot.ok > 0;
-      } finally { _lanBusy = false; }
+      } finally {
+        _lanBusy = false;
+        /* طُلبت مزامنة أثناء هذه (تغيّر جديد عند جهاز آخر): تُعاد كي لا يفوت */
+        if (_lanAgain) { _lanAgain = false; setTimeout(_lanSyncSoon, 300); }
+      }
     }
+
+    /* ══ المزامنة الفورية ══
+       الطبقة الأصلية تراقب المجلدات الإضافية وتُعلم الصفحة بحدثين (window._lanNativeEvent):
+       • local-change: تغيّر مجلد على هذا الجهاز ⇐ نُنبّه الأجهزة المقترنة (‎/poke‎) لتسحب.
+       • poke: جهاز آخر نبّهنا أن عنده جديداً ⇐ نزامن الآن.
+       كل جهاز يسحب من غيره، فالتنبيه هو ما يجعل الطرف الآخر يتحرك فوراً بدل انتظار الدورة.
+       تطبيق مثبّت أقدم لا يرسل الأحداث ولا يعرف ‎/poke‎: يبقى على الدورة كل ٣ دقائق بلا ضرر. */
+    var _lanAgain = false;
+    function _lanSyncSoon() {
+      var s = LS.get();
+      if (!s.enabled || !_lanAvailable() || !_lanPaired()) return;
+      if (_lanBusy) { _lanAgain = true; return; }
+      _lanSyncNow(true).then(function () { _lanRenderStatus(); });
+    }
+    var _lanPokeBusy = false, _lanPokeAgain = false, _lanPokeAt = 0, _lanPokeTimer = null;
+    var LAN_POKE_GAP = 5000;          /* أدنى فاصل بين تنبيهين: دفعة تغيّرات تُجمع في تنبيه، ولا تبادل محموم */
+    async function _lanPokePeers() {
+      var s = LS.get();
+      if (!s.enabled || !_lanAvailable()) return 0;
+      if (_lanPokeBusy) { _lanPokeAgain = true; return 0; }
+      var wait = _lanPokeAt + LAN_POKE_GAP - Date.now();
+      if (wait > 0) {
+        if (!_lanPokeTimer) _lanPokeTimer = setTimeout(function () { _lanPokeTimer = null; _lanPokePeers(); }, wait);
+        return 0;
+      }
+      _lanPokeBusy = true; _lanPokeAt = Date.now();
+      var n = 0;
+      try {
+        await Promise.all(_lanPeers().map(function (p) {
+          return _lanCall('httpJson', [_lanBase(p.ip, p.port) + '/poke', p.token], 8000)
+            .then(function () { n++; }, function () { /* غير متصل أو تطبيق أقدم: تلحقه دورته */ });
+        }));
+      } finally {
+        _lanPokeBusy = false;
+        if (_lanPokeAgain) { _lanPokeAgain = false; setTimeout(_lanPokePeers, 1000); }
+      }
+      return n;
+    }
+    /** @type {any} */ (window)._lanNativeEvent = function (kind) {
+      if (kind === 'poke') _lanSyncSoon();
+      else if (kind === 'local-change') _lanPokePeers();
+    };
 
     /* ══════════════════════════════════════════════════════════════════
        مجلدات المزامنة الإضافية (مثل GoodSync)
@@ -8000,14 +8046,13 @@
          وإن عُدّل هنا بعد المزامنة فالتعديل يفوز على الحذف (يبقى، ويسحبه النظير من جديد).
        الحذف يُبنى على «غياب» الملف عن بيان النظير، فشروطه صارمة: البيان كامل يقيناً (complete)،
        وربط النظير هو نفسه الذي سُجّلت معه الحالة (gen — وإلا تغيّر مكان مجلده فيُبدأ السجل من جديد)،
-       والطبقة الأصلية هنا تدعم xDelete. وحذف دفعة كبيرة يُعلَّق حتى يؤكده المستخدم.
+       والطبقة الأصلية هنا تدعم xDelete. لا تأكيد ولا حد للعدد (بطلب المالك): الحذف ينفَّذ فوراً،
+       وشبكة الأمان هي السلة والشروط أعلاه.
     ══════════════════════════════════════════════════════════════════ */
     var LANX_STATE = 'lansync_xstate_v1';
     var LANX_GEN = 'lansync_xgen_v1';     /* معرّف ربط النظير الذي سُجّلت معه الحالة: {مفتاح: gen} */
     var LANX_SLACK = 2000;            /* فرق زمن يُعدّ تطابقاً (دقة أنظمة الملفات تختلف) */
-    var LANX_DEL_MAX = 50;            /* حذف أكثر من هذا دفعةً واحدة — أو أكثر من نصف المجلد — يطلب تأكيداً */
-    /* قرار المستخدم في حذف معلَّق: {مفتاح: 'ok' | 'keep'} — يُستهلك في المزامنة التالية للمجلد */
-    var _lanXDelDecision = {};
+
     function _lanXAvailable() {
       return _lanAvailable() && typeof (/** @type {any} */ (window.LanSync)).xFolders === 'function';
     }
@@ -8031,10 +8076,6 @@
     /* هل تستطيع الطبقة الأصلية هنا إزالة ملف (إلى السلة)؟ تطبيق مثبّت أقدم ⇒ لا حذف، والباقي يعمل */
     function _lanXCanDelete() {
       return _lanXAvailable() && typeof (/** @type {any} */ (window.LanSync)).xDelete === 'function';
-    }
-    /* دفعة حذف كبيرة تستحق تأكيداً: أكثر من LANX_DEL_MAX، أو عشرة فأكثر تتجاوز نصف ملفات المجلد */
-    function _lanXDelBig(n, localCount) {
-      return n > LANX_DEL_MAX || (n >= 10 && n * 2 > localCount);
     }
 
     /* خطة مجلد: ما يُسحب من النظير وما يُحذف هنا. local/peer: [{p,size,mt}]، st: {p: {ps,pm,ls,lm,d?}}
@@ -8076,7 +8117,7 @@
 
     /* سجل الحالة بعد المزامنة: كل ملف موجود عند الطرفين ولم يفشل سحبه يُسجَّل بقيمه الحالية.
        opt.complete=false (بيان النظير ناقص): ما غاب عنه لا يُستنتج منه شيء فيبقى سجله كما هو.
-       opt.retain: مسارات حذفٍ لم يُنفَّذ (معلَّق أو تعذّر أو غير مدعوم) تبقى مرشحة للدورة التالية. */
+       opt.retain: مسارات حذفٍ لم يُنفَّذ (تعذّر أو غير مدعوم) تبقى مرشحة للدورة التالية. */
     function _lanXNextState(st, localAfter, peerFiles, failed, opt) {
       var loc = _lanManifestMap(localAfter), peer = _lanManifestMap(peerFiles), out = {};
       var complete = !opt || opt.complete !== false, retain = (opt && opt.retain) || {};
@@ -8097,7 +8138,7 @@
     }
 
     async function _lanXSyncFolder(base, token, peerId, name) {
-      var res = { pulled: 0, failed: 0, conflicts: 0, deleted: 0, delFailed: 0, held: 0, delOff: '', err: '' };
+      var res = { pulled: 0, failed: 0, conflicts: 0, deleted: 0, delFailed: 0, delOff: '', err: '' };
       var q = '?f=' + encodeURIComponent(name);
       var man = JSON.parse(await _lanCall('httpJson', [base + '/xmanifest' + q, token], 120000) || '{}');
       if (!man || !Array.isArray(man.files)) throw new Error('bad-manifest');
@@ -8113,18 +8154,10 @@
       /* ── الحذف أولاً (سريع)، بشروطه ── */
       var canDel = man.complete === true && !!gen && _lanXCanDelete();
       var dels = plan.del, retain = {};
-      var keepAll = function () { dels.forEach(function (d) { retain[d.p] = 1; }); dels = []; };
       if (!canDel) {
-        if (plan.del.length) res.delOff = !_lanXCanDelete() ? 'local' : (!gen ? 'peer' : 'partial');
-        keepAll();
-      } else {
-        /* القرار يخص الدفعة المعلَّقة الآن: يُستهلك في هذه الدورة ولا يبقى لدفعة لاحقة */
-        var dec = _lanXDelDecision[key];
-        delete _lanXDelDecision[key];
-        if (_lanXDelBig(dels.length, local.length)) {
-          if (dec === 'keep') dels = [];                    /* يُنسى سجلها: تبقى هنا ولا تُحذف لاحقاً */
-          else if (dec !== 'ok') { res.held = dels.length; keepAll(); }
-        }
+        if (dels.length) res.delOff = !_lanXCanDelete() ? 'local' : (!gen ? 'peer' : 'partial');
+        dels.forEach(function (d) { retain[d.p] = 1; });      /* تبقى مرشحة حتى تتحقق الشروط */
+        dels = [];
       }
       for (var k = 0; k < dels.length; k++) {
         var d = dels[k];
@@ -8166,19 +8199,14 @@
       }
       var results = {};
       var locals = _lanXLocal();
-      var prev = (_lanPeer(peerId) || {}).xResults || {};
       for (var i = 0; i < locals.length; i++) {
         var n = locals[i].name;
         if (peerNames.indexOf(n) < 0) { results[n] = { missing: true }; continue; }
         try {
           var r = await _lanXSyncFolder(base, token, peerId, n);
           results[n] = { pulled: r.pulled, failed: r.failed, conflicts: r.conflicts, deleted: r.deleted, delFailed: r.delFailed,
-            held: r.held, delOff: r.delOff, at: Date.now() };
+            delOff: r.delOff, at: Date.now() };
           tot.pulled += r.pulled; tot.failed += r.failed + r.delFailed; tot.deleted += r.deleted;
-          /* حذف كبير عُلّق: يُنبَّه المستخدم مرة عند ظهوره (المزامنة الدورية صامتة) */
-          if (r.held && !(prev[n] && prev[n].held)) {
-            showFb('⚠️ حُذف ' + toArabic(r.held) + ' ملفاً من «' + n + '» على الجهاز الآخر — أكّد حذفها هنا من الإعدادات ← المزامنة المباشرة', 1);
-          }
         } catch (e) { results[n] = { err: String((e && e.message) || 'error').slice(0, 60), at: Date.now() }; tot.failed++; }
       }
       _lanPeerPatch(peerId, { xFolders: peerNames, xOld: false, xErr: '', xAt: Date.now(), xResults: results });
@@ -8244,7 +8272,7 @@
       Object.keys(all).forEach(function (k) { if (k.split('\u0001')[1] === name) delete all[k]; });
       _lanXStateSave(all);
       var g = _lanXGens();
-      Object.keys(g).forEach(function (k) { if (k.split('\u0001')[1] === name) { delete g[k]; delete _lanXDelDecision[k]; } });
+      Object.keys(g).forEach(function (k) { if (k.split('\u0001')[1] === name) delete g[k]; });
       _lanXGensSave(g);
     }
 
@@ -8317,19 +8345,14 @@
         if (r.missing) return 'غير مربوط هناك';
         if (r.err) return '✗ ' + _lanErrText(r.err);
         return _lanFmtWhen(r.at) + (r.pulled ? ' — سُحب ' + toArabic(r.pulled) : '') + (r.deleted ? ' — حُذف ' + toArabic(r.deleted) : '')
-          + (!r.pulled && !r.deleted && !r.held ? ' — متطابق' : '')
+          + (!r.pulled && !r.deleted ? ' — متطابق' : '')
           + (r.conflicts ? ' — ' + toArabic(r.conflicts) + ' تعارض (فاز الأحدث)' : '') + (r.failed ? ' — تعذّر ' + toArabic(r.failed) : '')
           + (r.delFailed ? ' — تعذّر حذف ' + toArabic(r.delFailed) : '')
           + (r.delOff === 'peer' ? ' — المحذوف هناك لا يُحذف هنا حتى يُحدَّث التطبيق المثبّت على الجهاز الآخر'
             : r.delOff === 'local' ? ' — المحذوف هناك لا يُحذف هنا حتى يُحدَّث التطبيق المثبّت على هذا الجهاز'
               : r.delOff === 'partial' ? ' — تعذّر سرد مجلد الجهاز الآخر كاملاً، فأُجّل نقل الحذف' : '');
       };
-      /* حذف كبير معلَّق: القرار للمستخدم — يُنفَّذ في مزامنة فورية */
-      var decide = function (peerId, name, d) {
-        _lanXDelDecision[_lanXKey(peerId, name)] = d;
-        setMsg('…');
-        _lanSyncNow(true).then(function () { setMsg(''); _lanRenderStatus(); });
-      };
+
       var status = peers.map(function (p) {
         var who = many ? ' «' + pName(p) + '»' : '';
         if (p.xOld) return html`<div key=${'s' + p.id} style="font-size:11px;color:#fcd34d">التطبيق المثبّت على الجهاز${who} لا يدعم المجلدات الإضافية — حدّثه إلى ${toArabic('1.41.0')} فأحدث.</div>`;
@@ -8347,16 +8370,6 @@
               <div><b>${f.name}</b> <span style="color:rgba(var(--ov),0.5);font-size:11px" dir="auto">${f.label}</span></div>
               ${peers.map(function (p) {
                 return html`<div key=${p.id} style="font-size:11px;color:rgba(var(--ov),0.6)">${many ? pName(p) + ': ' : ''}${resTxt((p.xResults || {})[f.name])}</div>`;
-              })}
-              ${peers.map(function (p) {
-                var r = (p.xResults || {})[f.name];
-                return r && r.held ? html`<div key=${'h' + p.id} class="lanx-held" style="font-size:11.5px;color:#fcd34d;margin-top:4px;line-height:1.7">
-                  ⚠️ حُذف ${toArabic(r.held)} ملفاً من هذا المجلد على ${many ? '«' + pName(p) + '»' : 'الجهاز الآخر'} — لم يُحذف شيء هنا بعد.
-                  <div style="display:flex;gap:6px;margin-top:3px;flex-wrap:wrap">
-                    <button class="sm-btn danger" style="padding:3px 8px" onClick=${function () { decide(p.id, f.name, 'ok'); }}>احذفها هنا أيضاً</button>
-                    <button class="sm-btn" style="padding:3px 8px" onClick=${function () { decide(p.id, f.name, 'keep'); }}>أبقِها هنا</button>
-                  </div>
-                </div>` : null;
               })}
             </div>
             <button class="sm-btn" style="padding:3px 8px" onClick=${function () { move(f.name); }}>📂 تغيير المكان</button>
@@ -8383,7 +8396,8 @@
           يُسحب الجديد والمعدَّل في الاتجاهين مع المجلدات الفرعية، وعند تعديل الملف على جهازين يفوز الأحدث.
           الحذف ينتقل أيضاً: ما تحذفه من جهاز يُحذف من الآخر في المزامنة التالية — إلى سلة المحذوفات على ويندوز،
           وإلى مجلد <span dir="ltr">.sync-trash</span> المخفي داخل المجلد نفسه على أندرويد (يُفرَّغ بعد ${toArabic(30)} يوماً).
-          حذف أكثر من ${toArabic(LANX_DEL_MAX)} ملفاً دفعة واحدة يطلب تأكيدك أولاً.
+          المزامنة فورية: أي تغيير في المجلد على أحد الأجهزة يُنقل للبقية خلال ثوانٍ ما دام التطبيق يعمل عليها
+          (على ويندوز يكفي بقاؤه في أيقونة شريط المهام)؛ وإن كان مغلقاً فعند فتحه.
           مكان المجلد يختلف من جهاز لآخر؛ الربط بالاسم.
         </div>
       </div>`;
@@ -8610,7 +8624,9 @@
     document.addEventListener('visibilitychange', function () {
       if (document.visibilityState === 'visible') setTimeout(_lanTick, 1200);
     });
-    setInterval(function () { if (!document.hidden) _lanTick(); }, 180e3);
+    /* الدورة الاحتياطية: على ويندوز تعمل والنافذة مخفية في أيقونة الشريط أيضاً (التطبيق حيّ هناك)،
+       فيلتقط ما فاته التنبيه الفوري — مثل تغيّر على الهاتف وتطبيقه مغلق */
+    setInterval(function () { if (!document.hidden || /** @type {any} */ (window)._winAutoUpdate) _lanTick(); }, 180e3);
     setTimeout(_lanTick, 8000);
 </script>
 
