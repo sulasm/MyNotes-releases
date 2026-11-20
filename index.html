@@ -11,12 +11,12 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: https://*.googleapis.com https://*.gstatic.com https://*.google.com https://*.ggpht.com https://*.googleusercontent.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https://*.googleapis.com https://*.gstatic.com https://*.google.com https://*.ggpht.com https://*.googleusercontent.com; media-src 'self' data: blob:; connect-src 'self' data: blob: https://api.open-meteo.com https://ensemble-api.open-meteo.com https://api.met.no https://raw.githubusercontent.com https://*.googleapis.com https://*.gstatic.com https://*.google.com https://*.ggpht.com https://*.googleusercontent.com; frame-src 'self' data: blob: https://*.google.com; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
   <meta name="theme-color" content="#667eea">
-  <meta name="app-version" content="1.45.0">
+  <meta name="app-version" content="1.46.0">
   <!-- أدنى إصدار من التطبيق المثبّت (APK / مثبّت ويندوز) تحتاجه هذه الواجهة: الواجهة تتحدث تلقائياً
        والتطبيق المثبّت لا، فإن كان المثبّت أقدم من هذا عرضت الواجهة شريط «تحديث التطبيق مطلوب».
        يضبطهما scripts/bump-version.js آلياً عند تغيّر كود الطبقة الأصلية، ويفرضهما فحص CI. -->
-  <meta name="app-min-native-android" content="1.45.0">
-  <meta name="app-min-native-windows" content="1.45.0">
+  <meta name="app-min-native-android" content="1.46.0">
+  <meta name="app-min-native-windows" content="1.46.0">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <title>المنظم</title>
@@ -3402,6 +3402,8 @@
     function _onSaveOk() {
       hideSaveError();
       _autoBackup();
+      /* المزامنة المباشرة: نبّه الأجهزة المقترنة أن الملاحظات تغيّرت (16-lansync.js) */
+      try { if (typeof _lanNotesSaved === 'function') _lanNotesSaved(); } catch (e) { }
     }
 
     /* رد الكتابة غير الحاجبة من أندرويد (writeJsonAsync) */
@@ -7889,11 +7891,60 @@
       } catch (e) { return null; }
     }
 
+    /* ══ التقدّم والسجل ══
+       _lanProg: ما يجري الآن (للعرض في اللوحة): {peer, what, i, n, name, size, got}. أثناء سحب ملف
+       تُسأل الطبقة الأصلية عن البايتات المكتوبة (progress) كل ٦٠٠ م.ث إن دعمته.
+       السجل: آخر LAN_LOG_MAX حدثاً في localStorage — ما سُحب وحُذف وحُفظ عند تعارض وتعذّر. */
+    var _lanProg = null, _lanProgTimer = null, _lanProgDrawAt = 0;
+    function _lanProgDraw(force) {
+      if (!force && Date.now() - _lanProgDrawAt < 400) return;
+      _lanProgDrawAt = Date.now();
+      _lanRenderStatus();
+    }
+    function _lanProgPoll() {
+      if (!_lanProg) return;
+      try {
+        var o = JSON.parse(/** @type {any} */ (window.LanSync).progress() || '{}');
+        if (o && o.on && +o.n >= 0) { _lanProg.got = +o.n; _lanProgDraw(false); }
+      } catch (e) { }
+    }
+    function _lanProgSet(p) {
+      _lanProg = p;
+      var can = !!p && _lanAvailable() && typeof (/** @type {any} */ (window.LanSync)).progress === 'function';
+      if (can && !_lanProgTimer) _lanProgTimer = setInterval(_lanProgPoll, 600);
+      if (!can && _lanProgTimer) { clearInterval(_lanProgTimer); _lanProgTimer = null; }
+      _lanProgDraw(!p);
+    }
+    function _lanFmtSize(n) {
+      n = +n || 0;
+      var t = n >= 1073741824 ? (n / 1073741824).toFixed(2) + ' ج.ب' : n >= 1048576 ? (n / 1048576).toFixed(1) + ' م.ب'
+        : n >= 1024 ? Math.round(n / 1024) + ' ك.ب' : n + ' بايت';
+      return toArabic(t);
+    }
+    var LAN_LOG = 'lansync_log_v1', LAN_LOG_MAX = 150;
+    /** @returns {any[]} */
+    function _lanLogAll() {
+      try { var a = JSON.parse(localStorage.getItem(LAN_LOG) || '[]'); return Array.isArray(a) ? a : []; } catch (e) { return []; }
+    }
+    /* k: pull | del | keep (نسخة خاسرة حُفظت) | fail | notes | att | err */
+    function _lanLogAdd(k, peer, text) {
+      var a = _lanLogAll();
+      a.push({ t: Date.now(), k: k, d: String(peer || '').slice(0, 40), x: String(text || '').slice(0, 200) });
+      if (a.length > LAN_LOG_MAX) a = a.slice(a.length - LAN_LOG_MAX);
+      try { localStorage.setItem(LAN_LOG, JSON.stringify(a)); } catch (e) { }
+    }
+    function _lanLogClear() { try { localStorage.removeItem(LAN_LOG); } catch (e) { } }
+    /* طبقة أصلية تدعم السحب مع الاستكمال وحفظ النسخة الخاسرة (1.46.0) */
+    function _lanPull2() {
+      return _lanAvailable() && typeof (/** @type {any} */ (window.LanSync)).xPull2 === 'function'
+        && typeof (/** @type {any} */ (window.LanSync)).pullAtt2 === 'function';
+    }
+
     var _lanBusy = false;
     var _lanLastErr = '';
     /* ── مزامنة جهاز واحد: بيان → سحب المرفقات الناقصة → سحب ملف الملاحظات ودمجه → المجلدات الإضافية ── */
-    async function _lanSyncPeer(p, manual) {
-      var token = p.token, base = _lanBase(p.ip, p.port);
+    async function _lanSyncPeer(p, manual, light) {
+      var token = p.token, base = _lanBase(p.ip, p.port), who = p.name || p.id;
       var out = { pulled: 0, merged: false, x: { pulled: 0, failed: 0, deleted: 0 } };
       /* ١) بيان النظير — وإن لم يُجب عنوانه المحفوظ: المنفذ الثابت، ثم مكانه الجديد في الشبكة */
       var manRaw;
@@ -7918,16 +7969,22 @@
       var man = JSON.parse(manRaw || '{}');
       if (!man || !Array.isArray(man.files)) throw new Error('bad-manifest');
       /* ٢) المرفقات الناقصة (تُسحب إلى القرص مباشرةً — الفيديو لا يمرّ عبر JS) */
+      var caps = (man.caps && typeof man.caps === 'object') ? man.caps : {};
       var local = await _lanLocalFiles();
-      var toPull = _lanPlanPull(local, man.files);
+      var toPull = _lanPlanPull(local, man.files), peerMap = _lanManifestMap(man.files), v2 = _lanPull2();
       for (var i = 0; i < toPull.length; i++) {
-        var name = toPull[i];
+        var name = toPull[i], info = peerMap[LAN_ATT_DIR + '/' + name] || { size: 0, mt: 0 };
         var url = base + '/file?p=' + encodeURIComponent(LAN_ATT_DIR + '/' + name);
+        _lanProgSet({ peer: who, what: 'المرفقات', i: i + 1, n: toPull.length, name: name, size: info.size, got: 0 });
         try {
-          var r = await _lanCall('pullToFolder', [url, token, LAN_ATT_DIR, name]);
-          if (r === 'ok') out.pulled++;
-        } catch (e) { /* ملف واحد فشل لا يوقف البقية */ }
+          /* مع الاستكمال إن دعمه الطرفان: فيديو انقطع تنزيله يُكمَل من حيث توقف */
+          var r = v2
+            ? await _lanCall('pullAtt2', [url, token, name, JSON.stringify({ size: info.size, mt: info.mt, resume: !!caps.resume })], 30 * 60000)
+            : await _lanCall('pullToFolder', [url, token, LAN_ATT_DIR, name]);
+          if (r === 'ok') { out.pulled++; _lanLogAdd('att', who, name + ' (' + _lanFmtSize(info.size) + ')'); }
+        } catch (e) { _lanLogAdd('fail', who, 'مرفق ' + name + ': ' + _lanErrText(e && e.message)); /* ملف واحد فشل لا يوقف البقية */ }
       }
+      _lanProgSet(null);
       /* ٣) ملف الملاحظات: اسحب نصّه وادمجه بمنطق الدمج الآمن القائم */
       try {
         var peerNotes = await _lanCall('pullText', [base + '/file?p=' + encodeURIComponent(NOTES_FILE), token]);
@@ -7936,16 +7993,21 @@
           _absorbExternal(ext, String(peerNotes).length);
           out.merged = true;
           _lanWriteMerged();
+          _lanLogAdd('notes', who, 'دُمجت ملاحظات');
         }
       } catch (e) { /* قد لا يكون للنظير ملف بعد */ }
-      /* ٤) مجلدات المزامنة الإضافية — فشلها لا يُفشل مزامنة الملاحظات */
-      try { out.x = await _lanXSyncAll(base, token, p.id); } catch (e) { }
+      /* ٤) مجلدات المزامنة الإضافية — فشلها لا يُفشل مزامنة الملاحظات. المزامنة الخفيفة (تنبيه
+         «ملاحظات» من النظير) تتخطاها: سرد مجلدات كبيرة مع كل حفظ ملاحظة عبء بلا فائدة */
+      if (!light) {
+        try { out.x = await _lanXSyncAll(base, token, p.id, { caps: caps, who: who }); } catch (e) { }
+        _lanProgSet(null);
+      }
       _lanPeerPatch(p.id, { lastSyncAt: Date.now(), name: String(man.name || p.name || ''), lastErr: '' });
       return out;
     }
 
     /* ── المزامنة مع كل الأجهزة المقترنة بالتتابع (التغييرات تنتقل عبر أي جهاز وسيط) ── */
-    async function _lanSyncNow(quiet) {
+    async function _lanSyncNow(quiet, light) {
       var s = LS.get();
       if (!_lanAvailable()) { if (!quiet) showFb('⚠️ المزامنة المباشرة غير مدعومة في هذه النسخة', 1); return false; }
       if (!s.enabled) { if (!quiet) showFb('⚠️ فعّل المزامنة المباشرة أولاً', 1); return false; }
@@ -7962,12 +8024,14 @@
           var p = _lanPeer(peers[i].id);
           if (!p) continue;
           try {
-            var r = await _lanSyncPeer(p, !quiet);
+            var r = await _lanSyncPeer(p, !quiet, !!light);
             tot.ok++; tot.att += r.pulled; tot.merged = tot.merged || r.merged; tot.x += r.x.pulled; tot.xf += r.x.failed; tot.xd += r.x.deleted || 0;
           } catch (e) {
             var m = (e && e.message) || 'error';
             _lanPeerPatch(p.id, { lastErr: m, lastErrAt: Date.now() });
             errs.push((p.name || p.id) + ': ' + _lanErrText(m));
+            /* لا يُكرَّر الخطأ نفسه في السجل مع كل دورة */
+            if (p.lastErr !== m) _lanLogAdd('err', p.name || p.id, _lanErrText(m));
             _lanLastErr = m;
           }
         }
@@ -7985,8 +8049,9 @@
         return tot.ok > 0;
       } finally {
         _lanBusy = false;
+        _lanProgSet(null);
         /* طُلبت مزامنة أثناء هذه (تغيّر جديد عند جهاز آخر): تُعاد كي لا يفوت */
-        if (_lanAgain) { _lanAgain = false; setTimeout(_lanSyncSoon, 300); }
+        if (_lanAgain) { var lt = _lanAgain === 'light'; _lanAgain = false; setTimeout(function () { _lanSyncSoon(lt); }, 300); }
       }
     }
 
@@ -7996,41 +8061,57 @@
        • poke: جهاز آخر نبّهنا أن عنده جديداً ⇐ نزامن الآن.
        كل جهاز يسحب من غيره، فالتنبيه هو ما يجعل الطرف الآخر يتحرك فوراً بدل انتظار الدورة.
        تطبيق مثبّت أقدم لا يرسل الأحداث ولا يعرف ‎/poke‎: يبقى على الدورة كل ٣ دقائق بلا ضرر. */
-    var _lanAgain = false;
-    function _lanSyncSoon() {
+    /** @type {any} */
+    var _lanAgain = false;            /* false | 'light' | true (كاملة تغلب الخفيفة) */
+    function _lanSyncSoon(light) {
       var s = LS.get();
       if (!s.enabled || !_lanAvailable() || !_lanPaired()) return;
-      if (_lanBusy) { _lanAgain = true; return; }
-      _lanSyncNow(true).then(function () { _lanRenderStatus(); });
+      if (_lanBusy) { _lanAgain = (light && _lanAgain !== true) ? 'light' : true; return; }
+      _lanSyncNow(true, !!light).then(function () { _lanRenderStatus(); });
     }
     var _lanPokeBusy = false, _lanPokeAgain = false, _lanPokeAt = 0, _lanPokeTimer = null;
     var LAN_POKE_GAP = 5000;          /* أدنى فاصل بين تنبيهين: دفعة تغيّرات تُجمع في تنبيه، ولا تبادل محموم */
-    async function _lanPokePeers() {
+    /* نوع التنبيه المعلّق: 'notes' (حُفظت ملاحظة — يكفي النظيرَ مزامنة خفيفة) أو 'all' (تغيّر مجلد).
+       الأشمل يغلب إن اجتمعا. طبقة أصلية أقدم عند النظير تتجاهل ‎k‎ وتزامن كاملاً — بلا ضرر. */
+    var _lanPokeKind = '';
+    async function _lanPokePeers(kind) {
       var s = LS.get();
       if (!s.enabled || !_lanAvailable()) return 0;
+      if (kind === 'notes') { if (!_lanPokeKind) _lanPokeKind = 'notes'; } else _lanPokeKind = 'all';
       if (_lanPokeBusy) { _lanPokeAgain = true; return 0; }
       var wait = _lanPokeAt + LAN_POKE_GAP - Date.now();
       if (wait > 0) {
-        if (!_lanPokeTimer) _lanPokeTimer = setTimeout(function () { _lanPokeTimer = null; _lanPokePeers(); }, wait);
+        if (!_lanPokeTimer) _lanPokeTimer = setTimeout(function () { _lanPokeTimer = null; _lanPokePeers(_lanPokeKind === 'notes' ? 'notes' : ''); }, wait);
         return 0;
       }
       _lanPokeBusy = true; _lanPokeAt = Date.now();
+      var q = _lanPokeKind === 'notes' ? '?k=notes' : '';
+      _lanPokeKind = '';
       var n = 0;
       try {
         await Promise.all(_lanPeers().map(function (p) {
-          return _lanCall('httpJson', [_lanBase(p.ip, p.port) + '/poke', p.token], 8000)
+          return _lanCall('httpJson', [_lanBase(p.ip, p.port) + '/poke' + q, p.token], 8000)
             .then(function () { n++; }, function () { /* غير متصل أو تطبيق أقدم: تلحقه دورته */ });
         }));
       } finally {
         _lanPokeBusy = false;
-        if (_lanPokeAgain) { _lanPokeAgain = false; setTimeout(_lanPokePeers, 1000); }
+        if (_lanPokeAgain) { _lanPokeAgain = false; setTimeout(function () { _lanPokePeers(_lanPokeKind === 'notes' ? 'notes' : ''); }, 1000); }
       }
       return n;
     }
     /** @type {any} */ (window)._lanNativeEvent = function (kind) {
-      if (kind === 'poke') _lanSyncSoon();
-      else if (kind === 'local-change') _lanPokePeers();
+      if (kind === 'poke') _lanSyncSoon(false);
+      else if (kind === 'poke-notes') _lanSyncSoon(true);
+      else if (kind === 'local-change') _lanPokePeers('');
     };
+    /* مزامنة فورية للملاحظات: بعد كل حفظ ناجح لملف الملاحظات (يستدعيها _onSaveOk) تُنبَّه الأجهزة
+       المقترنة فتسحب خلال ثوانٍ بدل انتظار دورتها (حتى ٣ دقائق). الحفظ الناتج عن دمج وارد يُنبِّه
+       أيضاً — به تنتقل الملاحظة إلى جهاز ثالث — والردّ عليه مزامنة لا تجد جديداً فتنتهي السلسلة. */
+    function _lanNotesSaved() {
+      var s = LS.get();
+      if (!s.enabled || !_lanAvailable() || !_lanPaired()) return;
+      _lanPokePeers('notes');
+    }
 
     /* ══════════════════════════════════════════════════════════════════
        مجلدات المزامنة الإضافية (مثل GoodSync)
@@ -8095,14 +8176,15 @@
         if (!s) {
           /* أول لقاء: متطابقان ⇒ لا شيء؛ وإلا فالأحدث بوضوح يفوز (والأقدم يسحبه النظير) */
           if (l.size === r.size && Math.abs(l.mt - r.mt) <= LANX_SLACK) return;
-          if (r.mt > l.mt + LANX_SLACK) pull.push({ p: p, size: r.size, mt: r.mt });
+          /* keep: النسخة المحلية مختلفة وستُستبدل — تُحفظ في السلة قبل الاستبدال فلا يضيع تعديل */
+          if (r.mt > l.mt + LANX_SLACK) pull.push({ p: p, size: r.size, mt: r.mt, keep: { size: l.size, mt: l.mt } });
           return;
         }
         var localChanged = s.lm !== l.mt || s.ls !== l.size;
         if (!peerChanged) return;
         if (!localChanged) { pull.push({ p: p, size: r.size, mt: r.mt }); return; }
         conflicts++;
-        if (r.mt > l.mt) pull.push({ p: p, size: r.size, mt: r.mt });
+        if (r.mt > l.mt) pull.push({ p: p, size: r.size, mt: r.mt, keep: { size: l.size, mt: l.mt } });
       });
       /* كان عند الطرفين وغاب عن النظير: حُذف هناك. «شاهد» حذف محلي (d) عاد ملفه هنا ليس مرشحاً:
          هو ملف أعاده المستخدم (من السلة مثلاً) لا نسخة قديمة تنتظر الحذف. */
@@ -8137,8 +8219,10 @@
       return out;
     }
 
-    async function _lanXSyncFolder(base, token, peerId, name) {
-      var res = { pulled: 0, failed: 0, conflicts: 0, deleted: 0, delFailed: 0, delOff: '', err: '' };
+    async function _lanXSyncFolder(base, token, peerId, name, ctx) {
+      ctx = ctx || {};
+      var who = ctx.who || peerId, caps = ctx.caps || {}, v2 = _lanPull2();
+      var res = { pulled: 0, failed: 0, conflicts: 0, deleted: 0, delFailed: 0, delOff: '', err: '', kept: 0 };
       var q = '?f=' + encodeURIComponent(name);
       var man = JSON.parse(await _lanCall('httpJson', [base + '/xmanifest' + q, token], 120000) || '{}');
       if (!man || !Array.isArray(man.files)) throw new Error('bad-manifest');
@@ -8163,18 +8247,30 @@
         var d = dels[k];
         try {
           var dr = await _lanCall('xDelete', [name, d.p, String(d.size), String(d.mt)], 60000);
-          if (dr === 'ok' || dr === 'gone') res.deleted++;
+          if (dr === 'ok' || dr === 'gone') { res.deleted++; if (dr === 'ok') _lanLogAdd('del', who, name + '/' + d.p + ' ← السلة'); }
           else if (dr !== 'changed') { retain[d.p] = 1; res.delFailed++; }   /* changed: عُدّل للتوّ فيبقى ويسحبه النظير */
-        } catch (e) { retain[d.p] = 1; res.delFailed++; }
+        } catch (e) { retain[d.p] = 1; res.delFailed++; _lanLogAdd('fail', who, 'حذف ' + name + '/' + d.p + ': ' + _lanErrText(e && e.message)); }
       }
 
       var failed = {};
       for (var i = 0; i < plan.pull.length; i++) {
         var f = plan.pull[i];
+        var furl = base + '/xfile' + q + '&p=' + encodeURIComponent(f.p);
+        _lanProgSet({ peer: who, what: name, i: i + 1, n: plan.pull.length, name: f.p, size: f.size, got: 0 });
         try {
-          var r = await _lanCall('xPull', [base + '/xfile' + q + '&p=' + encodeURIComponent(f.p), token, name, f.p, String(f.mt)], 30 * 60000);
-          if (r === 'ok') res.pulled++; else { failed[f.p] = 1; res.failed++; }
-        } catch (e) { failed[f.p] = 1; res.failed++; }
+          /* 1.46.0: استكمال التنزيل المقطوع إن دعمه النظير، وحفظ النسخة المحلية الخاسرة في السلة */
+          var r = v2
+            ? await _lanCall('xPull2', [furl, token, name, f.p, JSON.stringify({ mt: f.mt, size: f.size, resume: !!caps.resume, keep: f.keep || null })], 60 * 60000)
+            : await _lanCall('xPull', [furl, token, name, f.p, String(f.mt)], 30 * 60000);
+          if (r === 'ok') {
+            res.pulled++;
+            _lanLogAdd('pull', who, name + '/' + f.p + ' (' + _lanFmtSize(f.size) + ')');
+            if (f.keep && v2) { res.kept++; _lanLogAdd('keep', who, name + '/' + f.p + ' — عُدّل على الجهازين: فاز الأحدث وحُفظت نسختك في السلة'); }
+          } else { failed[f.p] = 1; res.failed++; }
+        } catch (e) {
+          failed[f.p] = 1; res.failed++;
+          _lanLogAdd('fail', who, name + '/' + f.p + ': ' + _lanErrText(e && e.message));
+        }
       }
       var after = (plan.pull.length || res.deleted) ? JSON.parse(await _lanCall('xList', [name], 120000) || '[]') : local;
       all = _lanXStateAll();
@@ -8186,7 +8282,7 @@
 
     /* كل المجلدات المربوطة على هذا الجهاز وعلى جهاز peerId؛ يحفظ في سجل الجهاز أسماء مجلداته
        ونتيجة كل مجلد للعرض */
-    async function _lanXSyncAll(base, token, peerId) {
+    async function _lanXSyncAll(base, token, peerId, ctx) {
       var tot = { pulled: 0, failed: 0, deleted: 0 };
       if (!_lanXAvailable()) return tot;
       var peerNames = null;
@@ -8203,8 +8299,8 @@
         var n = locals[i].name;
         if (peerNames.indexOf(n) < 0) { results[n] = { missing: true }; continue; }
         try {
-          var r = await _lanXSyncFolder(base, token, peerId, n);
-          results[n] = { pulled: r.pulled, failed: r.failed, conflicts: r.conflicts, deleted: r.deleted, delFailed: r.delFailed,
+          var r = await _lanXSyncFolder(base, token, peerId, n, ctx);
+          results[n] = { pulled: r.pulled, failed: r.failed, conflicts: r.conflicts, kept: r.kept, deleted: r.deleted, delFailed: r.delFailed,
             delOff: r.delOff, at: Date.now() };
           tot.pulled += r.pulled; tot.failed += r.failed + r.delFailed; tot.deleted += r.deleted;
         } catch (e) { results[n] = { err: String((e && e.message) || 'error').slice(0, 60), at: Date.now() }; tot.failed++; }
@@ -8346,7 +8442,7 @@
         if (r.err) return '✗ ' + _lanErrText(r.err);
         return _lanFmtWhen(r.at) + (r.pulled ? ' — سُحب ' + toArabic(r.pulled) : '') + (r.deleted ? ' — حُذف ' + toArabic(r.deleted) : '')
           + (!r.pulled && !r.deleted ? ' — متطابق' : '')
-          + (r.conflicts ? ' — ' + toArabic(r.conflicts) + ' تعارض (فاز الأحدث)' : '') + (r.failed ? ' — تعذّر ' + toArabic(r.failed) : '')
+          + (r.conflicts ? ' — ' + toArabic(r.conflicts) + ' تعارض (فاز الأحدث' + (r.kept ? '، والأقدم في السلة' : '') + ')' : '') + (r.failed ? ' — تعذّر ' + toArabic(r.failed) : '')
           + (r.delFailed ? ' — تعذّر حذف ' + toArabic(r.delFailed) : '')
           + (r.delOff === 'peer' ? ' — المحذوف هناك لا يُحذف هنا حتى يُحدَّث التطبيق المثبّت على الجهاز الآخر'
             : r.delOff === 'local' ? ' — المحذوف هناك لا يُحذف هنا حتى يُحدَّث التطبيق المثبّت على هذا الجهاز'
@@ -8485,13 +8581,37 @@
     /* أرقام عربية ← لاتينية */
     function _lanDigits(x) { return String(x || '').replace(/[٠-٩]/g, function (d) { return String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)); }); }
 
+    /* البحث عن أجهزة «المنظم» في الشبكة للإقران دون كتابة عنوان (طبقة أصلية 1.46.0) */
+    function _lanScanAvailable() {
+      return _lanAvailable() && typeof (/** @type {any} */ (window.LanSync)).scan === 'function';
+    }
+    async function _lanScan() {
+      var r = await _lanCall('scan', [LAN_FIXED_PORT], 120000);
+      var a = []; try { a = JSON.parse(r || '[]'); } catch (e) { a = []; }
+      a = (Array.isArray(a) ? a : []).filter(function (d) { return d && d.ip && d.id; });
+      /* من يعرض رمزاً الآن أولاً — هو المقصود غالباً */
+      a.sort(function (x, y) { return (y.pair ? 1 : 0) - (x.pair ? 1 : 0) || String(x.name).localeCompare(String(y.name)); });
+      return a;
+    }
+
     function LanPairJoin() {
       var a = useState(''), ip = a[0], setIp = a[1];
       var b = useState(''), port = b[0], setPort = b[1];
       var c = useState(''), code = c[0], setCode = c[1];
       var d = useState(''), msg = d[0], setMsg = d[1];
+      /* found: null لم يُبحث | 'busy' | قائمة الأجهزة */
+      var f = useState(null), found = f[0], setFound = f[1];
+      var g = useState(''), picked = g[0], setPicked = g[1];
+      var canScan = _lanScanAvailable();
+      var scan = async function () {
+        setFound('busy');
+        try { setFound(await _lanScan()); } catch (e) { setFound([]); }
+      };
+      /* عند فتح الإقران: ابحث فوراً */
+      preactHooks.useEffect(function () { if (canScan) scan(); }, []);
+      var pick = function (dv) { setIp(String(dv.ip)); setPort(String(dv.port || LAN_FIXED_PORT)); setPicked(String(dv.id)); setMsg(''); };
       var go = async function () {
-        if (!ip || !code) { setMsg('أدخل العنوان والرمز'); return; }
+        if (!ip || !code) { setMsg(canScan ? 'اختر الجهاز (أو اكتب عنوانه) وأدخل الرمز' : 'أدخل العنوان والرمز'); return; }
         setMsg('… جارٍ الإقران');
         try {
           var o = await _lanPairInitiate(_lanDigits(ip).trim(), parseInt(_lanDigits(port), 10) || LAN_FIXED_PORT, _lanDigits(code).trim());
@@ -8499,13 +8619,66 @@
           setTimeout(function () { _lanRenderStatus(); _lanSyncNow(true); }, 400);
         } catch (e) { setMsg('✗ فشل الإقران: ' + _lanErrText(e && e.message)); }
       };
+      var paired = _lanPeers().map(function (p) { return p.id; });
       return html`<div style="display:flex;flex-direction:column;gap:6px">
         <div style="font-size:12px;color:rgba(var(--ov),0.7)">الإقران بجهاز يُظهر رمزاً:</div>
-        <input class="edit-inp" dir="ltr" placeholder="عنوان IP" value=${ip} onInput=${function (e) { setIp(e.target.value); }} style="padding:7px 10px;font-size:13px"/>
+        ${canScan ? html`<div style="display:flex;flex-direction:column;gap:5px">
+          ${found === 'busy' ? html`<div style="font-size:11.5px;color:rgba(var(--ov),0.6)">🔍 … جارٍ البحث عن الأجهزة في الشبكة</div>` : null}
+          ${Array.isArray(found) && !found.length ? html`<div style="font-size:11.5px;color:rgba(var(--ov),0.6);line-height:1.7">لم يُعثر على جهاز. تأكد أن «المنظم» مفتوح على الجهاز الآخر، والمزامنة المباشرة مفعّلة فيه، وأنه على الواي فاي نفسه — أو اكتب عنوانه يدوياً.</div>` : null}
+          ${Array.isArray(found) ? found.map(function (dv) {
+            var sel = picked === String(dv.id);
+            return html`<div key=${dv.id} onClick=${function () { pick(dv); }} style=${'cursor:pointer;font-size:12px;border-radius:8px;padding:6px 8px;line-height:1.6;background:rgba(var(--ov),' + (sel ? '0.16' : '0.05') + ');border:1px solid ' + (sel ? 'var(--tw)' : 'transparent')}>
+              <div>📱 <b>${dv.name || dv.id}</b> <span dir="ltr" style="color:rgba(var(--ov),0.5);font-size:11px">${dv.ip}</span>
+                ${dv.pair ? html` <span style="color:#86efac;font-size:11px">● يعرض رمزاً الآن</span>` : null}
+                ${paired.indexOf(String(dv.id)) >= 0 ? html` <span style="color:rgba(var(--ov),0.5);font-size:11px">(مقترن)</span>` : null}</div>
+            </div>`;
+          }) : null}
+          ${found !== 'busy' ? html`<span style="cursor:pointer;color:#93c5fd;font-size:11px" onClick=${scan}>🔍 ${found ? 'إعادة البحث' : 'بحث عن الأجهزة'}</span>` : null}
+        </div>` : null}
+        <input class="edit-inp" dir="ltr" placeholder="عنوان IP" value=${ip} onInput=${function (e) { setIp(e.target.value); setPicked(''); }} style="padding:7px 10px;font-size:13px"/>
         <input class="edit-inp" dir="ltr" placeholder=${'المنفذ (' + LAN_FIXED_PORT + ')'} value=${port} onInput=${function (e) { setPort(e.target.value); }} style="padding:7px 10px;font-size:13px"/>
         <input class="edit-inp" dir="ltr" inputmode="numeric" placeholder="الرمز (٦ خانات)" value=${code} onInput=${function (e) { setCode(e.target.value); }} style="padding:7px 10px;font-size:13px"/>
         <button class="sm-btn" onClick=${go}>🔗 إقران</button>
         ${msg ? html`<div style="font-size:12px;color:var(--tw)">${msg}</div>` : null}
+      </div>`;
+    }
+
+    /* ما يجري الآن: الملف ورقمه ونسبة ما اكتمل منه */
+    function LanProgress() {
+      var g = _lanProg;
+      if (!g) return null;
+      var pct = (g.size > 0 && g.got > 0) ? Math.min(100, Math.floor(g.got * 100 / g.size)) : -1;
+      return html`<div id="lan-progress" style="font-size:11.5px;line-height:1.7;background:rgba(var(--ov),0.07);border-radius:8px;padding:7px 9px">
+        <div>⏳ ${g.peer} — ${g.what}: ملف ${toArabic(g.i)} من ${toArabic(g.n)}</div>
+        <div dir="auto" style="color:rgba(var(--ov),0.65);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${g.name}</div>
+        <div style="color:rgba(var(--ov),0.65)">${pct >= 0 ? toArabic(pct) + '٪ — ' + _lanFmtSize(g.got) + ' من ' + _lanFmtSize(g.size) : _lanFmtSize(g.size)}</div>
+        ${pct >= 0 ? html`<div style="height:4px;border-radius:2px;background:rgba(var(--ov),0.12);margin-top:4px;overflow:hidden">
+          <div style=${'height:100%;width:' + pct + '%;background:var(--tw)'}></div></div>` : null}
+      </div>`;
+    }
+
+    var _LAN_LOG_ICON = { pull: '⬇️', att: '📎', del: '🗑️', keep: '♻️', fail: '⚠️', notes: '📝', err: '⚠️' };
+    function LanLogBox() {
+      var o = useState(false), open = o[0], setOpen = o[1];
+      var all = _lanLogAll();
+      if (!all.length) return null;
+      var rows = open ? all.slice(-60).reverse() : [];
+      var when = function (t) {
+        var d = new Date(t), p2 = function (n) { return ('0' + n).slice(-2); };
+        return toArabic(p2(d.getDate()) + '/' + p2(d.getMonth() + 1) + ' ' + p2(d.getHours()) + ':' + p2(d.getMinutes()));
+      };
+      return html`<div style="display:flex;flex-direction:column;gap:5px;border-top:1px solid rgba(var(--ov),0.08);padding-top:8px">
+        <div style="display:flex;align-items:center;gap:8px;font-size:12px">
+          <span style="cursor:pointer;flex:1" onClick=${function () { setOpen(!open); }}>📜 سجل المزامنة (${toArabic(all.length)}) ${open ? '▴' : '▾'}</span>
+          ${open ? html`<span style="cursor:pointer;color:#93c5fd;font-size:11px" onClick=${function () { if (confirm('مسح سجل المزامنة؟')) { _lanLogClear(); _lanRenderStatus(); } }}>مسح</span>` : null}
+        </div>
+        ${open ? html`<div style="max-height:260px;overflow:auto;display:flex;flex-direction:column;gap:3px">
+          ${rows.map(function (r, i) {
+            return html`<div key=${r.t + ':' + i} style=${'font-size:11px;line-height:1.6;color:' + ((r.k === 'fail' || r.k === 'err') ? '#fca5a5' : 'rgba(var(--ov),0.7)')}>
+              <span style="color:rgba(var(--ov),0.45)" dir="ltr">${when(r.t)}</span> ${_LAN_LOG_ICON[r.k] || '•'} <span dir="auto">${r.x}</span>
+              ${r.d ? html` <span style="color:rgba(var(--ov),0.45)">— ${r.d}</span>` : null}</div>`;
+          })}
+        </div>` : null}
       </div>`;
     }
 
@@ -8588,6 +8761,7 @@
             <button class="sm-btn" onClick=${function () { _lanSyncNow(false); }}>🔁 مزامنة الآن</button>
             <button class="sm-btn" onClick=${function () { setAddOpen(!addOpen); }}>${addOpen ? 'إخفاء الإقران' : '➕ إقران جهاز آخر'}</button>
           </div>
+          <${LanProgress}/>
         </div>` : null}
         ${showPair ? html`<div style="display:flex;flex-direction:column;gap:10px;border-top:1px solid rgba(var(--ov),0.08);padding-top:10px">
           ${s.needRepair ? html`<div style="font-size:12px;color:#fcd34d;line-height:1.7">🔒 أصبحت المزامنة المباشرة مشفّرة. أعد الإقران مرة واحدة على الجهازين بعد تحديثهما.</div>` : null}
@@ -8598,6 +8772,7 @@
             : html`<div style="font-size:11.5px;color:#fcd34d;border-top:1px solid rgba(var(--ov),0.08);padding-top:8px;line-height:1.7">
                 📁 المجلدات الإضافية تحتاج التطبيق المثبّت ${toArabic('1.41.0')} فأحدث على هذا الجهاز${nv ? ' (المثبّت ' + toArabic(nv) + ')' : ''} — حدّثه من شريط التحديث أو «تحقق وحدّث».
               </div>`) : null}
+        ${s.enabled ? html`<${LanLogBox}/>` : null}
         <div style="font-size:11px;color:rgba(var(--ov),0.45);border-top:1px solid rgba(var(--ov),0.08);padding-top:8px">
           تجريبي — يعمل والأجهزة على نفس الواي فاي، والاتصال بينها مشفّر. تغيّر عنوان الجهاز يُكتشف تلقائياً. يبقى GoodSync يعمل كالمعتاد؛ لا تُلغِه إلا بعد أن تثق بهذه الميزة.
         </div>
