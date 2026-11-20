@@ -11,11 +11,11 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: https://*.googleapis.com https://*.gstatic.com https://*.google.com https://*.ggpht.com https://*.googleusercontent.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https://*.googleapis.com https://*.gstatic.com https://*.google.com https://*.ggpht.com https://*.googleusercontent.com; media-src 'self' data: blob:; connect-src 'self' data: blob: https://api.open-meteo.com https://ensemble-api.open-meteo.com https://api.met.no https://raw.githubusercontent.com https://*.googleapis.com https://*.gstatic.com https://*.google.com https://*.ggpht.com https://*.googleusercontent.com; frame-src 'self' data: blob: https://*.google.com; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
   <meta name="theme-color" content="#667eea">
-  <meta name="app-version" content="1.46.0">
+  <meta name="app-version" content="1.47.0">
   <!-- أدنى إصدار من التطبيق المثبّت (APK / مثبّت ويندوز) تحتاجه هذه الواجهة: الواجهة تتحدث تلقائياً
        والتطبيق المثبّت لا، فإن كان المثبّت أقدم من هذا عرضت الواجهة شريط «تحديث التطبيق مطلوب».
        يضبطهما scripts/bump-version.js آلياً عند تغيّر كود الطبقة الأصلية، ويفرضهما فحص CI. -->
-  <meta name="app-min-native-android" content="1.46.0">
+  <meta name="app-min-native-android" content="1.47.0">
   <meta name="app-min-native-windows" content="1.46.0">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -7845,8 +7845,57 @@
       try { return !!window.LanSync.serverRunning(); } catch (e) { return false; }
     }
 
+    /* ══ المزامنة والتطبيق مغلق (أندرويد 1.47.0 — LanBg.kt) ══
+       محرّك في الطبقة الأصلية يسحب المرفقات الناقصة والملفات «الجديدة» في المجلدات والواجهة غير
+       ظاهرة. الصفحة تمدّه بالأجهزة وتوكناتها (bgConfig) وبالمسارات التي يعرفها سجلها لكل مجلد
+       (bgKnown) كي لا يعيد ما حُذف هنا، وتنتظره إن كان يعمل (bgBusy)، وتُعلمه أنها تزامن (pageSync)،
+       وتسحب سجل ما فعله لتعرضه (bgDrain). ويندوز لا يحتاجه: صفحته حيّة والنافذة في الشريط. */
+    function _lanBgAvailable() {
+      return _lanAvailable() && typeof (/** @type {any} */ (window.LanSync)).bgConfig === 'function';
+    }
+    function _lanBgPush() {
+      if (!_lanBgAvailable()) return;
+      var s = LS.get();
+      try {
+        /** @type {any} */ (window.LanSync).bgConfig(JSON.stringify({ enabled: !!s.enabled, tokens: _lanTokens(s),
+          peers: _lanPeers().map(function (p) { return { id: p.id, name: p.name || '', ip: p.ip || '', port: +p.port || LAN_FIXED_PORT, token: p.token }; }) }));
+      } catch (e) { }
+    }
+    function _lanBgBusy() {
+      try { return _lanBgAvailable() && !!(/** @type {any} */ (window.LanSync)).bgBusy(); } catch (e) { return false; }
+    }
+    function _lanBgPageSync(on) {
+      if (!_lanBgAvailable()) return;
+      try { /** @type {any} */ (window.LanSync).pageSync(!!on); } catch (e) { }
+    }
+    /* ما فعله المحرّك والتطبيق مغلق ← سجل المزامنة (بأزمنته) */
+    function _lanBgDrain() {
+      if (!_lanBgAvailable()) return 0;
+      var a = [];
+      try { a = JSON.parse(/** @type {any} */ (window.LanSync).bgDrain() || '[]'); } catch (e) { a = []; }
+      if (!Array.isArray(a) || !a.length) return 0;
+      var all = _lanLogAll();
+      a.forEach(function (e) {
+        if (e && e.k) all.push({ t: +e.t || Date.now(), k: String(e.k), d: String(e.d || '').slice(0, 40), x: String(e.x || '').slice(0, 200) });
+      });
+      if (all.length > LAN_LOG_MAX) all = all.slice(all.length - LAN_LOG_MAX);
+      try { localStorage.setItem(LAN_LOG, JSON.stringify(all)); } catch (e) { }
+      return a.length;
+    }
+    /* المسارات التي يعرفها سجل (جهاز، مجلد) — تُرسل للمحرّك حين تتغيّر فقط (قد تبلغ آلاف المسارات) */
+    var _lanBgSig = {};
+    function _lanBgKnown(key, gen, st, res) {
+      if (!_lanBgAvailable() || !gen) return;
+      var keys = Object.keys(st || {}), len = 0;
+      for (var i = 0; i < keys.length; i++) len += keys[i].length;
+      var sig = gen + ':' + keys.length + ':' + len + ':' + ((res && (res.pulled || res.deleted)) ? Date.now() : 0);
+      if (_lanBgSig[key] === sig) return;
+      try { if (/** @type {any} */ (window.LanSync).bgKnown(key, gen, JSON.stringify(keys))) _lanBgSig[key] = sig; } catch (e) { }
+    }
+
     /* يبلّغ الخادم الأصلي بمجموعة التوكنات الحالية (إضافة جهاز أو إزالته تسري فوراً) */
     function _lanApplyTokens() {
+      _lanBgPush();
       if (!_lanMultiNative()) return;
       try { /** @type {any} */ (window.LanSync).setTokens(JSON.stringify(_lanTokens())); } catch (e) { }
     }
@@ -7910,6 +7959,7 @@
     }
     function _lanProgSet(p) {
       _lanProg = p;
+      if (p) _lanBgPageSync(true);      /* نبضة: المزامنة ما زالت جارية (ملف جديد بدأ) */
       var can = !!p && _lanAvailable() && typeof (/** @type {any} */ (window.LanSync)).progress === 'function';
       if (can && !_lanProgTimer) _lanProgTimer = setInterval(_lanProgPoll, 600);
       if (!can && _lanProgTimer) { clearInterval(_lanProgTimer); _lanProgTimer = null; }
@@ -8012,10 +8062,19 @@
       if (!_lanAvailable()) { if (!quiet) showFb('⚠️ المزامنة المباشرة غير مدعومة في هذه النسخة', 1); return false; }
       if (!s.enabled) { if (!quiet) showFb('⚠️ فعّل المزامنة المباشرة أولاً', 1); return false; }
       if (_lanBusy) return false;
+      /* المحرّك الخلفي يسحب الآن (بدأ والواجهة غير ظاهرة): ينتهي عند أول ملف بعد ظهورها — نعيد بعده
+         كي لا يسحب الاثنان الملف نفسه */
+      if (_lanBgBusy()) {
+        if (!quiet) showFb('… مزامنة خلفية جارية — تُستكمل بعد لحظات');
+        setTimeout(function () { _lanSyncSoon(!!light); }, 3000);
+        return false;
+      }
       _lanBusy = true;
+      _lanBgPageSync(true);
       try {
         await _lanEnsureServer();
         _lanAbsorbSeen();
+        if (_lanBgDrain()) setTimeout(_lanRenderStatus, 0);
         var peers = _lanPeers();
         if (!peers.length) { if (!quiet) showFb('⚠️ لم يتم الإقران بجهاز بعد', 1); return false; }
         if (!_notesLoaded) { if (!quiet) showFb('⚠️ لم يكتمل تحميل الملاحظات بعد', 1); return false; }
@@ -8049,6 +8108,7 @@
         return tot.ok > 0;
       } finally {
         _lanBusy = false;
+        _lanBgPageSync(false);
         _lanProgSet(null);
         /* طُلبت مزامنة أثناء هذه (تغيّر جديد عند جهاز آخر): تُعاد كي لا يفوت */
         if (_lanAgain) { var lt = _lanAgain === 'light'; _lanAgain = false; setTimeout(function () { _lanSyncSoon(lt); }, 300); }
@@ -8277,6 +8337,7 @@
       all[key] = _lanXNextState(st, after, man.files, failed, { complete: man.complete !== false, retain: retain });
       _lanXStateSave(all);
       if (gen) { gens = _lanXGens(); gens[key] = gen; _lanXGensSave(gens); }
+      _lanBgKnown(key, gen, all[key], res);
       return res;
     }
 
@@ -8533,6 +8594,7 @@
         if (_lanPaired()) _lanSyncNow(true);
       } else {
         _lanStopServer();
+        _lanBgPush();                   /* المحرّك الخلفي يتوقف مع الميزة */
       }
       _lanRenderStatus();
     }
@@ -8772,6 +8834,8 @@
             : html`<div style="font-size:11.5px;color:#fcd34d;border-top:1px solid rgba(var(--ov),0.08);padding-top:8px;line-height:1.7">
                 📁 المجلدات الإضافية تحتاج التطبيق المثبّت ${toArabic('1.41.0')} فأحدث على هذا الجهاز${nv ? ' (المثبّت ' + toArabic(nv) + ')' : ''} — حدّثه من شريط التحديث أو «تحقق وحدّث».
               </div>`) : null}
+        ${s.enabled && _lanBgAvailable() ? html`<div style="font-size:11px;color:rgba(var(--ov),0.55);line-height:1.7;border-top:1px solid rgba(var(--ov),0.08);padding-top:8px">
+          📴 والتطبيق مغلق: يستقبل هذا الجهاز المرفقات والملفات الجديدة في المجلدات، ويُنبّه الأجهزة الأخرى بما يجدّ فيه. التعديلات والحذف والملاحظات تُستكمل عند فتحه. (أبقِ إشعار «المزامنة المباشرة» ظاهراً.)</div>` : null}
         ${s.enabled ? html`<${LanLogBox}/>` : null}
         <div style="font-size:11px;color:rgba(var(--ov),0.45);border-top:1px solid rgba(var(--ov),0.08);padding-top:8px">
           تجريبي — يعمل والأجهزة على نفس الواي فاي، والاتصال بينها مشفّر. تغيّر عنوان الجهاز يُكتشف تلقائياً. يبقى GoodSync يعمل كالمعتاد؛ لا تُلغِه إلا بعد أن تثق بهذه الميزة.
@@ -8793,6 +8857,7 @@
       if (!s.enabled || !_lanAvailable()) return;
       _lanEnsureServer().then(function () {
         if (_lanAbsorbSeen().length) _lanRenderStatus();
+        _lanBgDrain();
         if (_lanPaired()) _lanSyncNow(true);
       });
     }
