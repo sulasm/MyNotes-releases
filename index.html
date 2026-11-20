@@ -11,11 +11,11 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: https://*.googleapis.com https://*.gstatic.com https://*.google.com https://*.ggpht.com https://*.googleusercontent.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https://*.googleapis.com https://*.gstatic.com https://*.google.com https://*.ggpht.com https://*.googleusercontent.com; media-src 'self' data: blob:; connect-src 'self' data: blob: https://api.open-meteo.com https://ensemble-api.open-meteo.com https://api.met.no https://raw.githubusercontent.com https://*.googleapis.com https://*.gstatic.com https://*.google.com https://*.ggpht.com https://*.googleusercontent.com; frame-src 'self' data: blob: https://*.google.com; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
   <meta name="theme-color" content="#667eea">
-  <meta name="app-version" content="1.48.0">
+  <meta name="app-version" content="1.49.0">
   <!-- أدنى إصدار من التطبيق المثبّت (APK / مثبّت ويندوز) تحتاجه هذه الواجهة: الواجهة تتحدث تلقائياً
        والتطبيق المثبّت لا، فإن كان المثبّت أقدم من هذا عرضت الواجهة شريط «تحديث التطبيق مطلوب».
        يضبطهما scripts/bump-version.js آلياً عند تغيّر كود الطبقة الأصلية، ويفرضهما فحص CI. -->
-  <meta name="app-min-native-android" content="1.48.0">
+  <meta name="app-min-native-android" content="1.49.0">
   <meta name="app-min-native-windows" content="1.48.0">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -2625,10 +2625,13 @@
        (رئيسية␁فرعية␁ثانوية) مع ختمه فيُشطَب من أي شجرة واردة مهما كان ختمها،
        وإعادة الإضافة الصريحة تكتب سجل «إحياء» أحدث يعادله. السجلات تنتقل في
        الملف (catsDel) وتتّحد عند الدمج بالأحدث لكل مسار، وتنتهي بعد ١٨٠ يوماً. */
+    /*@@merge-core@@*/
     const CATS_DEL_SEP = '\u0001';
+    /*@@/merge-core@@*/
     const CATS_DEL_TTL = 180 * 24 * 3600 * 1000;
     let _catsDel = [];
     try { _catsDel = _validCatsDel(JSON.parse(localStorage.getItem('notes_cats_del_v1') || '[]')); } catch (e) { }
+    /*@@merge-core@@*/
     function _validCatsDel(a) {
       const now = Date.now();
       return (Array.isArray(a) ? a : [])
@@ -2636,11 +2639,13 @@
           && typeof e.alive === 'boolean' && now - +e.at < CATS_DEL_TTL)
         .map(e => ({ p: e.p, at: +e.at, alive: e.alive }));
     }
+    /*@@/merge-core@@*/
     function _setCatsDel(d) {
       _catsDel = _validCatsDel(d);
       try { localStorage.setItem('notes_cats_del_v1', JSON.stringify(_catsDel)); } catch (e) { }
     }
     /* اتحاد سجلّين: الأحدث ختماً لكل مسار يفوز */
+    /*@@merge-core@@*/
     function _unionCatsDel(a, b) {
       const m = new Map();
       for (const e of _validCatsDel(a).concat(_validCatsDel(b))) {
@@ -2649,12 +2654,14 @@
       }
       return [...m.values()];
     }
+    /*@@/merge-core@@*/
     /* تسجيل حذف (alive=false) أو إحياء بإعادة الإضافة (alive=true) لمسار */
     function _catsDelMark(parts, alive) {
       const p = parts.join(CATS_DEL_SEP);
       _setCatsDel(_catsDel.filter(e => e.p !== p).concat([{ p, at: Date.now(), alive: !!alive }]));
     }
     /* شطب المسارات الميتة من شجرة فئات — يعيد {cats, changed} ولا يعدّل الأصل */
+    /*@@merge-core@@*/
     function _pruneCatsDel(cats, del) {
       if (!cats || typeof cats !== 'object') return { cats, changed: false };
       const dead = new Set();
@@ -2683,6 +2690,7 @@
       }
       return { cats: changed ? out : cats, changed };
     }
+    /*@@/merge-core@@*/
 
     /* ── شواهد حذف أماكن الخريطة ──
        الدمج بالمعرّف وحده كان اتحاداً: مكان حُذف على جهاز يبقى عند الآخر، فيعيد
@@ -2690,13 +2698,17 @@
        وينتقل في الملف (placesDel) ويتّحد بالأحدث لكل معرّف؛ كل مكان ختمه ts أقدم
        من شاهده يُشطَب. مكان عُدّل بعد لحظة الحذف يبقى (الأحدث يفوز). مدته ١٨٠ يوماً. */
     const PLACES_DEL_LS = 'map_places_del_v1';
+    /*@@merge-core@@*/
     const PLACES_DEL_TTL = 180 * 24 * 3600 * 1000;
+    /*@@/merge-core@@*/
+    /*@@merge-core@@*/
     function _validPlacesDel(a) {
       const now = Date.now();
       return (Array.isArray(a) ? a : [])
         .filter(e => e && e.id != null && String(e.id) && +e.at > 0 && now - +e.at < PLACES_DEL_TTL)
         .map(e => ({ id: String(e.id), at: +e.at }));
     }
+    /*@@/merge-core@@*/
     function _placesDelGet() {
       try { return _validPlacesDel(JSON.parse(localStorage.getItem(PLACES_DEL_LS) || '[]')); } catch (e) { return []; }
     }
@@ -2709,6 +2721,7 @@
       return v;
     }
     /* اتحاد سجلّين: الأحدث ختماً لكل معرّف يفوز */
+    /*@@merge-core@@*/
     function _unionPlacesDel(a, b) {
       const m = new Map();
       for (const e of _validPlacesDel(a).concat(_validPlacesDel(b))) {
@@ -2717,11 +2730,15 @@
       }
       return [...m.values()];
     }
+    /*@@/merge-core@@*/
+    /*@@merge-core@@*/
     function _placeStamp(p) {
       const t = Date.parse((p && p.ts) || '');
       return isFinite(t) ? t : 0;
     }
+    /*@@/merge-core@@*/
     /* شطب الأماكن التي ختمها لا يتجاوز شاهد حذفها — يعيد {places, changed} */
+    /*@@merge-core@@*/
     function _prunePlacesDel(places, del) {
       const dm = new Map(_validPlacesDel(del).map(e => [e.id, e.at]));
       if (!dm.size) return { places, changed: false };
@@ -2731,6 +2748,7 @@
       });
       return { places: out, changed: out.length !== places.length };
     }
+    /*@@/merge-core@@*/
 
     function saveCats() {
       _setCats(CATS, Date.now());
@@ -3347,13 +3365,18 @@
     /* شواهد الحذف النهائي: [{id, at}] — الحذف اليدوي من السلة كان لا يترك أثراً
        يُنقل مع المزامنة، فتعود العناصر من سلة الجهاز الآخر عند الدمج التالي */
     let _purgedCache = [];
+    /*@@merge-core@@*/
     function _validPurged(p) {
       return (Array.isArray(p) ? p : []).filter(e => e && e.id != null && +e.at > 0)
         .map(e => ({ id: e.id, at: +e.at }));
     }
+    /*@@/merge-core@@*/
+    /*@@merge-core@@*/
     function _validCats(c) {
       return (c && typeof c === 'object' && !Array.isArray(c) && Object.keys(c).length) ? c : null;
     }
+    /*@@/merge-core@@*/
+    /*@@merge-core@@*/
     function _deserializeNotes(text) {
       const p = JSON.parse(text);
       if (Array.isArray(p)) return { v: 1, savedAt: 0, notes: p, trash: [], cats: null, catsAt: 0, catsDel: [], places: [], placesDel: [], purged: [] };
@@ -3369,6 +3392,7 @@
       };
       throw new Error('bad-notes-format');
     }
+    /*@@/merge-core@@*/
 
     /* ── شريط خطأ أحمر ثابت وقابل للإغلاق (فشل تحميل/حفظ) ── */
     function showSaveError(msg, retryFn) {
@@ -3847,16 +3871,20 @@
       return { raw: null, failed: true };   /* لا مجلد → لا مزامنة خارجية أصلاً */
     }
 
+    /*@@merge-core@@*/
     function _noteStamp(n) {
       const mt = +(n && n.mt) || 0;
       if (mt) return mt;
       const t = n && n.ts ? Date.parse(n.ts) : 0;
       return isFinite(t) ? (t || 0) : 0;
     }
+    /*@@/merge-core@@*/
+    /*@@merge-core@@*/
     function _trashStamp(t) {
       const d = +(t && t._delAt) || 0;
       return d || _noteStamp(t);
     }
+    /*@@/merge-core@@*/
 
     /* ══ أزمنة الحقول: الدمج بالحقل لا بالسجل ══
        كان السجل يُؤخذ كاملاً من الأحدث، فمن عدّل نص ملاحظة على ويندوز وأضاف
@@ -3869,7 +3897,9 @@
        الموقع، الروابط، الاستيراد…) بلا استثناء ولا تعديل في مواضع النداء،
        ويصلح علّة قائمة: تغيير المرفق أو الموقع لم يكن يرفع mt أصلاً فكانت
        نسخة الجهاز الآخر تتفوق عليه وتمسحه. */
+    /*@@merge-core@@*/
     const NOTE_META = { id: 1, mt: 1, ft: 1, _delAt: 1 };
+    /*@@/merge-core@@*/
     let _ftSnap = new Map();   /* id → {f: بصمة كل حقل، j: بصمتها مجتمعة} */
 
     function _ftVal(v) { return v === undefined ? '\u0000' : JSON.stringify(v); }
@@ -3928,14 +3958,17 @@
     }
 
     /* ختم حقل بعينه إن وُجد صريحاً (0 يعني: لا ختم لهذا الحقل) */
+    /*@@merge-core@@*/
     function _fieldTime(n, f) {
       const t = n && n.ft && +n.ft[f];
       return t > 0 ? t : 0;
     }
+    /*@@/merge-core@@*/
 
     /* دمج نسختَي ملاحظة واحدة حقلاً بحقل — الأحدث بختم حقله يفوز.
        وحيث لا ختم للحقل يُرجع إلى ختم السجل، فيتصرّف كما كان تماماً؛ وإن خلا
        الطرفان من الأزمنة (نسخة أقدم على الجهاز الآخر) يُحسم بالسجل كاملاً. */
+    /*@@merge-core@@*/
     function _mergeNote(loc, ext) {
       if (!(loc && loc.ft) && !(ext && ext.ft)) {
         return _noteStamp(ext) > _noteStamp(loc) ? ext : loc;
@@ -3959,9 +3992,11 @@
       out.mt = Math.max(lm, em);
       return out;
     }
+    /*@@/merge-core@@*/
 
     /* دمج حالتين (المحلية والخارجية) لكل عنصر: الأحدث بختمه يفوز.
        عنصر في الحيّة والسلة معاً بعد الدمج → الختم الأحدث يحسم مصيره. */
+    /*@@merge-core@@*/
     function _mergeStates(loc, ext) {
       const notes = new Map(), trash = new Map();
       (loc.notes || []).forEach(n => { if (n && n.id != null) notes.set(String(n.id), n); });
@@ -3999,12 +4034,14 @@
       const c = _mergeCats(loc.cats, loc.catsAt, ext.cats, ext.catsAt, loc.catsDel, ext.catsDel);
       return { notes: [...notes.values()], trash: [...trash.values()], cats: c.cats, catsAt: c.at, catsDel: c.del, purged: [...purged.values()] };
     }
+    /*@@/merge-core@@*/
 
     /* دمج الفئات: الطرف الأحدث ختماً (catsAt) يأخذها كاملة، ثم تُشطَب منها
        المسارات التي تحمل شاهد حذف (الشواهد اتحاد الطرفين، الأحدث لكل مسار) —
        فلا يعيد جهازٌ شجرةً قديمة فئاتٍ حُذفت على الجهاز الآخر مهما كان ختمه.
        بلا ختم عند الطرفين (ملفات نسخ أقدم) يبقى السلوك القديم: اتحاد المفاتيح
        العليا والمحلي يفوز — مع الشطب أيضاً. */
+    /*@@merge-core@@*/
     function _mergeCats(locC, locAt, extC, extAt, locDel, extDel) {
       const del = _unionCatsDel(locDel, extDel);
       const lc = _validCats(locC), ec = _validCats(extC);
@@ -4021,6 +4058,7 @@
       if (cats) cats = _pruneCatsDel(cats, del).cats;
       return { cats, at, del };
     }
+    /*@@/merge-core@@*/
 
     /* دمج أماكن الخريطة الواردة في الملف مع المحفوظة محلياً — بالمعرّف والأحدث
        بختمه ts يفوز. يعيد fileStale=true عندما يحمل المحلي أماكن ليست في الملف،
@@ -4222,6 +4260,46 @@
        جدولة أي مرفق عادت ملاحظته من الجهاز الآخر */
     setTimeout(() => { _syncMergeCheck().then(() => _sweepPendingAttachments(), () => { }); }, 6000);
 
+    /* ══ دمج ملفَي ملاحظات (نصّين) إلى ملف واحد — بلا أي حالة من التطبيق ══
+       يستعمله المحرّك الخلفي في أندرويد (LanBg) ليدمج ملف جهاز آخر في ملف هذا الجهاز والتطبيق
+       مغلق: البناء يستخرج كل ما بين علامتَي merge-core إلى www/lan-merge.html، فيشغّله المحرّك في
+       WebView بلا واجهة — المنطق نفسه الذي تدمج به الصفحة (_mergeStates) لا نسخة منه.
+       الإخراج {changed, raw, n}: changed=false حين لا يضيف ملف النظير شيئاً (فلا يُكتب الملف —
+       وإلا تبادل الجهازان الكتابة بلا نهاية). err عند ملف محلي فارغ أو تالف: لا يُمسّ. */
+    /*@@merge-core@@*/
+    function _mergeStateSig(st) {
+      return JSON.stringify([st.notes || [], st.trash || [], st.cats || null, +st.catsAt || 0, st.catsDel || [],
+        st.places || [], st.placesDel || [], st.purged || []]);
+    }
+    function _mergePlacesLists(locPlaces, locDel, extPlaces, extDel) {
+      const ok = p => p && typeof p === 'object' && p.id != null && isFinite(p.lat) && isFinite(p.lng);
+      const del = _unionPlacesDel(locDel, extDel);
+      const pmap = new Map();
+      (Array.isArray(locPlaces) ? locPlaces : []).forEach(p => { if (p && p.id != null) pmap.set(String(p.id), p); });
+      (Array.isArray(extPlaces) ? extPlaces : []).filter(ok).forEach(p => {
+        const k = String(p.id), cur = pmap.get(k);
+        if (!cur || String(p.ts || '') > String(cur.ts || '')) pmap.set(k, p);
+      });
+      return { places: _prunePlacesDel([...pmap.values()], del).places, placesDel: del };
+    }
+    function _mergeNotesFiles(localRaw, peerRaw, dev) {
+      let L, E;
+      try { if (String(localRaw || '').trim() === '') return { changed: false, err: 'local-empty' }; L = _deserializeNotes(String(localRaw)); }
+      catch (e) { return { changed: false, err: 'local-bad' }; }
+      try { if (String(peerRaw || '').trim() === '') return { changed: false, err: 'peer-empty' }; E = _deserializeNotes(String(peerRaw)); }
+      catch (e) { return { changed: false, err: 'peer-bad' }; }
+      const m = _mergeStates(
+        { notes: L.notes, trash: L.trash, cats: L.cats, catsAt: L.catsAt, catsDel: L.catsDel, purged: L.purged },
+        { notes: E.notes, trash: E.trash, cats: E.cats, catsAt: E.catsAt, catsDel: E.catsDel, purged: E.purged });
+      const pl = _mergePlacesLists(L.places, L.placesDel, E.places, E.placesDel);
+      const out = { notes: m.notes, trash: m.trash, cats: m.cats || L.cats || null, catsAt: m.catsAt || 0, catsDel: m.catsDel || [],
+        places: pl.places, placesDel: pl.placesDel, purged: m.purged };
+      if (_mergeStateSig(out) === _mergeStateSig(L)) return { changed: false, n: out.notes.length };
+      const savedAt = Math.max(Date.now(), (+L.savedAt || 0) + 1, (+E.savedAt || 0) + 1);
+      return { changed: true, n: out.notes.length, added: out.notes.length - L.notes.length,
+        raw: JSON.stringify(Object.assign({ v: 3, savedAt: savedAt, dev: dev || 'android' }, out)) };
+    }
+    /*@@/merge-core@@*/
     /* ══════════════════════════════════════
        سلة المحذوفات + تنظيف المرفقات اليتيمة
     ══════════════════════════════════════ */
@@ -7891,10 +7969,7 @@
       if (!Array.isArray(a) || !a.length) return 0;
       var n = 0;
       a.forEach(function (raw) {
-        try {
-          var ext = _externalChange(String(raw));
-          if (ext) { _absorbExternal(ext, String(raw).length); n++; }
-        } catch (e) { }
+        try { if (_lanAbsorbNotes(String(raw))) n++; } catch (e) { }
       });
       try { /** @type {any} */ (window.LanSync).bgNotesDone(); } catch (e) { }
       if (n) {
@@ -8009,6 +8084,26 @@
         && typeof (/** @type {any} */ (window.LanSync)).pullAtt2 === 'function';
     }
 
+    /* بصمة حالة الملاحظات في الذاكرة — لمعرفة هل غيّر الدمج شيئاً فعلاً */
+    function _lanNotesSig() {
+      var places = [];
+      try { if (typeof MapBridge !== 'undefined') places = MapBridge.getPlaces(); } catch (e) { }
+      return JSON.stringify([_notesCache, _trashCache, CATS, _catsAt, _catsDel, _purgedCache, places, _placesDelGet()]);
+    }
+    /* يدمج نص ملف ملاحظات جهاز آخر في الذاكرة، ويعيد true فقط إن أضاف شيئاً. ملف النظير يحمل ختم
+       كتابة جديداً بعد كل دمج عنده وإن لم يتغيّر محتواه؛ والكتابة هنا عند كل ختم جديد كانت تُنبّه
+       النظير فيسحب ويكتب وينبّهنا… تبادلٌ بلا نهاية بين جهازين مفتوحين (منذ التنبيه الفوري 1.46.0،
+       وقبله إعادة كتابة كل ٣ دقائق). لا يُكتب الملف الآن إلا إن تغيّرت الحالة فعلاً. */
+    function _lanAbsorbNotes(raw) {
+      var ext = _externalChange(raw);
+      if (!ext) return false;
+      var before = _lanNotesSig(), sa = _lastFileSavedAt, sl = _lastFileLen;
+      _absorbExternal(ext, String(raw).length);
+      /* _absorbExternal يعدّ ما دُمج «ملفنا على القرص» — صحيح لملفنا لا لملف جهاز آخر: يُعاد ما كان */
+      _lastFileSavedAt = sa; _lastFileLen = sl;
+      return _lanNotesSig() !== before;
+    }
+
     var _lanBusy = false;
     var _lanLastErr = '';
     /* ── مزامنة جهاز واحد: بيان → سحب المرفقات الناقصة → سحب ملف الملاحظات ودمجه → المجلدات الإضافية ── */
@@ -8054,17 +8149,20 @@
         } catch (e) { _lanLogAdd('fail', who, 'مرفق ' + name + ': ' + _lanErrText(e && e.message)); /* ملف واحد فشل لا يوقف البقية */ }
       }
       _lanProgSet(null);
-      /* ٣) ملف الملاحظات: اسحب نصّه وادمجه بمنطق الدمج الآمن القائم */
-      try {
-        var peerNotes = await _lanCall('pullText', [base + '/file?p=' + encodeURIComponent(NOTES_FILE), token]);
-        var ext = _externalChange(peerNotes);
-        if (ext) {
-          _absorbExternal(ext, String(peerNotes).length);
-          out.merged = true;
-          _lanWriteMerged();
-          _lanLogAdd('notes', who, 'دُمجت ملاحظات');
-        }
-      } catch (e) { /* قد لا يكون للنظير ملف بعد */ }
+      /* ٣) ملف الملاحظات: اسحب نصّه وادمجه بمنطق الدمج الآمن القائم.
+         ملف لم يتغيّر عند النظير منذ دمجناه (حجمه وزمنه في البيان) لا يُسحب ثانية. */
+      var nInfo = peerMap[NOTES_FILE], nSig = nInfo ? nInfo.size + ':' + nInfo.mt : '';
+      if (!nSig || nSig !== p.nSig) {
+        try {
+          var peerNotes = await _lanCall('pullText', [base + '/file?p=' + encodeURIComponent(NOTES_FILE), token]);
+          if (_lanAbsorbNotes(peerNotes)) {
+            out.merged = true;
+            _lanWriteMerged();
+            _lanLogAdd('notes', who, 'دُمجت ملاحظات');
+          }
+          if (nSig) _lanPeerPatch(p.id, { nSig: nSig });
+        } catch (e) { /* قد لا يكون للنظير ملف بعد */ }
+      }
       /* ٤) مجلدات المزامنة الإضافية — فشلها لا يُفشل مزامنة الملاحظات. المزامنة الخفيفة (تنبيه
          «ملاحظات» من النظير) تتخطاها: سرد مجلدات كبيرة مع كل حفظ ملاحظة عبء بلا فائدة */
       if (!light) {
@@ -8907,7 +9005,7 @@
                 📁 المجلدات الإضافية تحتاج التطبيق المثبّت ${toArabic('1.41.0')} فأحدث على هذا الجهاز${nv ? ' (المثبّت ' + toArabic(nv) + ')' : ''} — حدّثه من شريط التحديث أو «تحقق وحدّث».
               </div>`) : null}
         ${s.enabled && _lanBgAvailable() ? html`<div style="font-size:11px;color:rgba(var(--ov),0.55);line-height:1.7;border-top:1px solid rgba(var(--ov),0.08);padding-top:8px">
-          📴 والتطبيق مغلق تستمر المزامنة: المرفقات والمجلدات كاملةً (الجديد والمعدَّل والحذف)، وملاحظات الأجهزة الأخرى تُنزَّل وتُدمج فور فتحه. أبقِ إشعار «المزامنة المباشرة» ظاهراً.
+          📴 والتطبيق مغلق تستمر المزامنة كاملةً: الملاحظات تُدمج، والمرفقات والمجلدات (الجديد والمعدَّل والحذف). أبقِ إشعار «المزامنة المباشرة» ظاهراً.
           ${!_lanBgBatteryOk() ? html`<div style="margin-top:6px;color:#fcd34d">🔋 أندرويد يقطع الشبكة عن التطبيق والشاشة مطفأة لمدة طويلة ما لم يُستثنَ من قيود البطارية.
             <div style="margin-top:5px"><button class="sm-btn" style="padding:4px 10px" onClick=${function () {
               try { /** @type {any} */ (window.LanSync).bgBattery(); } catch (e) { }
