@@ -11,11 +11,11 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: https://*.googleapis.com https://*.gstatic.com https://*.google.com https://*.ggpht.com https://*.googleusercontent.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https://*.googleapis.com https://*.gstatic.com https://*.google.com https://*.ggpht.com https://*.googleusercontent.com; media-src 'self' data: blob:; connect-src 'self' data: blob: https://api.open-meteo.com https://ensemble-api.open-meteo.com https://api.met.no https://raw.githubusercontent.com https://*.googleapis.com https://*.gstatic.com https://*.google.com https://*.ggpht.com https://*.googleusercontent.com; frame-src 'self' data: blob: https://*.google.com; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
   <meta name="theme-color" content="#667eea">
-  <meta name="app-version" content="1.49.0">
+  <meta name="app-version" content="1.50.0">
   <!-- أدنى إصدار من التطبيق المثبّت (APK / مثبّت ويندوز) تحتاجه هذه الواجهة: الواجهة تتحدث تلقائياً
        والتطبيق المثبّت لا، فإن كان المثبّت أقدم من هذا عرضت الواجهة شريط «تحديث التطبيق مطلوب».
        يضبطهما scripts/bump-version.js آلياً عند تغيّر كود الطبقة الأصلية، ويفرضهما فحص CI. -->
-  <meta name="app-min-native-android" content="1.49.0">
+  <meta name="app-min-native-android" content="1.50.0">
   <meta name="app-min-native-windows" content="1.48.0">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -4282,7 +4282,7 @@
       });
       return { places: _prunePlacesDel([...pmap.values()], del).places, placesDel: del };
     }
-    function _mergeNotesFiles(localRaw, peerRaw, dev) {
+    function _mergeNotesFiles(localRaw, peerRaw, dev, hour) {
       let L, E;
       try { if (String(localRaw || '').trim() === '') return { changed: false, err: 'local-empty' }; L = _deserializeNotes(String(localRaw)); }
       catch (e) { return { changed: false, err: 'local-bad' }; }
@@ -4296,7 +4296,10 @@
         places: pl.places, placesDel: pl.placesDel, purged: m.purged };
       if (_mergeStateSig(out) === _mergeStateSig(L)) return { changed: false, n: out.notes.length };
       const savedAt = Math.max(Date.now(), (+L.savedAt || 0) + 1, (+E.savedAt || 0) + 1);
-      return { changed: true, n: out.notes.length, added: out.notes.length - L.notes.length,
+      /* rem: التذكيرات التي يغيّرها الدمج (تُجدوَل/تُلغى في الطبقة الأصلية بعد نجاح الكتابة) */
+      let rem = null;
+      try { if (typeof _remindersDelta === 'function') rem = _remindersDelta(L.notes, out.notes, +hour, Date.now()); } catch (e) { rem = null; }
+      return { changed: true, n: out.notes.length, added: out.notes.length - L.notes.length, rem: rem,
         raw: JSON.stringify(Object.assign({ v: 3, savedAt: savedAt, dev: dev || 'android' }, out)) };
     }
     /*@@/merge-core@@*/
@@ -5881,6 +5884,7 @@
         resEl);
     }
 
+    /*@@merge-core@@*/
     function parseG(s) {
       if (!s) return 0;
       if (s.includes('/')) {
@@ -5893,6 +5897,7 @@
         return new Date(p[0], p[1] - 1, p[2]).getTime();
       }
     }
+    /*@@/merge-core@@*/
 
     /* تحويل dG (dd/mm/yyyy أو yyyy-mm-dd) إلى نص عرض: dd/mm/yyyy */
     function fmtGDisp(dg) {
@@ -7420,6 +7425,38 @@
       if (lateChanged) { try { localStorage.setItem(lateKey, JSON.stringify(lateMap)); } catch (e) { } }
       return want;
     }
+    /* ══ تذكيرات تُجدوَل والتطبيق مغلق (محرّك أندرويد الخلفي، عبر www/lan-merge.html) ══
+       التذكيرات القادمة لقائمة ملاحظات — بقواعد _desiredReminders نفسها (العنوان والنص والساعة)،
+       عدا «اليوم وقد فات الوقت»: ذاك يحتاج سجل الصفحة اليومي كي لا يتكرر التنبيه، فيبقى لها عند الفتح.
+       _remindersDelta: ما يُجدوَل وما يُلغى حين يصير الملف «بعد» مكان «قبل» (ملاحظة أُنجزت أو حُذفت
+       على الجهاز الآخر يُلغى تذكيرها؛ جديدة أو تغيّر موعدها يُجدوَل). */
+    /*@@merge-core@@*/
+    function _remindersFuture(notes, hour, now) {
+      const want = {};
+      const h = (hour >= 0 && hour <= 23) ? hour : 9;
+      (Array.isArray(notes) ? notes : []).forEach(n => {
+        if (!n || n.id == null || n.status !== 'قيد التنفيذ' || !n.dG) return;
+        const base = parseG(String(n.dG)); if (!base) return;
+        const dt = new Date(base); dt.setHours(h, 0, 0, 0);
+        const when = dt.getTime();
+        if (!(when > now)) return;
+        const cat = [n.main, n.sub].filter(Boolean).join(' › ');
+        want[String(n.id)] = { when: when, title: '📋 تذكير' + (cat ? ': ' + cat : ''),
+          body: (n.text || cat || 'لديك مهمة') + (n.num ? ' — ' + n.num : '') };
+      });
+      return want;
+    }
+    function _remindersDelta(beforeNotes, afterNotes, hour, now) {
+      const a = _remindersFuture(beforeNotes, hour, now), b = _remindersFuture(afterNotes, hour, now);
+      const set = {}, cancel = [];
+      Object.keys(a).forEach(id => { if (!b[id]) cancel.push(id); });
+      Object.keys(b).forEach(id => {
+        const p = a[id], w = b[id];
+        if (!p || p.when !== w.when || p.title !== w.title || p.body !== w.body) set[id] = w;
+      });
+      return { set: set, cancel: cancel };
+    }
+    /*@@/merge-core@@*/
     /** @param {boolean} [full] إلغاء الكل ثم جدولة الكل بدل التفاضل */
     function _syncNativeReminders(full) {
       const fsb = window.AndroidFS;
@@ -7936,6 +7973,7 @@
       var s = LS.get();
       try {
         /** @type {any} */ (window.LanSync).bgConfig(JSON.stringify({ enabled: !!s.enabled, tokens: _lanTokens(s),
+          remindHour: (typeof _remindHour === 'function') ? _remindHour() : 9,     /* لجدولة تذكيرات ما يُدمج والتطبيق مغلق */
           peers: _lanPeers().map(function (p) { return { id: p.id, name: p.name || '', ip: p.ip || '', port: +p.port || LAN_FIXED_PORT, token: p.token }; }) }));
       } catch (e) { }
     }
