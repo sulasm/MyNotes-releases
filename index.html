@@ -11,12 +11,12 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: https://*.googleapis.com https://*.gstatic.com https://*.google.com https://*.ggpht.com https://*.googleusercontent.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https://*.googleapis.com https://*.gstatic.com https://*.google.com https://*.ggpht.com https://*.googleusercontent.com; media-src 'self' data: blob:; connect-src 'self' data: blob: https://api.open-meteo.com https://ensemble-api.open-meteo.com https://api.met.no https://raw.githubusercontent.com https://*.googleapis.com https://*.gstatic.com https://*.google.com https://*.ggpht.com https://*.googleusercontent.com; frame-src 'self' data: blob: https://*.google.com; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
   <meta name="theme-color" content="#667eea">
-  <meta name="app-version" content="1.47.0">
+  <meta name="app-version" content="1.48.0">
   <!-- أدنى إصدار من التطبيق المثبّت (APK / مثبّت ويندوز) تحتاجه هذه الواجهة: الواجهة تتحدث تلقائياً
        والتطبيق المثبّت لا، فإن كان المثبّت أقدم من هذا عرضت الواجهة شريط «تحديث التطبيق مطلوب».
        يضبطهما scripts/bump-version.js آلياً عند تغيّر كود الطبقة الأصلية، ويفرضهما فحص CI. -->
-  <meta name="app-min-native-android" content="1.47.0">
-  <meta name="app-min-native-windows" content="1.46.0">
+  <meta name="app-min-native-android" content="1.48.0">
+  <meta name="app-min-native-windows" content="1.48.0">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <title>المنظم</title>
@@ -7882,15 +7882,34 @@
       try { localStorage.setItem(LAN_LOG, JSON.stringify(all)); } catch (e) { }
       return a.length;
     }
-    /* المسارات التي يعرفها سجل (جهاز، مجلد) — تُرسل للمحرّك حين تتغيّر فقط (قد تبلغ آلاف المسارات) */
-    var _lanBgSig = {};
-    function _lanBgKnown(key, gen, st, res) {
-      if (!_lanBgAvailable() || !gen) return;
-      var keys = Object.keys(st || {}), len = 0;
-      for (var i = 0; i < keys.length; i++) len += keys[i].length;
-      var sig = gen + ':' + keys.length + ':' + len + ':' + ((res && (res.pulled || res.deleted)) ? Date.now() : 0);
-      if (_lanBgSig[key] === sig) return;
-      try { if (/** @type {any} */ (window.LanSync).bgKnown(key, gen, JSON.stringify(keys))) _lanBgSig[key] = sig; } catch (e) { }
+    /* ملفات ملاحظات الأجهزة الأخرى التي نزّلها المحرّك والتطبيق مغلق: تُدمج هنا بمنطق الدمج الآمن
+       القائم — فتظهر فور فتح التطبيق ولو كان الجهاز الآخر مطفأً الآن. يعيد عدد ما دُمج. */
+    function _lanBgNotesMerge() {
+      if (!_lanBgAvailable() || typeof (/** @type {any} */ (window.LanSync)).bgNotes !== 'function' || !_notesLoaded) return 0;
+      var a = [];
+      try { a = JSON.parse(/** @type {any} */ (window.LanSync).bgNotes() || '[]'); } catch (e) { a = []; }
+      if (!Array.isArray(a) || !a.length) return 0;
+      var n = 0;
+      a.forEach(function (raw) {
+        try {
+          var ext = _externalChange(String(raw));
+          if (ext) { _absorbExternal(ext, String(raw).length); n++; }
+        } catch (e) { }
+      });
+      try { /** @type {any} */ (window.LanSync).bgNotesDone(); } catch (e) { }
+      if (n) {
+        _lanWriteMerged();
+        _lanLogAdd('notes', '', 'دُمجت ملاحظات وصلت والتطبيق مغلق');
+        if (typeof renderNotes === 'function') renderNotes();
+      }
+      return n;
+    }
+    /* قيود البطارية (أندرويد): في وضع السكون تُقطع الشبكة عن التطبيق إلا إن استُثني */
+    function _lanBgBatteryOk() {
+      try {
+        return !_lanBgAvailable() || typeof (/** @type {any} */ (window.LanSync)).bgBatteryOk !== 'function'
+          || !!(/** @type {any} */ (window.LanSync)).bgBatteryOk();
+      } catch (e) { return true; }
     }
 
     /* يبلّغ الخادم الأصلي بمجموعة التوكنات الحالية (إضافة جهاز أو إزالته تسري فوراً) */
@@ -8075,6 +8094,8 @@
         await _lanEnsureServer();
         _lanAbsorbSeen();
         if (_lanBgDrain()) setTimeout(_lanRenderStatus, 0);
+        _lanXStMigrate();
+        _lanBgNotesMerge();
         var peers = _lanPeers();
         if (!peers.length) { if (!quiet) showFb('⚠️ لم يتم الإقران بجهاز بعد', 1); return false; }
         if (!_notesLoaded) { if (!quiet) showFb('⚠️ لم يكتمل تحميل الملاحظات بعد', 1); return false; }
@@ -8214,6 +8235,71 @@
       catch (e) { return {}; }
     }
     function _lanXGensSave(g) { try { localStorage.setItem(LANX_GEN, JSON.stringify(g)); } catch (e) { } }
+    /* ══ مخزن سجل الحالة ══
+       أندرويد 1.48.0: السجل عند الطبقة الأصلية (xState*) — مصدر واحد للصفحة وللمحرّك الخلفي الذي
+       يزامن والتطبيق مغلق بالخطة نفسها. غيره (ويندوز، أو تطبيق مثبّت أقدم): localStorage كما كان.
+       عند أول تشغيل على طبقة تدعمه يُنقل السجل القديم كله ثم يُعلَن جاهزاً (xStateReady): المحرّك لا
+       يزامن المجلدات قبل ذلك، وإلا عدّ ما حُذف هنا «جديداً» فأعاده. */
+    function _lanXStNative() {
+      return _lanXAvailable() && typeof (/** @type {any} */ (window.LanSync)).xStateGet === 'function';
+    }
+    var LANX_MIG = 'lansync_xst_native';
+    function _lanXStMigrate() {
+      if (!_lanXStNative()) return;
+      var L = /** @type {any} */ (window.LanSync);
+      try {
+        if (localStorage.getItem(LANX_MIG) !== '1') {
+          var all = _lanXStateAll(), gens = _lanXGens(), ok = true;
+          Object.keys(all).forEach(function (k) {
+            if (!L.xStateSet(k, JSON.stringify({ gen: gens[k] || '', st: all[k] || {} }))) ok = false;
+          });
+          if (!ok) return;                    /* تُعاد المحاولة في المرة القادمة */
+          localStorage.setItem(LANX_MIG, '1');
+          localStorage.removeItem(LANX_STATE); localStorage.removeItem(LANX_GEN);
+        }
+        L.xStateReady();
+      } catch (e) { }
+    }
+    /** @returns {{st: any, gen: string}} */
+    function _lanXStLoad(key) {
+      if (_lanXStNative()) {
+        _lanXStMigrate();
+        try {
+          var raw = /** @type {any} */ (window.LanSync).xStateGet(key);
+          if (!raw) return { st: undefined, gen: '' };
+          var o = JSON.parse(raw);
+          return { st: (o && o.st && typeof o.st === 'object') ? o.st : undefined, gen: String((o && o.gen) || '') };
+        } catch (e) { return { st: undefined, gen: '' }; }
+      }
+      return { st: _lanXStateAll()[key], gen: String(_lanXGens()[key] || '') };
+    }
+    function _lanXStStore(key, st, gen) {
+      if (_lanXStNative()) {
+        try { /** @type {any} */ (window.LanSync).xStateSet(key, JSON.stringify({ gen: gen || '', st: st || {} })); } catch (e) { }
+        return;
+      }
+      var all = _lanXStateAll(); all[key] = st; _lanXStateSave(all);
+      if (gen) { var g = _lanXGens(); g[key] = gen; _lanXGensSave(g); }
+    }
+    /* يُسقط سجلات المفاتيح التي يقبلها pred(معرّف الجهاز، اسم المجلد) */
+    function _lanXStDrop(pred) {
+      var hit = function (k) { var a = String(k).split('\u0001'); return pred(a[0], a[1]); };
+      if (_lanXStNative()) {
+        _lanXStMigrate();
+        try {
+          var L = /** @type {any} */ (window.LanSync);
+          var keys = JSON.parse(L.xStateKeys() || '[]').filter(hit);
+          if (keys.length) L.xStateDrop(JSON.stringify(keys));
+        } catch (e) { }
+        return;
+      }
+      var all = _lanXStateAll();
+      Object.keys(all).forEach(function (k) { if (hit(k)) delete all[k]; });
+      _lanXStateSave(all);
+      var g = _lanXGens();
+      Object.keys(g).forEach(function (k) { if (hit(k)) delete g[k]; });
+      _lanXGensSave(g);
+    }
     /* هل تستطيع الطبقة الأصلية هنا إزالة ملف (إلى السلة)؟ تطبيق مثبّت أقدم ⇒ لا حذف، والباقي يعمل */
     function _lanXCanDelete() {
       return _lanXAvailable() && typeof (/** @type {any} */ (window.LanSync)).xDelete === 'function';
@@ -8287,11 +8373,11 @@
       var man = JSON.parse(await _lanCall('httpJson', [base + '/xmanifest' + q, token], 120000) || '{}');
       if (!man || !Array.isArray(man.files)) throw new Error('bad-manifest');
       var local = JSON.parse(await _lanCall('xList', [name], 120000) || '[]');
-      var all = _lanXStateAll(), key = _lanXKey(peerId, name), gens = _lanXGens();
+      var key = _lanXKey(peerId, name), rec = _lanXStLoad(key);
       var gen = typeof man.gen === 'string' ? man.gen : '';
-      var st = all[key];
+      var st = rec.st;
       /* النظير ربط الاسم بمكان آخر: سجلنا يصف مجلده القديم — يُبدأ من جديد (اتحاد الطرفين، لا حذف) */
-      if (gen && gens[key] && gens[key] !== gen) st = undefined;
+      if (gen && rec.gen && rec.gen !== gen) st = undefined;
       var plan = _lanXPlan(local, man.files, st);
       res.conflicts = plan.conflicts;
 
@@ -8333,11 +8419,7 @@
         }
       }
       var after = (plan.pull.length || res.deleted) ? JSON.parse(await _lanCall('xList', [name], 120000) || '[]') : local;
-      all = _lanXStateAll();
-      all[key] = _lanXNextState(st, after, man.files, failed, { complete: man.complete !== false, retain: retain });
-      _lanXStateSave(all);
-      if (gen) { gens = _lanXGens(); gens[key] = gen; _lanXGensSave(gens); }
-      _lanBgKnown(key, gen, all[key], res);
+      _lanXStStore(key, _lanXNextState(st, after, man.files, failed, { complete: man.complete !== false, retain: retain }), gen || rec.gen);
       return res;
     }
 
@@ -8425,12 +8507,7 @@
        سيعدّ كل ملف غائب عن المكان الجديد «محذوفاً هنا» فلا يُعاد أبداً. بعد النسيان: الغائب يُسحب،
        والموجود على الطرفين يفوز أحدثه — كأول مزامنة. */
     function _lanXForget(name) {
-      var all = _lanXStateAll();
-      Object.keys(all).forEach(function (k) { if (k.split('\u0001')[1] === name) delete all[k]; });
-      _lanXStateSave(all);
-      var g = _lanXGens();
-      Object.keys(g).forEach(function (k) { if (k.split('\u0001')[1] === name) delete g[k]; });
-      _lanXGensSave(g);
+      _lanXStDrop(function (peerId, n) { return n === name; });
     }
 
     /* ── واجهة: المجلدات المربوطة (مع تغيير المكان)، ومجلدات الأجهزة الأخرى غير المربوطة هنا، وإضافة مجلد ── */
@@ -8574,12 +8651,7 @@
       var s = LS.get();
       var peers = (Array.isArray(s.peers) ? s.peers : []).filter(function (p) { return p.id !== id; });
       LS.patch({ peers: peers });
-      var all = _lanXStateAll();
-      Object.keys(all).forEach(function (k) { if (k.split('\u0001')[0] === id) delete all[k]; });
-      _lanXStateSave(all);
-      var g = _lanXGens();
-      Object.keys(g).forEach(function (k) { if (k.split('\u0001')[0] === id) delete g[k]; });
-      _lanXGensSave(g);
+      _lanXStDrop(function (peerId) { return peerId === id; });
       _lanApplyTokens();
       showFb('أُزيل الجهاز من المزامنة المباشرة');
       _lanRenderStatus();
@@ -8835,7 +8907,12 @@
                 📁 المجلدات الإضافية تحتاج التطبيق المثبّت ${toArabic('1.41.0')} فأحدث على هذا الجهاز${nv ? ' (المثبّت ' + toArabic(nv) + ')' : ''} — حدّثه من شريط التحديث أو «تحقق وحدّث».
               </div>`) : null}
         ${s.enabled && _lanBgAvailable() ? html`<div style="font-size:11px;color:rgba(var(--ov),0.55);line-height:1.7;border-top:1px solid rgba(var(--ov),0.08);padding-top:8px">
-          📴 والتطبيق مغلق: يستقبل هذا الجهاز المرفقات والملفات الجديدة في المجلدات، ويُنبّه الأجهزة الأخرى بما يجدّ فيه. التعديلات والحذف والملاحظات تُستكمل عند فتحه. (أبقِ إشعار «المزامنة المباشرة» ظاهراً.)</div>` : null}
+          📴 والتطبيق مغلق تستمر المزامنة: المرفقات والمجلدات كاملةً (الجديد والمعدَّل والحذف)، وملاحظات الأجهزة الأخرى تُنزَّل وتُدمج فور فتحه. أبقِ إشعار «المزامنة المباشرة» ظاهراً.
+          ${!_lanBgBatteryOk() ? html`<div style="margin-top:6px;color:#fcd34d">🔋 أندرويد يقطع الشبكة عن التطبيق والشاشة مطفأة لمدة طويلة ما لم يُستثنَ من قيود البطارية.
+            <div style="margin-top:5px"><button class="sm-btn" style="padding:4px 10px" onClick=${function () {
+              try { /** @type {any} */ (window.LanSync).bgBattery(); } catch (e) { }
+              setTimeout(_lanRenderStatus, 4000);
+            }}>السماح بالعمل دون قيود البطارية</button></div></div>` : null}</div>` : null}
         ${s.enabled ? html`<${LanLogBox}/>` : null}
         <div style="font-size:11px;color:rgba(var(--ov),0.45);border-top:1px solid rgba(var(--ov),0.08);padding-top:8px">
           تجريبي — يعمل والأجهزة على نفس الواي فاي، والاتصال بينها مشفّر. تغيّر عنوان الجهاز يُكتشف تلقائياً. يبقى GoodSync يعمل كالمعتاد؛ لا تُلغِه إلا بعد أن تثق بهذه الميزة.
@@ -8858,6 +8935,8 @@
       _lanEnsureServer().then(function () {
         if (_lanAbsorbSeen().length) _lanRenderStatus();
         _lanBgDrain();
+        _lanXStMigrate();
+        _lanBgNotesMerge();
         if (_lanPaired()) _lanSyncNow(true);
       });
     }
