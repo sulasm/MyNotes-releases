@@ -11,12 +11,12 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: https://*.googleapis.com https://*.gstatic.com https://*.google.com https://*.ggpht.com https://*.googleusercontent.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https://*.googleapis.com https://*.gstatic.com https://*.google.com https://*.ggpht.com https://*.googleusercontent.com; media-src 'self' data: blob:; connect-src 'self' data: blob: https://api.open-meteo.com https://ensemble-api.open-meteo.com https://api.met.no https://raw.githubusercontent.com https://*.googleapis.com https://*.gstatic.com https://*.google.com https://*.ggpht.com https://*.googleusercontent.com; frame-src 'self' data: blob: https://*.google.com; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
   <meta name="theme-color" content="#667eea">
-  <meta name="app-version" content="1.50.1">
+  <meta name="app-version" content="1.50.2">
   <!-- أدنى إصدار من التطبيق المثبّت (APK / مثبّت ويندوز) تحتاجه هذه الواجهة: الواجهة تتحدث تلقائياً
        والتطبيق المثبّت لا، فإن كان المثبّت أقدم من هذا عرضت الواجهة شريط «تحديث التطبيق مطلوب».
        يضبطهما scripts/bump-version.js آلياً عند تغيّر كود الطبقة الأصلية، ويفرضهما فحص CI. -->
-  <meta name="app-min-native-android" content="1.50.1">
-  <meta name="app-min-native-windows" content="1.48.0">
+  <meta name="app-min-native-android" content="1.50.2">
+  <meta name="app-min-native-windows" content="1.50.2">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <title>المنظم</title>
@@ -7738,7 +7738,9 @@
       if (_lanNativeStale()) return 'التطبيق المثبّت على هذا الجهاز قديم — حدّثه أولاً (التفاصيل أعلاه)';
       if (/pair-40[14]/.test(m)) return 'التطبيق المثبّت على الجهاز الآخر قديم (لا واجهته) — حدّثه ثم أعد المحاولة';
       if (/cleartext/i.test(m)) return 'تطبيق أندرويد المثبّت قديم ويمنع الاتصال المحلي — حدّث التطبيق (APK) ثم أعد المحاولة';
-      if (/ECONNREFUSED|ETIMEDOUT|EHOSTUNREACH|timeout|failed to connect|unreachable/i.test(m)) return 'تعذّر الوصول للجهاز الآخر — تأكد أن الجهازين على الشبكة نفسها وأن العنوان والمنفذ كما يظهران عنده';
+      /* مهلة انقضت ليست «تعذّر وصول»: الجهاز متصل لكنه مشغول (يسرد مجلداً كبيراً) */
+      if (/^timeout$|timed out|SocketTimeout/i.test(m)) return 'انتهت مهلة الانتظار — الجهاز الآخر متصل لكنه مشغول أو المجلد كبير جداً؛ تُعاد المحاولة في الدورة التالية';
+      if (/ECONNREFUSED|ETIMEDOUT|EHOSTUNREACH|failed to connect|unreachable/i.test(m)) return 'تعذّر الوصول للجهاز الآخر — تأكد أن الجهازين على الشبكة نفسها وأن العنوان والمنفذ كما يظهران عنده';
       if (/pair-403/.test(m)) return 'الرمز خاطئ أو انتهت صلاحيته — أظهر رمزاً جديداً';
       if (/not-found/.test(m)) return 'لم يُعثر على الجهاز الآخر في هذه الشبكة — تأكد أنه يعمل ومتصل بالواي فاي نفسه';
       if (/HTTP_401/.test(m)) return 'الجهاز الآخر لا يعرف هذا الجهاز (أُزيل منه الإقران أو مُسحت بيانات التطبيق هناك) — حدّث التطبيق على الجهازين، وإن استمر فأقرن من جديد';
@@ -8349,6 +8351,7 @@
     ══════════════════════════════════════════════════════════════════ */
     var LANX_STATE = 'lansync_xstate_v1';
     var LANX_GEN = 'lansync_xgen_v1';     /* معرّف ربط النظير الذي سُجّلت معه الحالة: {مفتاح: gen} */
+    var LANX_LIST_MS = 15 * 60000;    /* مهلة سرد مجلد (هنا أو عند النظير): مجلد بآلاف الملفات على هاتف يطول */
     var LANX_SLACK = 2000;            /* فرق زمن يُعدّ تطابقاً (دقة أنظمة الملفات تختلف) */
 
     function _lanXAvailable() {
@@ -8514,9 +8517,9 @@
       var who = ctx.who || peerId, caps = ctx.caps || {}, v2 = _lanPull2();
       var res = { pulled: 0, failed: 0, conflicts: 0, deleted: 0, delFailed: 0, delOff: '', err: '', kept: 0 };
       var q = '?f=' + encodeURIComponent(name);
-      var man = JSON.parse(await _lanCall('httpJson', [base + '/xmanifest' + q, token], 120000) || '{}');
+      var man = JSON.parse(await _lanCall('httpJson', [base + '/xmanifest' + q, token], LANX_LIST_MS) || '{}');
       if (!man || !Array.isArray(man.files)) throw new Error('bad-manifest');
-      var local = JSON.parse(await _lanCall('xList', [name], 120000) || '[]');
+      var local = JSON.parse(await _lanCall('xList', [name], LANX_LIST_MS) || '[]');
       var key = _lanXKey(peerId, name), rec = _lanXStLoad(key);
       var gen = typeof man.gen === 'string' ? man.gen : '';
       var st = rec.st;
@@ -8562,7 +8565,7 @@
           _lanLogAdd('fail', who, name + '/' + f.p + ': ' + _lanErrText(e && e.message));
         }
       }
-      var after = (plan.pull.length || res.deleted) ? JSON.parse(await _lanCall('xList', [name], 120000) || '[]') : local;
+      var after = (plan.pull.length || res.deleted) ? JSON.parse(await _lanCall('xList', [name], LANX_LIST_MS) || '[]') : local;
       _lanXStStore(key, _lanXNextState(st, after, man.files, failed, { complete: man.complete !== false, retain: retain }), gen || rec.gen);
       return res;
     }
@@ -8721,6 +8724,7 @@
       var resTxt = function (r) {
         if (!r) return 'لم يُزامَن بعد';
         if (r.missing) return 'غير مربوط هناك';
+        if (r.stale) return 'رُبط على الجهاز الآخر — يُزامَن في الدورة التالية';
         if (r.err) return '✗ ' + _lanErrText(r.err);
         return _lanFmtWhen(r.at) + (r.pulled ? ' — سُحب ' + toArabic(r.pulled) : '') + (r.deleted ? ' — حُذف ' + toArabic(r.deleted) : '')
           + (!r.pulled && !r.deleted ? ' — متطابق' : '')
@@ -8747,7 +8751,11 @@
             <div style="flex:1;min-width:150px;line-height:1.6">
               <div><b>${f.name}</b> <span style="color:rgba(var(--ov),0.5);font-size:11px" dir="auto">${f.label}</span></div>
               ${peers.map(function (p) {
-                return html`<div key=${p.id} style="font-size:11px;color:rgba(var(--ov),0.6)">${many ? pName(p) + ': ' : ''}${resTxt((p.xResults || {})[f.name])}</div>`;
+                return html`<div key=${p.id} style="font-size:11px;color:rgba(var(--ov),0.6)">${many ? pName(p) + ': ' : ''}${resTxt((function () {
+                  /* نتيجة «غير مربوط هناك» من مزامنة سابقة، والجهاز الآخر ربط المجلد بعدها: ليست حاله الآن */
+                  var r = (p.xResults || {})[f.name];
+                  return (r && r.missing && Array.isArray(p.xFolders) && p.xFolders.indexOf(f.name) >= 0) ? { stale: true } : r;
+                })())}</div>`;
               })}
             </div>
             <button class="sm-btn" style="padding:3px 8px" onClick=${function () { move(f.name); }}>📂 تغيير المكان</button>
