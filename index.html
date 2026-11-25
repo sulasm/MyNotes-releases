@@ -11,12 +11,12 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: https://*.googleapis.com https://*.gstatic.com https://*.google.com https://*.ggpht.com https://*.googleusercontent.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https://*.googleapis.com https://*.gstatic.com https://*.google.com https://*.ggpht.com https://*.googleusercontent.com; media-src 'self' data: blob:; connect-src 'self' data: blob: https://api.open-meteo.com https://ensemble-api.open-meteo.com https://api.met.no https://raw.githubusercontent.com https://*.googleapis.com https://*.gstatic.com https://*.google.com https://*.ggpht.com https://*.googleusercontent.com; frame-src 'self' data: blob: https://*.google.com; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
   <meta name="theme-color" content="#667eea">
-  <meta name="app-version" content="1.50.2">
+  <meta name="app-version" content="1.51.0">
   <!-- أدنى إصدار من التطبيق المثبّت (APK / مثبّت ويندوز) تحتاجه هذه الواجهة: الواجهة تتحدث تلقائياً
        والتطبيق المثبّت لا، فإن كان المثبّت أقدم من هذا عرضت الواجهة شريط «تحديث التطبيق مطلوب».
        يضبطهما scripts/bump-version.js آلياً عند تغيّر كود الطبقة الأصلية، ويفرضهما فحص CI. -->
-  <meta name="app-min-native-android" content="1.50.2">
-  <meta name="app-min-native-windows" content="1.50.2">
+  <meta name="app-min-native-android" content="1.51.0">
+  <meta name="app-min-native-windows" content="1.51.0">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <title>المنظم</title>
@@ -4282,7 +4282,7 @@
       });
       return { places: _prunePlacesDel([...pmap.values()], del).places, placesDel: del };
     }
-    function _mergeNotesFiles(localRaw, peerRaw, dev, hour) {
+    function _mergeNotesFiles(localRaw, peerRaw, dev, hour, late) {
       let L, E;
       try { if (String(localRaw || '').trim() === '') return { changed: false, err: 'local-empty' }; L = _deserializeNotes(String(localRaw)); }
       catch (e) { return { changed: false, err: 'local-bad' }; }
@@ -4298,7 +4298,7 @@
       const savedAt = Math.max(Date.now(), (+L.savedAt || 0) + 1, (+E.savedAt || 0) + 1);
       /* rem: التذكيرات التي يغيّرها الدمج (تُجدوَل/تُلغى في الطبقة الأصلية بعد نجاح الكتابة) */
       let rem = null;
-      try { if (typeof _remindersDelta === 'function') rem = _remindersDelta(L.notes, out.notes, +hour, Date.now()); } catch (e) { rem = null; }
+      try { if (typeof _remindersDelta === 'function') rem = _remindersDelta(L.notes, out.notes, +hour, Date.now(), late); } catch (e) { rem = null; }
       return { changed: true, n: out.notes.length, added: out.notes.length - L.notes.length, rem: rem,
         raw: JSON.stringify(Object.assign({ v: 3, savedAt: savedAt, dev: dev || 'android' }, out)) };
     }
@@ -7398,6 +7398,14 @@
       try { lateMap = JSON.parse(localStorage.getItem(lateKey) || '{}'); } catch (e) { }
       try { Object.keys(localStorage).forEach(k => { if (k.indexOf('notes_late_when_') === 0 && k !== lateKey) localStorage.removeItem(k); }); } catch (e) { }
       let lateChanged = false;
+      /* ما نبّه إليه محرّك الخلفية اليوم (مهمة وصلت والتطبيق مغلق وقد فات وقتها): لا يُكرَّر هنا */
+      try {
+        const L = /** @type {any} */ (window.LanSync);
+        if (L && typeof L.bgLate === 'function') {
+          const nm = JSON.parse(L.bgLate(String(today.getTime())) || '{}');
+          Object.keys(nm || {}).forEach(k => { if (!lateMap[k] && +nm[k] > 0) { lateMap[k] = +nm[k]; lateChanged = true; } });
+        }
+      } catch (e) { }
       DB.get().forEach(n => {
         if (n.status !== 'قيد التنفيذ' || !n.dG) return;
         const base = parseG(n.dG); if (!base) return;
@@ -7426,35 +7434,50 @@
       return want;
     }
     /* ══ تذكيرات تُجدوَل والتطبيق مغلق (محرّك أندرويد الخلفي، عبر www/lan-merge.html) ══
-       التذكيرات القادمة لقائمة ملاحظات — بقواعد _desiredReminders نفسها (العنوان والنص والساعة)،
-       عدا «اليوم وقد فات الوقت»: ذاك يحتاج سجل الصفحة اليومي كي لا يتكرر التنبيه، فيبقى لها عند الفتح.
-       _remindersDelta: ما يُجدوَل وما يُلغى حين يصير الملف «بعد» مكان «قبل» (ملاحظة أُنجزت أو حُذفت
-       على الجهاز الآخر يُلغى تذكيرها؛ جديدة أو تغيّر موعدها يُجدوَل). */
+       التذكيرات لقائمة ملاحظات — بقواعد _desiredReminders نفسها (الساعة والعنوان والنص).
+       «اليوم وقد فات الوقت» (1.51.0): يُنبَّه بعد دقيقة، مرة واحدة في اليوم — late سجل اليوم
+       {معرّف: زمن التنبيه}: ما فيه وزمنه قادم يُعاد كما هو، وما مضى زمنه نُبّه فلا يتكرر. السجل
+       تحفظه الطبقة الأصلية وتقرؤه الصفحة (bgLate) فلا ينبَّه مرتين عند فتح التطبيق. late=null ⇒ تُهمل
+       هذه الحالة. _remindersDelta: ما يُجدوَل وما يُلغى حين يصير «بعد» مكان «قبل»، وما أُضيف للسجل. */
     /*@@merge-core@@*/
-    function _remindersFuture(notes, hour, now) {
-      const want = {};
+    function _remindersFor(notes, hour, now, late) {
+      const want = {}, lateNew = {};
       const h = (hour >= 0 && hour <= 23) ? hour : 9;
+      const today = new Date(now); today.setHours(0, 0, 0, 0);
       (Array.isArray(notes) ? notes : []).forEach(n => {
         if (!n || n.id == null || n.status !== 'قيد التنفيذ' || !n.dG) return;
         const base = parseG(String(n.dG)); if (!base) return;
+        const nDay = new Date(base); nDay.setHours(0, 0, 0, 0);
+        if (nDay.getTime() < today.getTime()) return;      /* متأخرة أياماً: يكفي تنبيه المقدّمة */
         const dt = new Date(base); dt.setHours(h, 0, 0, 0);
-        const when = dt.getTime();
-        if (!(when > now)) return;
+        let when = dt.getTime();
+        if (!(when > now)) {
+          if (!late || nDay.getTime() !== today.getTime()) return;
+          const stored = +late[String(n.id)] || 0;
+          if (stored) { if (stored > now) when = stored; else return; }
+          else { when = now + 60000; lateNew[String(n.id)] = when; }
+        }
         const cat = [n.main, n.sub].filter(Boolean).join(' › ');
         want[String(n.id)] = { when: when, title: '📋 تذكير' + (cat ? ': ' + cat : ''),
           body: (n.text || cat || 'لديك مهمة') + (n.num ? ' — ' + n.num : '') };
       });
-      return want;
+      return { want: want, lateNew: lateNew };
     }
-    function _remindersDelta(beforeNotes, afterNotes, hour, now) {
-      const a = _remindersFuture(beforeNotes, hour, now), b = _remindersFuture(afterNotes, hour, now);
-      const set = {}, cancel = [];
+    function _remindersFuture(notes, hour, now) { return _remindersFor(notes, hour, now, null).want; }
+    function _remindersDelta(beforeNotes, afterNotes, hour, now, late) {
+      const lt = (late && typeof late === 'object') ? late : null;
+      const a = _remindersFor(beforeNotes, hour, now, lt).want, rb = _remindersFor(afterNotes, hour, now, lt), b = rb.want;
+      const set = {}, cancel = [], lateOut = {};
       Object.keys(a).forEach(id => { if (!b[id]) cancel.push(id); });
       Object.keys(b).forEach(id => {
         const p = a[id], w = b[id];
-        if (!p || p.when !== w.when || p.title !== w.title || p.body !== w.body) set[id] = w;
+        if (!p || p.when !== w.when || p.title !== w.title || p.body !== w.body) {
+          set[id] = w;
+          /* يُسجَّل «نُبّه اليوم» لما جُدول فعلاً فقط — ما كان هنا قبل الدمج شأن الصفحة */
+          if (rb.lateNew[id]) lateOut[id] = rb.lateNew[id];
+        }
       });
-      return { set: set, cancel: cancel };
+      return { set: set, cancel: cancel, late: lateOut };
     }
     /*@@/merge-core@@*/
     /** @param {boolean} [full] إلغاء الكل ثم جدولة الكل بدل التفاضل */
@@ -8399,26 +8422,37 @@
         L.xStateReady();
       } catch (e) { }
     }
-    /** @returns {{st: any, gen: string}} */
+    /** @returns {{st: any, gen: string, dirs: string[]}} */
     function _lanXStLoad(key) {
       if (_lanXStNative()) {
         _lanXStMigrate();
         try {
           var raw = /** @type {any} */ (window.LanSync).xStateGet(key);
-          if (!raw) return { st: undefined, gen: '' };
+          if (!raw) return { st: undefined, gen: '', dirs: [] };
           var o = JSON.parse(raw);
-          return { st: (o && o.st && typeof o.st === 'object') ? o.st : undefined, gen: String((o && o.gen) || '') };
-        } catch (e) { return { st: undefined, gen: '' }; }
+          return { st: (o && o.st && typeof o.st === 'object') ? o.st : undefined, gen: String((o && o.gen) || ''),
+            dirs: (o && Array.isArray(o.dirs)) ? o.dirs.map(String) : [] };
+        } catch (e) { return { st: undefined, gen: '', dirs: [] }; }
       }
-      return { st: _lanXStateAll()[key], gen: String(_lanXGens()[key] || '') };
+      var d = _lanXDirsAll()[key];
+      return { st: _lanXStateAll()[key], gen: String(_lanXGens()[key] || ''), dirs: Array.isArray(d) ? d.map(String) : [] };
     }
-    function _lanXStStore(key, st, gen) {
+    /* dirs: المجلدات الفرعية التي كانت عند الطرفين في آخر مزامنة — بها يُعرف أن غياب مجلد حذفٌ لا جديد */
+    var LANX_DIRS = 'lansync_xdirs_v1';
+    function _lanXDirsAll() {
+      try { var o = JSON.parse(localStorage.getItem(LANX_DIRS) || '{}'); return (o && typeof o === 'object') ? o : {}; }
+      catch (e) { return {}; }
+    }
+    function _lanXStStore(key, st, gen, dirs) {
+      dirs = Array.isArray(dirs) ? dirs : [];
       if (_lanXStNative()) {
-        try { /** @type {any} */ (window.LanSync).xStateSet(key, JSON.stringify({ gen: gen || '', st: st || {} })); } catch (e) { }
+        try { /** @type {any} */ (window.LanSync).xStateSet(key, JSON.stringify({ gen: gen || '', st: st || {}, dirs: dirs })); } catch (e) { }
         return;
       }
       var all = _lanXStateAll(); all[key] = st; _lanXStateSave(all);
       if (gen) { var g = _lanXGens(); g[key] = gen; _lanXGensSave(g); }
+      var da = _lanXDirsAll(); da[key] = dirs;
+      try { localStorage.setItem(LANX_DIRS, JSON.stringify(da)); } catch (e) { }
     }
     /* يُسقط سجلات المفاتيح التي يقبلها pred(معرّف الجهاز، اسم المجلد) */
     function _lanXStDrop(pred) {
@@ -8438,6 +8472,52 @@
       var g = _lanXGens();
       Object.keys(g).forEach(function (k) { if (hit(k)) delete g[k]; });
       _lanXGensSave(g);
+      var da = _lanXDirsAll();
+      Object.keys(da).forEach(function (k) { if (hit(k)) delete da[k]; });
+      try { localStorage.setItem(LANX_DIRS, JSON.stringify(da)); } catch (e) { }
+    }
+
+    /* ══ إعادة التسمية والنقل (1.51.0) ══
+       ملف أُعيدت تسميته أو نُقل عند النظير كان يبدو «حُذف + ملف جديد»: يُحذف هنا ويُنزَّل من جديد
+       بكامله. الآن يُطابَق كل مرشح حذف مع ملف جديد عند النظير له الحجم والزمن اللذان سجّلناهما لنسخة
+       النظير القديمة (إعادة التسمية لا تغيّر أياً منهما) — فيُنقل الملف المحلي بدل ذلك.
+       يعيد {renames: [{from, to, size, mt}], pull, del} بعد استخراج الأزواج. size/mt للملف المحلي. */
+    function _lanXRenames(plan, st) {
+      st = st || {};
+      var used = {}, renames = [], pull = [];
+      plan.pull.forEach(function (f) {
+        if (f.keep || st[f.p]) { pull.push(f); return; }      /* ليس «جديداً عند النظير» */
+        var hit = -1;
+        for (var i = 0; i < plan.del.length; i++) {
+          var s = st[plan.del[i].p];
+          if (!used[i] && s && s.ps === f.size && s.pm === f.mt && f.size > 0) { hit = i; break; }
+        }
+        if (hit < 0) { pull.push(f); return; }
+        used[hit] = 1;
+        renames.push({ from: plan.del[hit].p, to: f.p, size: plan.del[hit].size, mt: plan.del[hit].mt, pull: f, del: plan.del[hit] });
+      });
+      return { renames: renames, pull: pull, del: plan.del.filter(function (d, i) { return !used[i]; }) };
+    }
+
+    /* ══ المجلدات الفارغة (1.51.0) ══
+       البيان كان ملفات فقط، فمجلد فارغ لا ينتقل. الآن يحمل dirs (كل المجلدات الفرعية):
+       • عند النظير، غائب هنا، ولم يكن عند الطرفين من قبل ⇐ يُنشأ.
+       • هنا، غائب عند النظير، وكان عند الطرفين ⇐ حُذف هناك فيُزال هنا إن كان فارغاً.
+       • غائب هنا وكان عند الطرفين ⇐ حذفناه نحن: لا يُعاد (والنظير يزيله في دورته).
+       mk من الأقرب للجذر، rm من الأعمق. */
+    function _lanXDirPlan(localDirs, peerDirs, known) {
+      var L = {}, P = {}, K = {};
+      (localDirs || []).forEach(function (d) { L[d] = 1; });
+      (peerDirs || []).forEach(function (d) { P[d] = 1; });
+      (known || []).forEach(function (d) { K[d] = 1; });
+      var depth = function (d) { return String(d).split('/').length; };
+      var mk = Object.keys(P).filter(function (d) { return !L[d] && !K[d]; }).sort(function (a, b) { return depth(a) - depth(b) || (a < b ? -1 : 1); });
+      var rm = Object.keys(L).filter(function (d) { return !P[d] && K[d]; }).sort(function (a, b) { return depth(b) - depth(a) || (a < b ? -1 : 1); });
+      return { mk: mk, rm: rm };
+    }
+    function _lanXDirsNative() {
+      var L = /** @type {any} */ (window.LanSync);
+      return _lanXAvailable() && typeof L.xDirs === 'function' && typeof L.xMkdir === 'function' && typeof L.xRmdir === 'function';
     }
     /* هل تستطيع الطبقة الأصلية هنا إزالة ملف (إلى السلة)؟ تطبيق مثبّت أقدم ⇒ لا حذف، والباقي يعمل */
     function _lanXCanDelete() {
@@ -8515,7 +8595,7 @@
     async function _lanXSyncFolder(base, token, peerId, name, ctx) {
       ctx = ctx || {};
       var who = ctx.who || peerId, caps = ctx.caps || {}, v2 = _lanPull2();
-      var res = { pulled: 0, failed: 0, conflicts: 0, deleted: 0, delFailed: 0, delOff: '', err: '', kept: 0 };
+      var res = { pulled: 0, failed: 0, conflicts: 0, deleted: 0, delFailed: 0, delOff: '', err: '', kept: 0, renamed: 0, dirs: 0 };
       var q = '?f=' + encodeURIComponent(name);
       var man = JSON.parse(await _lanCall('httpJson', [base + '/xmanifest' + q, token], LANX_LIST_MS) || '{}');
       if (!man || !Array.isArray(man.files)) throw new Error('bad-manifest');
@@ -8528,8 +8608,20 @@
       var plan = _lanXPlan(local, man.files, st);
       res.conflicts = plan.conflicts;
 
-      /* ── الحذف أولاً (سريع)، بشروطه ── */
       var canDel = man.complete === true && !!gen && _lanXCanDelete();
+      /* ── إعادة التسمية أولاً: ما طابق يُنقل محلياً ولا يُحذف ولا يُنزَّل. تعذّرها ⇒ حذف + تنزيل كما كان ── */
+      if (canDel && typeof (/** @type {any} */ (window.LanSync)).xRename === 'function') {
+        var rr = _lanXRenames(plan, st);
+        plan.pull = rr.pull; plan.del = rr.del;
+        for (var ri = 0; ri < rr.renames.length; ri++) {
+          var rn = rr.renames[ri], rok = '';
+          try { rok = await _lanCall('xRename', [name, rn.from, rn.to, String(rn.size), String(rn.mt)], 60000); } catch (e) { rok = ''; }
+          if (rok === 'ok') { res.renamed++; _lanLogAdd('ren', who, name + '/' + rn.from + ' ← ' + rn.to); }
+          else { plan.pull.push(rn.pull); if (rok !== 'gone') plan.del.push(rn.del); }
+        }
+      }
+
+      /* ── الحذف (سريع)، بشروطه ── */
       var dels = plan.del, retain = {};
       if (!canDel) {
         if (dels.length) res.delOff = !_lanXCanDelete() ? 'local' : (!gen ? 'peer' : 'partial');
@@ -8565,8 +8657,30 @@
           _lanLogAdd('fail', who, name + '/' + f.p + ': ' + _lanErrText(e && e.message));
         }
       }
-      var after = (plan.pull.length || res.deleted) ? JSON.parse(await _lanCall('xList', [name], LANX_LIST_MS) || '[]') : local;
-      _lanXStStore(key, _lanXNextState(st, after, man.files, failed, { complete: man.complete !== false, retain: retain }), gen || rec.gen);
+      /* ── المجلدات الفارغة: إنشاء ما وُجد عند النظير، وإزالة ما حُذف هناك (بشروط الحذف نفسها) ── */
+      var known = (gen && rec.gen && rec.gen !== gen) ? [] : rec.dirs, dirsOut = known;
+      if (Array.isArray(man.dirs) && _lanXDirsNative()) {
+        try {
+          var peerDirs = man.dirs.map(String);
+          var localDirs = JSON.parse(await _lanCall('xDirs', [name], LANX_LIST_MS) || '[]');
+          var dp = _lanXDirPlan(localDirs, peerDirs, known), touched = false;
+          for (var mi = 0; mi < dp.mk.length; mi++) {
+            try { if (await _lanCall('xMkdir', [name, dp.mk[mi]], 60000) === 'ok') { res.dirs++; touched = true; } } catch (e) { }
+          }
+          if (canDel) for (var xi = 0; xi < dp.rm.length; xi++) {
+            try {
+              if (await _lanCall('xRmdir', [name, dp.rm[xi]], 60000) === 'ok') { res.dirs++; touched = true; _lanLogAdd('del', who, name + '/' + dp.rm[xi] + '/ (مجلد فارغ)'); }
+            } catch (e) { }
+          }
+          if (touched || res.pulled || res.deleted || res.renamed) localDirs = JSON.parse(await _lanCall('xDirs', [name], LANX_LIST_MS) || '[]');
+          var pset = {}; peerDirs.forEach(function (d) { pset[d] = 1; });
+          dirsOut = localDirs.filter(function (d) { return pset[d]; });
+          /* بيان ناقص أو حذف غير متاح: ما كان معروفاً يبقى معروفاً حتى يُحسم */
+          if (!canDel) known.forEach(function (d) { if (dirsOut.indexOf(d) < 0) dirsOut.push(d); });
+        } catch (e) { dirsOut = known; }
+      }
+      var after = (plan.pull.length || res.deleted || res.renamed) ? JSON.parse(await _lanCall('xList', [name], LANX_LIST_MS) || '[]') : local;
+      _lanXStStore(key, _lanXNextState(st, after, man.files, failed, { complete: man.complete !== false, retain: retain }), gen || rec.gen, dirsOut);
       return res;
     }
 
@@ -8590,7 +8704,7 @@
         if (peerNames.indexOf(n) < 0) { results[n] = { missing: true }; continue; }
         try {
           var r = await _lanXSyncFolder(base, token, peerId, n, ctx);
-          results[n] = { pulled: r.pulled, failed: r.failed, conflicts: r.conflicts, kept: r.kept, deleted: r.deleted, delFailed: r.delFailed,
+          results[n] = { pulled: r.pulled, failed: r.failed, conflicts: r.conflicts, kept: r.kept, deleted: r.deleted, delFailed: r.delFailed, renamed: r.renamed,
             delOff: r.delOff, at: Date.now() };
           tot.pulled += r.pulled; tot.failed += r.failed + r.delFailed; tot.deleted += r.deleted;
         } catch (e) { results[n] = { err: String((e && e.message) || 'error').slice(0, 60), at: Date.now() }; tot.failed++; }
@@ -8943,7 +9057,7 @@
       </div>`;
     }
 
-    var _LAN_LOG_ICON = { pull: '⬇️', att: '📎', del: '🗑️', keep: '♻️', fail: '⚠️', notes: '📝', err: '⚠️' };
+    var _LAN_LOG_ICON = { ren: '🔀', pull: '⬇️', att: '📎', del: '🗑️', keep: '♻️', fail: '⚠️', notes: '📝', err: '⚠️' };
     function LanLogBox() {
       var o = useState(false), open = o[0], setOpen = o[1];
       var all = _lanLogAll();
