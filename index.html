@@ -11,11 +11,11 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: https://*.googleapis.com https://*.gstatic.com https://*.google.com https://*.ggpht.com https://*.googleusercontent.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https://*.googleapis.com https://*.gstatic.com https://*.google.com https://*.ggpht.com https://*.googleusercontent.com; media-src 'self' data: blob:; connect-src 'self' data: blob: https://api.open-meteo.com https://ensemble-api.open-meteo.com https://api.met.no https://raw.githubusercontent.com https://*.googleapis.com https://*.gstatic.com https://*.google.com https://*.ggpht.com https://*.googleusercontent.com; frame-src 'self' data: blob: https://*.google.com; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
   <meta name="theme-color" content="#667eea">
-  <meta name="app-version" content="1.50.0">
+  <meta name="app-version" content="1.50.1">
   <!-- أدنى إصدار من التطبيق المثبّت (APK / مثبّت ويندوز) تحتاجه هذه الواجهة: الواجهة تتحدث تلقائياً
        والتطبيق المثبّت لا، فإن كان المثبّت أقدم من هذا عرضت الواجهة شريط «تحديث التطبيق مطلوب».
        يضبطهما scripts/bump-version.js آلياً عند تغيّر كود الطبقة الأصلية، ويفرضهما فحص CI. -->
-  <meta name="app-min-native-android" content="1.50.0">
+  <meta name="app-min-native-android" content="1.50.1">
   <meta name="app-min-native-windows" content="1.48.0">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -7821,7 +7821,7 @@
     function _lanManifestMap(files) {
       var m = {};
       (Array.isArray(files) ? files : []).forEach(function (f) {
-        if (f && typeof f.p === 'string' && f.p) m[f.p] = { size: +f.size || 0, mt: +f.mt || 0 };
+        if (f && typeof f.p === 'string' && f.p) m[f.p] = { size: +f.size || 0, mt: +f.mt || 0, eq: +f.eq || 0 };
       });
       return m;
     }
@@ -8455,9 +8455,17 @@
           else keptDeleted++;                 /* حُذف هنا ولم يتغيّر هناك: لا يُعاد */
           return;
         }
+        /* ── منع الارتداد ──
+           أندرويد لا يستطيع ضبط زمن تعديل ما ينسخه (SAF)، فنسخته تحمل زمن النسخ لا زمن الأصل. كان
+           صاحب الأصل يراها «أحدث» فيسحبها (وينقل أصله إلى السلة)، فيتغيّر زمنه، فيراه الهاتف تغيّر
+           فيسحبه… بلا نهاية. الآن يعلن النظير مع كل ملف eq: «نسختي هذه مطابقة لنسختك التي زمنها eq»
+           (من سجل حالته معنا، ما دام ملفه لم يتغيّر منذ المزامنة). فإن كان eq هو زمن ملفنا فالملفان
+           متطابقان؛ وإن اختلف فملفنا تغيّر بعدها ونسخة النظير هي الأقدم — وفي الحالين لا يُسحب شيء. */
+        if (r.eq > 0 && (r.eq !== l.mt || r.size === l.size)) return;
+        /* متطابقان حجماً وزمناً (نسخة ويندوز تحمل زمن الأصل): لا يُسحب وإن قال السجل إن النظير تغيّر */
+        if (l.size === r.size && Math.abs(l.mt - r.mt) <= LANX_SLACK) return;
         if (!s) {
-          /* أول لقاء: متطابقان ⇒ لا شيء؛ وإلا فالأحدث بوضوح يفوز (والأقدم يسحبه النظير) */
-          if (l.size === r.size && Math.abs(l.mt - r.mt) <= LANX_SLACK) return;
+          /* أول لقاء: الأحدث بوضوح يفوز (والأقدم يسحبه النظير) */
           /* keep: النسخة المحلية مختلفة وستُستبدل — تُحفظ في السلة قبل الاستبدال فلا يضيع تعديل */
           if (r.mt > l.mt + LANX_SLACK) pull.push({ p: p, size: r.size, mt: r.mt, keep: { size: l.size, mt: l.mt } });
           return;
