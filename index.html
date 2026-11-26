@@ -11,12 +11,12 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: https://*.googleapis.com https://*.gstatic.com https://*.google.com https://*.ggpht.com https://*.googleusercontent.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https://*.googleapis.com https://*.gstatic.com https://*.google.com https://*.ggpht.com https://*.googleusercontent.com; media-src 'self' data: blob:; connect-src 'self' data: blob: https://api.open-meteo.com https://ensemble-api.open-meteo.com https://api.met.no https://raw.githubusercontent.com https://*.googleapis.com https://*.gstatic.com https://*.google.com https://*.ggpht.com https://*.googleusercontent.com; frame-src 'self' data: blob: https://*.google.com; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
   <meta name="theme-color" content="#667eea">
-  <meta name="app-version" content="1.52.1">
+  <meta name="app-version" content="1.53.0">
   <!-- أدنى إصدار من التطبيق المثبّت (APK / مثبّت ويندوز) تحتاجه هذه الواجهة: الواجهة تتحدث تلقائياً
        والتطبيق المثبّت لا، فإن كان المثبّت أقدم من هذا عرضت الواجهة شريط «تحديث التطبيق مطلوب».
        يضبطهما scripts/bump-version.js آلياً عند تغيّر كود الطبقة الأصلية، ويفرضهما فحص CI. -->
-  <meta name="app-min-native-android" content="1.52.1">
-  <meta name="app-min-native-windows" content="1.52.1">
+  <meta name="app-min-native-android" content="1.53.0">
+  <meta name="app-min-native-windows" content="1.53.0">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <title>المنظم</title>
@@ -3379,10 +3379,12 @@
     /*@@merge-core@@*/
     function _deserializeNotes(text) {
       const p = JSON.parse(text);
-      if (Array.isArray(p)) return { v: 1, savedAt: 0, notes: p, trash: [], cats: null, catsAt: 0, catsDel: [], places: [], placesDel: [], purged: [], prefs: null };
+      /* 1.53.0: عنصر ليس كائناً (null…) في القائمة كان يعطّل العرض كله — يُتجاهل */
+      const objs = (a) => (Array.isArray(a) ? a : []).filter(x => x && typeof x === 'object' && !Array.isArray(x));
+      if (Array.isArray(p)) return { v: 1, savedAt: 0, notes: objs(p), trash: [], cats: null, catsAt: 0, catsDel: [], places: [], placesDel: [], purged: [], prefs: null };
       if (p && Array.isArray(p.notes)) return {
-        v: p.v || 2, savedAt: +p.savedAt || 0, dev: typeof p.dev === 'string' ? p.dev : '', notes: p.notes,
-        trash: Array.isArray(p.trash) ? p.trash : [],
+        v: p.v || 2, savedAt: +p.savedAt || 0, dev: typeof p.dev === 'string' ? p.dev : '', notes: objs(p.notes),
+        trash: objs(p.trash),
         cats: _validCats(p.cats),
         catsAt: +p.catsAt || 0,
         catsDel: _validCatsDel(p.catsDel),
@@ -3652,31 +3654,42 @@
     /* قراءة النسخة الاحتياطية عبر نفس قناة التخزين.
        يجرّب المرشحَين: .bak (تكتبه الطبقة الأصلية عند كل كتابة) ثم ملف النسخ الدوري
        — على سطح المكتب لا يوجد .bak أصلاً فالملف الدوري هو المسار الفعلي */
+    /* 1.53.0: يُعاد أول مرشح يُقرأ فعلاً (كان أول غير فارغ ولو تالفاً فتفشل الاستعادة مع وجود نسخة سليمة بعده)،
+       ثم مرآة هذا الجهاز ملاذاً أخيراً. existed: وُجدت نسخة لكن لم يصلح منها شيء — ليس تشغيلاً أول */
     async function _readBak() {
       const storage = localStorage.getItem('notes_storage');
       const candidates = [NOTES_FILE + '.bak', BACKUP_FILE];
+      const out = { raw: '', existed: false };
+      const ok = (t) => {
+        if (!t || String(t).trim() === '') return false;
+        out.existed = true;
+        try { _deserializeNotes(String(t)); out.raw = String(t); return true; } catch (e) { return false; }
+      };
       if (window.AndroidFS && typeof window.AndroidFS.readJson === 'function' && storage === 'android_fs') {
         for (const name of candidates) {
           try {
             let b = window.AndroidFS.readJson(name);
             if (b && typeof b.then === 'function') b = await b;
-            if (b && String(b).trim() !== '') return b;
+            if (ok(b)) return out;
           } catch (e) { }
         }
-        return '';
-      }
-      if (_dirHandle) {
+      } else if (_dirHandle) {
         for (const name of candidates) {
           try {
             const fh = await _dirHandle.getFileHandle(name);
             const f = await fh.getFile();
-            const t = await f.text();
-            if (t && t.trim() !== '') return t;
+            if (ok(await f.text())) return out;
           } catch (e) { }
         }
-        return '';
+      } else {
+        try { if (ok(await idbGet('notes_backup'))) return out; } catch (e) { }
+        return out;
       }
-      try { return (await idbGet('notes_backup')) || ''; } catch (e) { return ''; }
+      try {
+        const m = await idbGet(MIRROR_KEY), f = _mirrorFolder();
+        if (m && f && m.f === f && typeof m.j === 'string' && ok(m.j)) return out;
+      } catch (e) { }
+      return out;
     }
 
     /* تحميل الملاحظات من ملف المجلد إلى الذاكرة */
@@ -3725,18 +3738,18 @@
          الملف الفارغ أو المفقود: أداة مزامنة خارجية قد تكون بمنتصف نسخ الملف أو
          نقلت حذفاً من الطرف الآخر، فاعتباره «تشغيلاً أول» يفتح نافذة حالة فارغة
          تُكتب فوق البيانات. وجود نسخة احتياطية يعني أن هذا ليس تشغيلاً أول. */
+      let bakExisted = false;
       if (!loadedOk) {
         try {
           const bak = await _readBak();
-          if (bak && String(bak).trim() !== '') {
-            parsed = _deserializeNotes(String(bak));
-            loadedOk = true; fromBak = true;
-          }
+          if (bak.raw) { parsed = _deserializeNotes(bak.raw); loadedOk = true; fromBak = true; }
+          else bakExisted = bak.existed;
         } catch (e) { }
       }
 
-      /* لا ملف ولا نسخة احتياطية → تشغيل أول فعلي */
-      if (!loadedOk && emptyFile) {
+      /* لا ملف ولا نسخة احتياطية → تشغيل أول فعلي. نسخةٌ وُجدت ولم تُقرأ ليست تشغيلاً أول: كان يفتح فارغاً
+         ثم يكتب النسخ الدوري فوق آخر نسخة صالحة */
+      if (!loadedOk && emptyFile && !bakExisted) {
         parsed = { v: 2, savedAt: 0, notes: [] };
         loadedOk = true;
       }
@@ -3790,6 +3803,14 @@
         } catch (e) { }
       }
 
+      /* 1.53.0: ما أُضيف والتحميل فاشل (شريط الخطأ) يُدمج مع المحمَّل لا يُستبدل — كان يضيع عند «إعادة المحاولة» */
+      if (!_notesLoaded && (_notesCache.length || _trashCache.length)) {
+        const pp = /** @type {any} */ (parsed);
+        const keep = { cats: pp.cats, catsAt: pp.catsAt, catsDel: pp.catsDel };
+        const m = _mergeStates(Object.assign({ notes: pp.notes, trash: Array.isArray(pp.trash) ? pp.trash : [], purged: pp.purged }, keep),
+          Object.assign({ notes: _notesCache, trash: _trashCache, purged: [] }, keep));
+        pp.notes = m.notes; pp.trash = m.trash; needResave = true;
+      }
       _notesCache = parsed.notes;
       _trashCache = Array.isArray(parsed.trash) ? parsed.trash : [];
       _purgedCache = _validPurged(parsed.purged);
@@ -3825,6 +3846,7 @@
       }
       _notesLoaded = true;
       _ftCapture();   /* المحمَّل مرجعٌ لا تعديل */
+      try { if (typeof _remAfterLoad === 'function') _remAfterLoad(); } catch (e) { }   /* التذكيرات تُزامَن على القائمة المحمَّلة */
       _lastFileSavedAt = fileAt0;   /* مرجع كشف التغيّر الخارجي: الملف كما هو على القرص */
       _lastFileLen = raw == null ? -1 : String(raw).length;
       hideSaveError();
@@ -3838,7 +3860,9 @@
     const DB = {
       get() { return _notesCache; },
       set(a) { _notesCache = Array.isArray(a) ? a : []; _persistNotes(); updCount(); _syncRemindersDebounced(); },
-      add(n) { if (n && !n.mt) n.mt = Date.now(); _notesCache.unshift(n); _persistNotes(); updCount(); _syncRemindersDebounced(); }
+      /* 1.53.0: الملاحظة الجديدة تُختم حقولها عند الإضافة — بدونها يُختم كل حقل بزمن أول تعديل لاحق فيغلب
+         تعديلَ جهاز آخر لحقل لم يُمسّ هنا (مرفق أُضيف هناك يضيع) */
+      add(n) { if (n && !n.mt) n.mt = Date.now(); if (n && !n.ft) n.ft = _ftBackfill(n); _notesCache.unshift(n); _persistNotes(); updCount(); _syncRemindersDebounced(); }
     };
 
     /* ══════════════════════════════════════
@@ -3856,6 +3880,8 @@
       const storage = localStorage.getItem('notes_storage');
       if (window.AndroidFS && typeof window.AndroidFS.readJson === 'function' && storage === 'android_fs') {
         try {
+          /* 1.53.0: غير حاجبة حيث توفّرت — الفحص الدوري (كل ٩٠ ث وعند كل عودة) كان يجمّد الواجهة طوال قراءة الملف */
+          if (typeof window.AndroidFS.readJsonAsync === 'function') return { raw: await _readJsonAsync(NOTES_FILE), failed: false };
           let raw = window.AndroidFS.readJson(NOTES_FILE);
           if (raw && typeof raw.then === 'function') raw = await raw;
           return { raw: raw === undefined ? null : raw, failed: false };
@@ -3919,7 +3945,8 @@
       for (const n of _notesCache) {
         if (!n || n.id == null) continue;
         const f = _ftFields(n);
-        m.set(String(n.id), { f, j: JSON.stringify(f) });
+        /* t: ختم السجل لحظة الالتقاط — تعبئة أختام حقول ملاحظة بلا ft تكون به لا بختمٍ رفعه المستدعي للتوّ */
+        m.set(String(n.id), { f, j: JSON.stringify(f), t: _noteStamp(n) });
       }
       _ftSnap = m;
     }
@@ -3932,7 +3959,7 @@
         if (!prev) continue;              /* ملاحظة جديدة: تُختم عند الإضافة */
         const f = _ftFields(n);
         if (JSON.stringify(f) === prev.j) continue;   /* بلا تغيير — المسار الغالب */
-        if (!n.ft || typeof n.ft !== 'object') n.ft = _ftBackfill(n);
+        if (!n.ft || typeof n.ft !== 'object') n.ft = _ftBackfill(n, prev.t);
         let touched = false;
         for (const k in f) {
           if (f[k] === prev.f[k]) continue;
@@ -3949,8 +3976,8 @@
        يُمسّ بعد الترقية، فيغلب ختم السجل الأحدث على ختم حقلٍ أقدم صريح — أي
        عودةٌ إلى الدمج بالسجل. وبختم السجل يُحسم ما تباعد قبل الترقية كما كان
        يُحسم تماماً: لا أسوأ. */
-    function _ftBackfill(n) {
-      const t = _noteStamp(n), ft = {};
+    function _ftBackfill(n, t0) {
+      const t = +t0 > 0 ? +t0 : _noteStamp(n), ft = {};
       if (!t) return ft;
       for (const k in n) {
         if (!Object.prototype.hasOwnProperty.call(n, k) || NOTE_META[k]) continue;
@@ -3971,9 +3998,12 @@
        وحيث لا ختم للحقل يُرجع إلى ختم السجل، فيتصرّف كما كان تماماً؛ وإن خلا
        الطرفان من الأزمنة (نسخة أقدم على الجهاز الآخر) يُحسم بالسجل كاملاً. */
     /*@@merge-core@@*/
+    /* 1.53.0: التعادل في الختم يُحسم بالقيمة نفسها لا بمن يدمج — كان كل جهاز يُبقي قيمته فيتباعدان للأبد */
+    function _tieExt(l, e) { return JSON.stringify(e === undefined ? null : e) > JSON.stringify(l === undefined ? null : l); }
     function _mergeNote(loc, ext) {
       if (!(loc && loc.ft) && !(ext && ext.ft)) {
-        return _noteStamp(ext) > _noteStamp(loc) ? ext : loc;
+        const se = _noteStamp(ext), sl = _noteStamp(loc);
+        return (se > sl || (se === sl && _tieExt(loc, ext))) ? ext : loc;
       }
       const lm = _noteStamp(loc), em = _noteStamp(ext);
       const out = { id: loc.id }, ft = {}, keys = {};
@@ -3987,7 +4017,9 @@
         if (!eHas && !et) { if (lHas) { out[k] = loc[k]; ft[k] = lt || lm; } continue; }
         if (!lHas && !lt) { if (eHas) { out[k] = ext[k]; ft[k] = et || em; } continue; }
         const a = lt || lm, b = et || em;
-        if (b > a) { if (eHas) out[k] = ext[k]; ft[k] = b; }
+        /* التعادل: الحاضر يغلب الغائب، وبين قيمتين يُحسم بالقيمة */
+        const tieExt = b === a && (eHas !== lHas ? eHas : (eHas && _tieExt(loc[k], ext[k])));
+        if (b > a || tieExt) { if (eHas) out[k] = ext[k]; ft[k] = b; }
         else { if (lHas) out[k] = loc[k]; ft[k] = a; }
       }
       out.ft = ft;
@@ -4044,18 +4076,50 @@
        بلا ختم عند الطرفين (ملفات نسخ أقدم) يبقى السلوك القديم: اتحاد المفاتيح
        العليا والمحلي يفوز — مع الشطب أيضاً. */
     /*@@merge-core@@*/
+    function _catsHas(c, parts) {
+      const m = c && c[parts[0]];
+      if (!m || parts.length === 1) return !!m;
+      const sb = m.sub && m.sub[parts[1]];
+      if (!sb || parts.length === 2) return !!sb;
+      return Array.isArray(sb.det) && sb.det.indexOf(parts[2]) >= 0;
+    }
+    function _catsCopy(c, from, parts) {
+      const fm = from[parts[0]];
+      if (parts.length === 1) { c[parts[0]] = JSON.parse(JSON.stringify(fm)); return; }
+      if (!c[parts[0]]) c[parts[0]] = { ic: fm.ic, sub: {} };
+      const m = c[parts[0]];
+      if (!m.sub || typeof m.sub !== 'object') m.sub = {};
+      const fs = fm.sub[parts[1]];
+      if (parts.length === 2) { m.sub[parts[1]] = JSON.parse(JSON.stringify(fs)); return; }
+      if (!m.sub[parts[1]]) m.sub[parts[1]] = { ic: fs.ic, det: [] };
+      const sb = m.sub[parts[1]];
+      if (!Array.isArray(sb.det)) sb.det = [];
+      if (sb.det.indexOf(parts[2]) < 0) sb.det.push(parts[2]);
+    }
     function _mergeCats(locC, locAt, extC, extAt, locDel, extDel) {
       const del = _unionCatsDel(locDel, extDel);
       const lc = _validCats(locC), ec = _validCats(extC);
       const la = +locAt || 0, ea = +extAt || 0;
       let cats, at;
+      let lose = null;
       if (!lc) { cats = ec || null; at = ec ? ea : 0; }
       else if (!ec) { cats = lc; at = la; }
-      else if (la || ea) { if (ea > la) { cats = ec; at = ea; } else { cats = lc; at = la; } }
+      else if (la || ea) { if (ea > la) { cats = ec; at = ea; lose = lc; } else { cats = lc; at = la; lose = ec; } }
       else {
-        cats = lc;
+        cats = Object.assign({}, lc);   /* 1.53.0: نسخة — كان يعدّل شجرة الطرف المحلي نفسها فلا يُكشف التغيير */
         for (const k of Object.keys(ec)) if (!(k in cats)) cats[k] = ec[k];
         at = 0;
+      }
+      /* 1.53.0: الشجرة الأحدث تُؤخذ كاملة — فئة أُضيفت على الجهاز الآخر في الأثناء كانت تضيع. كل إضافة تسجّل
+         «حيّة» (alive) بمسارها: ما كان حياً (آخر سجل له) وغاب عن الشجرة الفائزة يُنقل من الأخرى */
+      if (cats && lose) {
+        const alive = del.filter(e => e.alive).map(e => e.p.split(CATS_DEL_SEP)).sort((x, y) => x.length - y.length);
+        let copied = null;
+        for (const parts of alive) {
+          if (_catsHas(cats, parts) || !_catsHas(lose, parts)) continue;
+          if (!copied) { copied = JSON.parse(JSON.stringify(cats)); cats = copied; }
+          _catsCopy(cats, lose, parts);
+        }
       }
       if (cats) cats = _pruneCatsDel(cats, del).cats;
       return { cats, at, del };
@@ -4117,7 +4181,10 @@
           catsDel: merged.catsDel || [],
           places: parsed.places,
           placesDel: _unionPlacesDel(parsed.placesDel, snap.placesDel),
-          purged: merged.purged
+          purged: merged.purged,
+          /* 1.53.0: وقت التنبيه العام (الأحدث ختماً) ومن كتب الملف — كانا يسقطان فيضيع وقتٌ أحدث من جهاز آخر */
+          prefs: (snap.prefs && (!parsed.prefs || snap.prefs.at > parsed.prefs.at)) ? snap.prefs : (parsed.prefs || null),
+          dev: parsed.dev || ''
         },
         restored: snapAt > fileAt
       };
@@ -4156,8 +4223,8 @@
       return ext;
     }
     /* دمج حالة خارجية في الذاكرة — لكل عنصر والأحدث بختمه يفوز — بلا كتابة */
-    function _absorbExternal(ext, rawLen) {
-      _writeConflictBackup(_serializeNotes());
+    function _absorbExternal(ext, rawLen, noBackup) {
+      if (!noBackup) _writeConflictBackup(_serializeNotes());
       try { if (typeof _prefsAbsorb === 'function') _prefsAbsorb(ext && ext.prefs); } catch (e) { }
       const merged = _mergeStates({ notes: _notesCache, trash: _trashCache, cats: CATS, catsAt: _catsAt, catsDel: _catsDel, purged: _purgedCache }, ext);
       _notesCache = merged.notes;
@@ -4235,6 +4302,24 @@
       return '';
     }
 
+    /* بصمة قانونية لحالة (ترتيب العناصر والمفاتيح لا يهم) — لمقارنة حالتنا بالملف بلا اعتبار لمن كتبه */
+    function _canonJson(v) {
+      if (Array.isArray(v)) return '[' + v.map(_canonJson).join(',') + ']';
+      if (v && typeof v === 'object') return '{' + Object.keys(v).sort().map(k => JSON.stringify(k) + ':' + _canonJson(v[k])).join(',') + '}';
+      return v === undefined ? 'null' : JSON.stringify(v);
+    }
+    function _stateCanon(s) {
+      const set = (a) => (Array.isArray(a) ? a : []).map(_canonJson).sort().join(',');
+      return [set(s.notes), set(s.trash), _canonJson(s.cats || null), +s.catsAt || 0, set(_validCatsDel(s.catsDel)),
+        set(s.places), set(_validPlacesDel(s.placesDel)), set(_validPurged(s.purged)), _canonJson(s.prefs || null)].join('|');
+    }
+    function _curState() {
+      let places = [];
+      try { if (typeof MapBridge !== 'undefined') places = MapBridge.getPlaces(); } catch (e) { }
+      return { notes: _notesCache, trash: _trashCache, cats: CATS, catsAt: _catsAt, catsDel: _catsDel, places: places,
+        placesDel: _placesDelGet(), purged: _purgedCache, prefs: (typeof _prefsGet === 'function') ? _prefsGet() : null };
+    }
+
     let _mergeBusy = false;
     async function _syncMergeCheck() {
       if (!_notesLoaded || _mergeBusy) return false;
@@ -4244,8 +4329,15 @@
         if (failed) return false;
         const ext = _externalChange(raw);
         if (!ext) return false;
-        _absorbExternal(ext, String(raw).length);
-        _persistNotes();   /* اكتب الحالة المدموجة — فيتقارب الجهازان */
+        /* 1.53.0: كان الملف يُكتب بعد كل دمج: جهازان يتزامن مجلدهما بأداة خارجية يتبادلان الكتابة بلا نهاية (كل
+           كتابة savedAt جديد بمحتوى مطابق) مع نسخة تعارض ورسالة «دُمجت» كل ٩٠ ثانية. الآن: يُكتب الملف فقط إن
+           نقصه شيء مما عندنا، والرسالة ونسخة التعارض فقط إن جاء الملف بجديد */
+        const pre = _serializeNotes(), before = _stateCanon(_curState());
+        _absorbExternal(ext, String(raw).length, true);
+        const after = _stateCanon(_curState());
+        if (after !== _stateCanon(ext)) _persistNotes();
+        if (after === before) return false;
+        _writeConflictBackup(pre);
         _sweepPendingAttachments();   /* ملاحظة عادت بالدمج تُلغي حذف مرفقها المؤجّل */
         updCount(); _syncRemindersDebounced();
         if (typeof renderNotes === 'function') renderNotes();
@@ -5009,9 +5101,12 @@
       var body = document.getElementById('umluj-body');
       if (body && _umlujOvOpen() && !_umlujFull)
         vrender(html`<div style="text-align:center;padding:30px;color:var(--text-m);">…جارٍ جلب بيانات ${_wxCity().name}</div>`, body);
+      var reqCity = _wxCity().name;
       fetch(_wxFullUrl(), { cache: 'no-store' })
         .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
         .then(function (j) {
+          /* 1.53.0: ردٌّ متأخر لمدينة سابقة (بُدّلت أثناء الجلب) لا يُعرض باسم المدينة الجديدة */
+          if (_wxCity().name !== reqCity) return;
           var c = j && j.current;
           /* المؤشر العلوي يتحدث من نفس الرد — مصدر واحد فلا تتضارب القيم */
           if (c) {
@@ -5533,6 +5628,9 @@
       const ok = await _saveAttachment(f, saved);
       if (!ok) { e.target.value = ''; return; }   /* فشل الحفظ — لا نضع مرجعاً معلّقاً */
       const noteFile = { name: fName, saved, type: f.type, lastMod: f.lastModified };
+      /* مرفق سابق في النموذج لم يُحفظ في ملاحظة: يُجدوَل حذفه (كان يبقى يتيماً للأبد) */
+      const prev = t === 'quick' ? S.q.file : S.fFile;
+      if (prev && prev.saved !== saved) _cleanupOldAttachment(prev);
       if (t === 'quick') { S.q.file = noteFile; document.getElementById('q-attach-cell').style.background = 'rgba(34,197,94,0.2)'; }
       else { S.fFile = noteFile; document.getElementById('f-attach-cell').style.background = 'rgba(34,197,94,0.2)'; }
       showFb('📎 تم إرفاق: ' + fName);
@@ -5559,12 +5657,19 @@
             reader.onerror = () => { showFb('❌ خطأ في قراءة الملف', 1); resolve(false); };
             reader.onload = () => {
               const base64 = String(reader.result).split(',')[1];
+              /* 1.53.0: الجسر يعيد false عند الفشل (صلاحية المجلد، المساحة، مسار طويل) — كان يُعلَن «تم» ويُربط
+                 بالملاحظة مرجعٌ لملف غير موجود */
+              const fin = (r, okMsg) => {
+                const done = (ok) => {
+                  if (ok === false) { showFb('❌ فشل حفظ المرفق — تحقّق من صلاحية مجلد التخزين والمساحة المتاحة', 1); resolve(false); }
+                  else { showFb(okMsg); resolve(true); }
+                };
+                if (r && typeof r.then === 'function') r.then(done, () => done(false)); else done(r);
+              };
               if (typeof window.AndroidFS.saveAttachment === 'function') {
-                window.AndroidFS.saveAttachment(folderName, fName, base64);
-                showFb('✅ تم الحفظ في المرفقات'); resolve(true);
+                fin(window.AndroidFS.saveAttachment(folderName, fName, base64), '✅ تم الحفظ في المرفقات');
               } else if (typeof window.AndroidFS.writeFile === 'function') {
-                window.AndroidFS.writeFile(folderName, fName, base64);
-                showFb('✅ تم الحفظ (تنسيق نصي)'); resolve(true);
+                fin(window.AndroidFS.writeFile(folderName, fName, base64), '✅ تم الحفظ (تنسيق نصي)');
               } else {
                 showFb('⚠️ Bridge أندرويد لا يدعم حفظ الملفات حالياً', 1); resolve(false);
               }
@@ -5702,7 +5807,7 @@
     }
     function cleanTxt(s) {
       if (!s) return '';
-      return s.replace(/[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]/gu, '').trim();
+      return String(s).replace(/[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]/gu, '').trim();
     }
 
 
@@ -5905,6 +6010,7 @@
     /*@@merge-core@@*/
     function parseG(s) {
       if (!s) return 0;
+      s = String(s);   /* 1.53.0: قيمة غير نصية (ملف مستورد) كانت تعطّل العرض كله */
       if (s.includes('/')) {
         const p = s.split('/'); // dd/mm/yyyy
         if (p.length < 3) return 0;
@@ -6327,6 +6433,17 @@
         const c = Object.assign({}, n);
         if (c.id === undefined || c.id === null || String(c.id).trim() === '') c.id = newNoteId() + '_i' + out.length;
         if (typeof c.ts !== 'string') c.ts = (c.ts == null) ? '' : String(c.ts);
+        /* 1.53.0: أنواع الحقول — قيمة رقمية في تاريخ أو تصنيف كانت تعطّل عرض القائمة كلها بعد الاستيراد */
+        ['main', 'sub', 'sec', 'text', 'num', 'status', 'dH', 'dG', 'rt', 'rp'].forEach(k => {
+          if (k in c && typeof c[k] !== 'string') c[k] = (c[k] == null) ? '' : String(c[k]);
+        });
+        if ('tags' in c) c.tags = Array.isArray(c.tags) ? c.tags.filter(x => x != null).map(String) : [];
+        if ('links' in c) c.links = Array.isArray(c.links) ? c.links.filter(x => x != null && typeof x !== 'object') : [];
+        if ('rb' in c) c.rb = Array.isArray(c.rb) ? c.rb.map(Number).filter(x => isFinite(x)) : [];
+        if ('file' in c && !(c.file && typeof c.file === 'object' && typeof c.file.name === 'string')) c.file = null;
+        if ('loc' in c && !(c.loc && isFinite(c.loc.lat) && isFinite(c.loc.lng))) c.loc = null;
+        if ('ft' in c && !(c.ft && typeof c.ft === 'object' && !Array.isArray(c.ft))) delete c.ft;
+        if ('mt' in c && !(+c.mt > 0)) delete c.mt;
         out.push(c);
       });
       return out;
@@ -6361,7 +6478,8 @@
           incoming.forEach(n => {
             const k = String(n.id);
             const ex = map.get(k);
-            if (!ex || String(n.ts || '') > String(ex.ts || '')) map.set(k, n);
+            /* 1.53.0: الأحدث تعديلاً حقلاً بحقل كما في المزامنة — كان يقارن وقت الإنشاء (ts) الذي لا يتغيّر بالتعديل */
+            map.set(k, ex ? _mergeNote(ex, n) : n);
           });
           result = [...map.values()];
           /* دمج السلة: نضيف ما ليس موجوداً حيّاً ولا في السلة الحالية */
@@ -6941,7 +7059,7 @@
     ══════════════════════════════════════ */
     function _fileIcon(file) {
       if (!file) return '📎';
-      const name = (typeof file === 'object' ? file.name : file) || '';
+      const name = String((typeof file === 'object' ? file.name : file) || '');
       const ext = name.split('.').pop().toLowerCase();
       if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'heic'].includes(ext)) return '🖼️';
       if (ext === 'pdf') return '📕';
@@ -7006,6 +7124,13 @@
 
     function openNote(id) {
       const n = DB.get().find(x => _sameId(x.id, id)); if (!n) return;
+      /* 1.53.0: المحرر مفتوح لملاحظة أخرى (من الخريطة مثلاً): تُحفظ أولاً كما في الملاحظات المرتبطة —
+         كان فتح ملاحظة فوقه يستبدل ما فيه فتضيع تعديلاته */
+      const _ov = document.getElementById('edit-ov');
+      if (_editId != null && _ov && _ov.classList.contains('open')) {
+        if (_sameId(_editId, id)) return;
+        closeEdit();
+      }
       _editId = id;
       _editStatus = n.status || '';
       _editDH = n.dH || '';
@@ -7039,6 +7164,7 @@
       _refreshEditLoc();
       /* الملاحظات المرتبطة */
       _renderEditLinks(n);
+      _editSnap = _editVals();
       document.getElementById('edit-ov').classList.add('open');
       /* بعد الإظهار (scrollHeight صفر وهو مخفي): يتوسّع الحقل ليعرض النص كاملاً */
       requestAnimationFrame(() => _autoGrowEdit(document.getElementById('edit-text')));
@@ -7189,6 +7315,8 @@
 
     async function handleAttFromEdit(e) {
       const f = e.target.files[0]; if (!f || !_editId) return;
+      /* الملاحظة التي اختير لها الملف — لا التي قد تكون مفتوحة بعد انتهاء الحفظ (ملف كبير) */
+      const noteId = _editId;
       if (!_canSaveAttachments()) { showFb('⚠️ إرفاق الملفات يتطلب تحديد مجلد تخزين من الإعدادات', 1); e.target.value = ''; return; }
       const fName = f.name.replace(/[\\/:*?"<>|]/g, '');
       const saved = _uniqueAttName(fName);
@@ -7196,11 +7324,11 @@
       if (!ok) { e.target.value = ''; return; }
       const fileObj = { name: fName, saved, type: f.type, lastMod: f.lastModified };
       const notes = DB.get();
-      const idx = notes.findIndex(x => _sameId(x.id, _editId));
+      const idx = notes.findIndex(x => _sameId(x.id, noteId));
       let oldFile = null;
       if (idx >= 0) { oldFile = notes[idx].file; notes[idx].file = fileObj; DB.set(notes); }
       _cleanupOldAttachment(oldFile);   /* احذف الملف القديم إن لم يعد مستخدماً */
-      _refreshEditAtt(notes[idx]);
+      if (_sameId(_editId, noteId)) _refreshEditAtt(notes[idx]);
       renderNotes();
       showFb('📎 تم تغيير المرفق: ' + fName);
       e.target.value = '';
@@ -7234,34 +7362,44 @@
       renderNotes();
       showFb('🗑️ نُقلت إلى سلة المحذوفات');
     }
+    /* 1.53.0: قيم المحرر كما فُتحت (_editSnap) — الحفظ يكتب ما غيّره المستخدم فقط. كان يكتب كل الحقول من
+       قيمٍ التُقطت عند الفتح ويرفع mt: تعديلٌ وصل بالمزامنة أثناء فتح الملاحظة (أو «تم» من الإشعار) يُمحى
+       ويُختم «الأحدث» فيضيع على الجهازين، ومجرد فتح ملاحظة وإغلاقها كان يعيد ملاحظة حُذفت على جهاز آخر. */
+    /** @type {any} */
+    let _editSnap = null;
+    function _editVals() {
+      const rtEl = /** @type {HTMLInputElement|null} */ (document.getElementById('edit-rt'));
+      const tagsEl = /** @type {HTMLInputElement|null} */ (document.getElementById('edit-tags'));
+      return {
+        text: /** @type {HTMLTextAreaElement} */ (document.getElementById('edit-text')).value.trim(),
+        num: /** @type {HTMLInputElement} */ (document.getElementById('edit-num')).value.trim(),
+        status: _editStatus, dH: _editDH, dG: _editDG, main: _editMain, sub: _editSub, sec: _editSec,
+        rt: rtEl && _remParseTime(rtEl.value) >= 0 ? _remFmtTime(_remParseTime(rtEl.value)) : '',
+        rb: _editRb.slice(), rp: _editRp,
+        loc: _editLoc ? { lat: _editLoc.lat, lng: _editLoc.lng } : null,
+        /* حقل الوسوم أُزيل من الواجهة (لم يطلبه المالك) — الوسوم المخزَّنة سابقاً تبقى كما هي */
+        tags: tagsEl ? _parseTags(tagsEl.value) : undefined
+      };
+    }
     function _doSaveEdit() {
-      if (!_editId) return false;
+      _editRecur = null;
+      if (!_editId || !_editSnap) return false;
+      const cur = /** @type {any} */ (_editVals()), changed = /** @type {any} */ ({});
+      Object.keys(cur).forEach(k => { if (cur[k] !== undefined && JSON.stringify(cur[k]) !== JSON.stringify(_editSnap[k])) changed[k] = cur[k]; });
+      if (!Object.keys(changed).length) return false;          /* لا تغيير: لا كتابة ولا ختم */
       const notes = DB.get();
       const idx = notes.findIndex(x => _sameId(x.id, _editId));
-      if (idx < 0) return false;
-      notes[idx].text   = document.getElementById('edit-text').value.trim();
-      notes[idx].num    = document.getElementById('edit-num').value.trim();
-      const _wasDone = notes[idx].status === 'مكتمل';
-      notes[idx].status = _editStatus;
-      notes[idx].dH     = _editDH;
-      notes[idx].dG     = _editDG;
-      /* حقول التذكير تُكتب فقط إن ضُبطت أو كانت موجودة — فلا تُضاف لكل ملاحظة تُحفظ */
-      const _rtEl = /** @type {HTMLInputElement|null} */ (document.getElementById('edit-rt'));
-      const _rtV = _rtEl && _remParseTime(_rtEl.value) >= 0 ? _remFmtTime(_remParseTime(_rtEl.value)) : '';
-      if (_rtV || notes[idx].rt) notes[idx].rt = _rtV;
-      if (_editRb.length || (Array.isArray(notes[idx].rb) && notes[idx].rb.length)) notes[idx].rb = _editRb.slice();
-      if (_editRp || notes[idx].rp) notes[idx].rp = _editRp;
+      if (idx < 0) { showFb('⚠️ لم يُحفظ التعديل: الملاحظة حُذفت أو نُقلت إلى السلة (ربما على جهاز آخر)', 1); return false; }
+      const n = notes[idx], wasDone = n.status === 'مكتمل';
+      /* مهمة متكررة أُنجز موعدها في الأثناء (من الإشعار أو جهاز آخر) فتقدّمت: لا تُنجز مرة ثانية */
+      if (changed.status === 'مكتمل' && n.rp && n.dG !== _editSnap.dG && !('dG' in changed)) delete changed.status;
+      Object.keys(changed).forEach(k => { n[k] = changed[k]; });
+      /* موعد أو تكرار جديد: مرساة يوم الشهر تُحسب من الموعد الجديد */
+      if (('dG' in changed || 'rp' in changed) && 'ra' in n) delete n.ra;
       /* مهمة متكررة أُنجزت: تتقدّم للموعد التالي وتبقى قيد التنفيذ */
-      _editRecur = (!_wasDone && _editStatus === 'مكتمل') ? _recurOnDone(notes[idx]) : null;
-      notes[idx].main   = _editMain;
-      notes[idx].sub    = _editSub;
-      notes[idx].sec    = _editSec;
-      /* حقل الوسوم أُزيل من الواجهة (لم يطلبه المالك) — الوسوم المخزَّنة سابقاً تبقى كما هي */
-      const _tagsEl = document.getElementById('edit-tags');
-      if (_tagsEl) notes[idx].tags = _parseTags(_tagsEl.value);
-      notes[idx].loc    = _editLoc ? { lat: _editLoc.lat, lng: _editLoc.lng } : null;
-      notes[idx].mt     = Date.now();   /* ختم التعديل — يحسم دمج المزامنة بين الأجهزة */
-      DB.set(notes);
+      if ('status' in changed && !wasDone && n.status === 'مكتمل') _editRecur = _recurOnDone(n);
+      DB.set(notes);   /* الختم (ft وmt) لما تغيّر فعلاً يتولاه _ftStampChanges */
+      _editSnap = _editVals();
       return true;
     }
     /* وسوم حرة: فواصل عربية/لاتينية، بلا تكرار، حد 10 وسوم × 20 حرفاً */
@@ -7405,6 +7543,7 @@
     }
     async function handleAttChange(e) {
       const f = e.target.files[0]; if (!f || !_attNoteId) return;
+      const noteId = _attNoteId;   /* الملاحظة التي اختير لها الملف، لا ما قد يُفتح أثناء الحفظ */
       if (!_canSaveAttachments()) { showFb('⚠️ إرفاق الملفات يتطلب تحديد مجلد تخزين من الإعدادات', 1); e.target.value = ''; return; }
       const fName = f.name.replace(/[\\/:*?"<>|]/g, '');
       const saved = _uniqueAttName(fName);
@@ -7412,11 +7551,11 @@
       if (!ok) { e.target.value = ''; return; }
       const fileObj = { name: fName, saved, type: f.type, lastMod: f.lastModified };
       const notes = DB.get();
-      const idx = notes.findIndex(x => _sameId(x.id, _attNoteId));
+      const idx = notes.findIndex(x => _sameId(x.id, noteId));
       let oldFile = null;
       if (idx >= 0) { oldFile = notes[idx].file; notes[idx].file = fileObj; DB.set(notes); }
       _cleanupOldAttachment(oldFile);   /* احذف الملف القديم إن لم يعد مستخدماً */
-      closeAttOv();
+      if (_sameId(_attNoteId, noteId)) closeAttOv();
       renderNotes();
       showFb('📎 تم تغيير المرفق: ' + fName);
       e.target.value = '';
@@ -7494,6 +7633,19 @@
           });
         }
       } catch (e) { }
+      /* 1.53.0: الموعد التالي للمهمة المتكررة (المعرّف~n): «تم» من الإشعار والتطبيق مغلق تلغي تذكيرات الموعد
+         الحالي ولا يتقدّم الموعد إلا عند فتح التطبيق — فكان الموعد التالي بلا تذكير. الطبقة الأصلية تُبقي ~n */
+      DB.get().forEach(n => {
+        if (!_remActive(n) || !n.rp || !REM_REPEAT[n.rp]) return;
+        const due = parseG(String(n.dG));
+        const nx = _recurNext(n, due, due);
+        if (!nx) return;
+        const own = _remParseTime(n.rt), tm = own >= 0 ? own : _remindMin();
+        const d = new Date(parseG(nx.dG)); d.setHours(Math.floor(tm / 60), tm % 60, 0, 0);
+        if (!(d.getTime() > now)) return;
+        const tx = _remText(n);
+        want[String(n.id) + '~n'] = { when: d.getTime(), title: tx.title, body: tx.body };
+      });
       return want;
     }
     /* ══ حساب التذكيرات — يُشارَك مع محرّك أندرويد الخلفي (www/lan-merge.html) ══
@@ -7525,6 +7677,13 @@
     function _remActive(n) {
       return !!n && n.id != null && n.status === 'قيد التنفيذ' && !!n.dG && !!parseG(String(n.dG));
     }
+    /* متى أخذت المهمة موعدها الحالي (تاريخ، وقت، حالة، تكرار) — من أختام حقولها، وإلا ختم السجل */
+    function _remSetAt(n) {
+      let t = 0;
+      const ft = n && n.ft;
+      if (ft && typeof ft === 'object') ['dG', 'rt', 'status', 'rp'].forEach(k => { if (+ft[k] > t) t = +ft[k]; });
+      return t || _noteStamp(n);
+    }
     function _remText(n) {
       const cat = [n.main, n.sub].filter(Boolean).join(' › ');
       return { cat: cat, title: '📋 تذكير' + (cat ? ': ' + cat : ''),
@@ -7551,6 +7710,10 @@
         let when = due;
         if (!(when > now)) {
           if (!late || nDay.getTime() !== t0) return;
+          /* 1.53.0: كانت كل مهمة موعدها اليوم وفات تُنبَّه ثانية بعد دقيقة عند أول فتح للتطبيق — ولو نُبّه إليها
+             في وقتها أو أُجّلت من الإشعار. «فات وقته» لمن أخذ موعده بعد فواته فقط (أُنشئت أو عُدّلت متأخرة) */
+          const setAt = _remSetAt(n);
+          if (setAt > 0 && setAt < due && !late[id]) return;
           const stored = +late[id] || 0;
           if (stored) { if (stored > now) when = stored; else return; }
           else { when = now + 60000; lateNew[id] = when; }
@@ -7584,39 +7747,53 @@
       const act = {};
       (Array.isArray(afterNotes) ? afterNotes : []).forEach(n => { if (_remActive(n)) act[String(n.id)] = 1; });
       (Array.isArray(beforeNotes) ? beforeNotes : []).forEach(n => { if (_remActive(n) && !act[String(n.id)]) dismiss.push(String(n.id)); });
+      /* أُنجزت على الجهاز الآخر: يُلغى تأجيلها (~s) وتذكير موعدها التالي (~n) أيضاً */
+      dismiss.forEach(id => { [id + '~s', id + '~n'].forEach(x => { if (!set[x] && cancel.indexOf(x) < 0) cancel.push(x); }); });
       return { set: set, cancel: cancel, late: lateOut, dismiss: dismiss };
     }
     /*@@/merge-core@@*/
 
     /* ══ التكرار (1.52.0): n.rp = d يومياً | w أسبوعياً | m شهرياً ميلادياً | hm شهرياً هجرياً | y سنوياً ══
-       عند إنجاز مهمة متكررة لا تُغلق: يتقدّم موعدها إلى أول تكرار بعد اليوم وتبقى «قيد التنفيذ».
-       الشهري يحافظ على يوم الشهر الأصلي (٣١ ⇒ آخر يوم في الشهر الأقصر). */
+       عند إنجاز مهمة متكررة لا تُغلق: يتقدّم موعدها إلى أول تكرار بعد يوم الإنجاز وتبقى «قيد التنفيذ».
+       الشهري والسنوي يحافظان على يوم الشهر الأصلي n.ra (٣١ ⇒ آخر يوم في الشهر الأقصر ثم ٣١ ثانية) —
+       1.53.0: كان يُحسب من الموعد الحالي فينجرف إلى ٢٨ للأبد بعد فبراير. */
     const REM_REPEAT = { d: 'يومياً', w: 'أسبوعياً', m: 'شهرياً (ميلادي)', hm: 'شهرياً (هجري)', y: 'سنوياً' };
-    function _recurNext(n, now) {
+    /* أول تكرار بعد يوم `from` (افتراضياً الآن) وليس قبل يوم `now` */
+    function _recurNext(n, now, from) {
       const base = n && n.dG ? parseG(String(n.dG)) : 0;
       if (!base || !n.rp || !REM_REPEAT[n.rp]) return null;
-      const b = new Date(base), today = new Date(now || Date.now()); today.setHours(0, 0, 0, 0);
+      const day0 = (t) => { const x = new Date(t); x.setHours(0, 0, 0, 0); return x.getTime(); };
+      const after = day0(from == null ? (now || Date.now()) : from), min = day0(now || Date.now());
+      const b = new Date(base);
       const dim = (y, m) => new Date(y, m + 1, 0).getDate();
       let hb = null;
       if (n.rp === 'hm') { try { hb = H.toH(b); } catch (e) { hb = null; } if (!hb) return null; }
+      const ad = +n.ra > 0 ? Math.min(31, Math.floor(+n.ra)) : 0;
       for (let k = 1; k < 4000; k++) {
         let d;
         if (n.rp === 'd') d = new Date(b.getFullYear(), b.getMonth(), b.getDate() + k);
         else if (n.rp === 'w') d = new Date(b.getFullYear(), b.getMonth(), b.getDate() + 7 * k);
-        else if (n.rp === 'm') { const y = b.getFullYear(), m = b.getMonth() + k; d = new Date(y, m, Math.min(b.getDate(), dim(y, m))); }
-        else if (n.rp === 'y') { const y = b.getFullYear() + k; d = new Date(y, b.getMonth(), Math.min(b.getDate(), dim(y, b.getMonth()))); }
+        else if (n.rp === 'm') { const y = b.getFullYear(), m = b.getMonth() + k; d = new Date(y, m, Math.min(ad || b.getDate(), dim(y, m))); }
+        else if (n.rp === 'y') { const y = b.getFullYear() + k; d = new Date(y, b.getMonth(), Math.min(ad || b.getDate(), dim(y, b.getMonth()))); }
         else {
           const tot = hb.y * 12 + (hb.m - 1) + k, hy = Math.floor(tot / 12), hm0 = tot % 12;
-          d = H.toG({ y: hy, m: hm0 + 1, d: Math.min(hb.d, H.md(hy, hm0)) });
+          d = H.toG({ y: hy, m: hm0 + 1, d: Math.min(Math.min(ad || hb.d, 30), H.md(hy, hm0)) });
         }
-        if (d.getTime() > today.getTime()) return { dG: H.fmtG(d), dH: H.fmtH(H.toH(d)) };
+        const t = d.getTime();
+        if (t > after && t >= min) return { dG: H.fmtG(d), dH: H.fmtH(H.toH(d)) };
       }
       return null;
     }
-    /* مهمة متكررة أُنجزت للتوّ: تُقدَّم للموعد التالي وتعود «قيد التنفيذ». يعيد الموعد الجديد أو null */
-    function _recurOnDone(n) {
+    /* مهمة متكررة أُنجزت (at: وقت الإنجاز — «تم» من إشعار قد تُطبَّق بعد أيام): تُقدَّم للموعد التالي وتعود
+       «قيد التنفيذ». يعيد الموعد الجديد أو null */
+    function _recurOnDone(n, at) {
       if (!n || n.status !== 'مكتمل') return null;
-      const nx = _recurNext(n, Date.now());
+      /* مرساة يوم الشهر من الموعد الأول قبل أن يُقصَّر في شهر أقصر */
+      if ((n.rp === 'm' || n.rp === 'y' || n.rp === 'hm') && !(+n.ra > 0)) {
+        const b = parseG(String(n.dG || ''));
+        if (b) { try { n.ra = n.rp === 'hm' ? H.toH(new Date(b)).d : new Date(b).getDate(); } catch (e) { } }
+      }
+      const nx = _recurNext(n, Date.now(), at || Date.now());
       if (!nx) return null;
       n.dG = nx.dG; n.dH = nx.dH; n.status = 'قيد التنفيذ';
       return nx;
@@ -7625,17 +7802,20 @@
     /* ══ ما فعله المستخدم من الإشعار والتطبيق مغلق (أندرويد): «تم» تُطبَّق هنا عند الفتح، والنقر يفتح المهمة ══ */
     function _remApplyNative() {
       const fsb = /** @type {any} */ (window.AndroidFS);
-      if (!fsb) return;
+      /* 1.53.0: قبل اكتمال التحميل لا يُؤخذ شيء — كان «تم» والمهمة المنقور إشعارها يُستهلكان ويضيعان */
+      if (!fsb || !_notesLoaded) return;
       try {
         if (typeof fsb.takeReminderDone === 'function') {
           const ids = JSON.parse(fsb.takeReminderDone() || '[]');
-          if (Array.isArray(ids) && ids.length && typeof _notesLoaded !== 'undefined' && _notesLoaded) {
+          if (Array.isArray(ids) && ids.length) {
             const notes = DB.get(); let n1 = 0, rec = 0;
-            ids.forEach(id => {
+            ids.forEach(e => {
+              /* 1.53.0: {id, at} (وقت الضغط) — وتطبيق أقدم يرسل المعرّف وحده */
+              const id = (e && typeof e === 'object') ? e.id : e, at = (e && typeof e === 'object') ? +e.at || 0 : 0;
               const n = notes.find(x => _sameId(x.id, id));
               if (!n || n.status !== 'قيد التنفيذ') return;
-              n.status = 'مكتمل'; n.mt = Date.now(); n1++;
-              if (_recurOnDone(n)) rec++;
+              n.status = 'مكتمل'; n1++;
+              if (_recurOnDone(n, at)) rec++;
             });
             if (n1) { DB.set(notes); renderNotes(); showFb('✅ أُنجزت ' + n1 + ' من الإشعار' + (rec ? ' — 🔁 ' + rec + ' للموعد التالي' : '')); }
           }
@@ -7676,6 +7856,9 @@
     function _syncNativeReminders(full) {
       const fsb = window.AndroidFS;
       if (!fsb || typeof fsb.scheduleReminder !== 'function') return;
+      /* 1.53.0: قبل اكتمال تحميل الملاحظات القائمة فارغة — كانت المزامنة عند الإقلاع (بعد 2.8 ث) تلغي كل
+         التذكيرات إن تأخر التحميل، ولا شيء يعيدها بعده. التحميل الناجح يستدعي _remAfterLoad */
+      if (!_notesLoaded) return;
       const want = _desiredReminders();
       const canDiff = !!_remSynced && typeof fsb.cancelReminder === 'function';
       if (full || !canDiff) {
@@ -7695,13 +7878,21 @@
         });
       }
       _remSynced = want;
-      /* مهمة أُنجزت أو حُذفت أو أُجّلت (هنا أو على جهاز آخر ووصلت بالمزامنة): يُزال إشعارها المعروض */
+      /* مهمة أُنجزت أو حُذفت أو أُجّلت (هنا أو على جهاز آخر ووصلت بالمزامنة): يُزال إشعارها المعروض — وكذلك
+         متكررة أُنجزت فتقدّم موعدها (تبقى نشطة): إشعار موعدها السابق قديم، و«تم» فيه كانت ستُنجز التالي */
       const act = {};
-      DB.get().forEach(n => { if (_remActive(n)) act[String(n.id)] = 1; });
+      DB.get().forEach(n => { if (_remActive(n)) act[String(n.id)] = String(n.dG); });
       if (_remActiveIds && typeof (/** @type {any} */ (fsb)).dismissReminder === 'function') {
-        Object.keys(_remActiveIds).forEach(id => { if (!act[id]) { try { /** @type {any} */ (fsb).dismissReminder(id); } catch (e) { } } });
+        Object.keys(_remActiveIds).forEach(id => { if (act[id] !== _remActiveIds[id]) { try { /** @type {any} */ (fsb).dismissReminder(id); } catch (e) { } } });
       }
       _remActiveIds = act;
+    }
+    /* بعد كل تحميل ناجح للملاحظات (الإقلاع، «إعادة المحاولة»، تغيير المجلد): مزامنة كاملة للتذكيرات وما
+       فُعل من الإشعار */
+    function _remAfterLoad() {
+      _remSynced = null; _remActiveIds = null;
+      _syncRemindersDebounced();
+      setTimeout(_remApplyNative, 500);
     }
     let _syncRemTimer = null;
     function _syncRemindersDebounced() {
@@ -7977,7 +8168,7 @@
        المحفوظ هنا بعد أي إعادة تشغيل للنظير. عند فشل الوصول بالمنفذ المحفوظ يُجرَّب الثابت ويُحفظ. */
     var LAN_FIXED_PORT = 47231;
     /* خطأ شبكة (لا ردّ من النظير) لا رفض منه */
-    function _lanNetErr(m) { return !/HTTP_\d+|bad-auth|truncated|bad-manifest|too-large|pair-/.test(String(m || '')); }
+    function _lanNetErr(m) { return !/HTTP_\d+|bad-auth|bad-magic|bad-frame|trailing-data|truncated|bad-manifest|too-large|pair-|changed|busy/.test(String(m || '')); }
     (function () {
       var s = LS.get();
       if ((s.token || s.hostToken) && s.proto !== LAN_PROTO) LS.save({ enabled: !!s.enabled, needRepair: true });
@@ -7993,6 +8184,9 @@
       if (/ECONNREFUSED|ETIMEDOUT|EHOSTUNREACH|failed to connect|unreachable/i.test(m)) return 'تعذّر الوصول للجهاز الآخر — تأكد أن الجهازين على الشبكة نفسها وأن العنوان والمنفذ كما يظهران عنده';
       if (/pair-403/.test(m)) return 'الرمز خاطئ أو انتهت صلاحيته — أظهر رمزاً جديداً';
       if (/not-found/.test(m)) return 'لم يُعثر على الجهاز الآخر في هذه الشبكة — تأكد أنه يعمل ومتصل بالواي فاي نفسه';
+      if (/^changed$/.test(m)) return 'تغيّر الملف هنا أثناء المزامنة — لم يُستبدل، ويُعاد النظر فيه في الدورة التالية';
+      if (/^busy$/.test(m)) return 'الملف قيد التنزيل في عملية أخرى — يُكمَل لاحقاً';
+      if (/bad-magic|bad-frame|trailing-data/.test(m)) return 'رد غير متوافق من الجهاز الآخر — حدّث التطبيق عليه';
       if (/HTTP_401/.test(m)) return 'الجهاز الآخر لا يعرف هذا الجهاز (أُزيل منه الإقران أو مُسحت بيانات التطبيق هناك) — حدّث التطبيق على الجهازين، وإن استمر فأقرن من جديد';
       return m || 'خطأ';
     }
@@ -8253,11 +8447,19 @@
     }
     /* ملفات ملاحظات الأجهزة الأخرى التي نزّلها المحرّك والتطبيق مغلق: تُدمج هنا بمنطق الدمج الآمن
        القائم — فتظهر فور فتح التطبيق ولو كان الجهاز الآخر مطفأً الآن. يعيد عدد ما دُمج. */
+    /* بعد دمج ملاحظات من جهاز آخر: تذكيرات ما وصل (أو أُنجز هناك) ومرفقات عادت — كما في دمج المجلد. 1.53.0:
+       كان دمج الشبكة لا يجدولها حتى يظهر التطبيق */
+    function _lanAfterMerge() {
+      try { if (typeof _sweepPendingAttachments === 'function') _sweepPendingAttachments(); } catch (e) { }
+      try { if (typeof _syncRemindersDebounced === 'function') _syncRemindersDebounced(); } catch (e) { }
+    }
     function _lanBgNotesMerge() {
       if (!_lanBgAvailable() || typeof (/** @type {any} */ (window.LanSync)).bgNotes !== 'function' || !_notesLoaded) return 0;
       var a = [];
       try { a = JSON.parse(/** @type {any} */ (window.LanSync).bgNotes() || '[]'); } catch (e) { a = []; }
       if (!Array.isArray(a) || !a.length) return 0;
+      /* 1.53.0: المحرّك الخلفي يعمل الآن وقد يضع ملفاً جديداً بين القراءة و«تم» فيُحذف دون أن يُدمج */
+      if (_lanBgBusy()) return 0;
       var n = 0;
       a.forEach(function (raw) {
         try { if (_lanAbsorbNotes(String(raw))) n++; } catch (e) { }
@@ -8265,6 +8467,7 @@
       try { /** @type {any} */ (window.LanSync).bgNotesDone(); } catch (e) { }
       if (n) {
         _lanWriteMerged();
+        _lanAfterMerge();
         _lanLogAdd('notes', '', 'دُمجت ملاحظات وصلت والتطبيق مغلق');
         if (typeof renderNotes === 'function') renderNotes();
       }
@@ -8449,6 +8652,7 @@
           if (_lanAbsorbNotes(peerNotes)) {
             out.merged = true;
             _lanWriteMerged();
+            _lanAfterMerge();
             _lanLogAdd('notes', who, 'دُمجت ملاحظات');
           }
           if (nSig) _lanPeerPatch(p.id, { nSig: nSig });
@@ -8479,6 +8683,9 @@
       }
       _lanBusy = true;
       _lanBgPageSync(true);
+      /* 1.53.0: نبضة كل دقيقة طوال المزامنة — كانت عند بدئها وبدء كل ملف فقط، وخطوة واحدة (بيان مجلد كبير، أو
+         ملف يُنزَّل نصف ساعة) تتجاوز مهلة المحرّك الخلفي (٣ دقائق) فيبدأ مزامنة الجهاز والملفات نفسها معها */
+      var _lanHb = setInterval(function () { _lanBgPageSync(true); }, 60000);
       try {
         await _lanEnsureServer();
         _lanAbsorbSeen();
@@ -8517,6 +8724,7 @@
         setTimeout(_lanRenderStatus, 200);
         return tot.ok > 0;
       } finally {
+        clearInterval(_lanHb);
         _lanBusy = false;
         _lanBgPageSync(false);
         _lanProgSet(null);
@@ -8684,7 +8892,11 @@
       try { localStorage.setItem(LANX_DIRS, JSON.stringify(da)); } catch (e) { }
     }
     /* يُسقط سجلات المفاتيح التي يقبلها pred(معرّف الجهاز، اسم المجلد) */
+    /* يزيد مع كل إسقاط سجل (نسيان مجلد، تغيير مكانه، إزالة جهاز): مزامنة بدأت قبله لا تكتب سجلها القديم بعده.
+       1.53.0: كانت تعيده فيبقى مجلد نُقل لمكان فارغ فارغاً للأبد */
+    var _lanXStEpoch = 0;
     function _lanXStDrop(pred) {
+      _lanXStEpoch++;
       var hit = function (k) { var a = String(k).split('\u0001'); return pred(a[0], a[1]); };
       if (_lanXStNative()) {
         _lanXStMigrate();
@@ -8757,12 +8969,12 @@
       if (typeof L.xScan === 'function') {
         var o = JSON.parse(await _lanCall('xScan', [name], LANX_LIST_MS) || '{}');
         if (!o || !Array.isArray(o.files)) throw new Error('bad-list');
-        return { files: o.files, dirs: (wantDirs && Array.isArray(o.dirs)) ? o.dirs.map(String) : null };
+        return { files: o.files, dirs: (wantDirs && Array.isArray(o.dirs)) ? o.dirs.map(String) : null, complete: o.complete !== false };
       }
       var files = JSON.parse(await _lanCall('xList', [name], LANX_LIST_MS) || '[]');
       var dirs = null;
       if (wantDirs) { try { dirs = JSON.parse(await _lanCall('xDirs', [name], LANX_LIST_MS) || '[]').map(String); } catch (e) { dirs = null; } }
-      return { files: files, dirs: dirs };
+      return { files: files, dirs: dirs, complete: true };
     }
     function _lanXDirsNative() {
       var L = /** @type {any} */ (window.LanSync);
@@ -8825,17 +9037,22 @@
     function _lanXNextState(st, localAfter, peerFiles, failed, opt) {
       var loc = _lanManifestMap(localAfter), peer = _lanManifestMap(peerFiles), out = {};
       var complete = !opt || opt.complete !== false, retain = (opt && opt.retain) || {};
+      /* 1.53.0: سرد محلي ناقص (بلغ الحد أو تعذّر مجلد فرعي) — الغائب عنه قد يكون موجوداً: لا يُعدّ «حُذف هنا» */
+      var localComplete = !opt || opt.localComplete !== false;
       Object.keys(st || {}).forEach(function (p) {
         var s = st[p];
         if (peer[p]) {                        /* المحذوف هنا يبقى شاهداً */
-          if (!loc[p]) out[p] = { ps: s.ps, pm: s.pm, ls: s.ls, lm: s.lm, d: 1 };
+          if (!loc[p]) out[p] = localComplete ? { ps: s.ps, pm: s.pm, ls: s.ls, lm: s.lm, d: 1 } : s;
           return;
         }
         if (!complete) { out[p] = s; return; }
         if (loc[p] && retain[p]) out[p] = s;
       });
       Object.keys(peer).forEach(function (p) {
-        if (!loc[p] || failed[p]) return;
+        if (!loc[p]) return;
+        /* 1.53.0: سحبٌ فشل يُبقي سجله القديم — كان يُنسى فيُعامل الملف في الدورة التالية كأول لقاء ويُسجَّل
+           متطابقاً وإن بقي مختلفاً */
+        if (failed[p]) { if (st && st[p]) out[p] = st[p]; return; }
         out[p] = { ps: peer[p].size, pm: peer[p].mt, ls: loc[p].size, lm: loc[p].mt };
       });
       return out;
@@ -8852,7 +9069,7 @@
       if (!man || !Array.isArray(man.files)) throw new Error('bad-manifest');
       var wantDirs = Array.isArray(man.dirs) && _lanXDirsNative();
       var scan0 = await _lanXScan(name, wantDirs), local = scan0.files;
-      var key = _lanXKey(peerId, name), rec = _lanXStLoad(key);
+      var key = _lanXKey(peerId, name), rec = _lanXStLoad(key), epoch = _lanXStEpoch;
       var gen = typeof man.gen === 'string' ? man.gen : '';
       var st = rec.st;
       /* النظير ربط الاسم بمكان آخر: سجلنا يصف مجلده القديم — يُبدأ من جديد (اتحاد الطرفين، لا حذف) */
@@ -8889,16 +9106,21 @@
         } catch (e) { retain[d.p] = 1; res.delFailed++; _lanLogAdd('fail', who, 'حذف ' + name + '/' + d.p + ': ' + _lanErrText(e && e.message)); }
       }
 
-      var failed = {};
+      var failed = {}, locMap = _lanManifestMap(local);
       for (var i = 0; i < plan.pull.length; i++) {
         var f = plan.pull[i];
         var furl = base + '/xfile' + q + '&p=' + encodeURIComponent(f.p);
         _lanProgSet({ peer: who, what: name, i: i + 1, n: plan.pull.length, name: f.p, size: f.size, got: 0 });
+        /* 1.53.0: الملف المحلي كما رآه التخطيط — الطبقة الأصلية لا تستبدل ملفاً تغيّر بعده (تعديل أثناء مزامنة طويلة)
+           ولا ملفاً موجوداً غاب عن سرد ناقص ('changed') — كان يُستبدل بلا نسخة في السلة. keep يتحقق بنفسه */
+        var lf = locMap[f.p], expect = f.keep ? null : (lf ? { size: lf.size, mt: lf.mt } : { absent: 1 });
+        /* مهلة بقدر الحجم (أبطأ ٥٠ ك.ب/ث): مهلة ثابتة كانت تترك سحباً جارياً يتداخل مع سحب الدورة التالية */
+        var tmo = Math.max(60 * 60000, Math.ceil((+f.size || 0) / 51200) * 1000);
         try {
           /* 1.46.0: استكمال التنزيل المقطوع إن دعمه النظير، وحفظ النسخة المحلية الخاسرة في السلة */
           var r = v2
-            ? await _lanCall('xPull2', [furl, token, name, f.p, JSON.stringify({ mt: f.mt, size: f.size, resume: !!caps.resume, keep: f.keep || null })], 60 * 60000)
-            : await _lanCall('xPull', [furl, token, name, f.p, String(f.mt)], 30 * 60000);
+            ? await _lanCall('xPull2', [furl, token, name, f.p, JSON.stringify({ mt: f.mt, size: f.size, resume: !!caps.resume, keep: f.keep || null, expect: expect })], tmo)
+            : await _lanCall('xPull', [furl, token, name, f.p, String(f.mt)], tmo);
           if (r === 'ok') {
             res.pulled++;
             _lanLogAdd('pull', who, name + '/' + f.p + ' (' + _lanFmtSize(f.size) + ')');
@@ -8920,7 +9142,7 @@
       var known = (gen && rec.gen && rec.gen !== gen) ? [] : rec.dirs, dirsOut = known;
       if (wantDirs && scan1.dirs) {
         try {
-          var peerDirs = man.dirs.map(String), have = {}, made = [];
+          var peerDirs = man.dirs.map(String), have = {}, made = [], stuck = [];
           scan1.dirs.forEach(function (d) { have[d] = 1; });
           var dp = _lanXDirPlan(scan1.dirs, peerDirs, known);
           for (var mi = 0; mi < dp.mk.length; mi++) {
@@ -8931,17 +9153,21 @@
               var rr2 = await _lanCall('xRmdir', [name, dp.rm[xi]], 60000);
               if (rr2 === 'ok') { res.dirs++; _lanLogAdd('del', who, name + '/' + dp.rm[xi] + '/ (مجلد فارغ)'); }
               if (rr2 === 'ok' || rr2 === 'gone') delete have[dp.rm[xi]];
-            } catch (e) { }
+              else stuck.push(dp.rm[xi]);
+            } catch (e) { stuck.push(dp.rm[xi]); }
           }
           var pset = {}; peerDirs.forEach(function (d) { pset[d] = 1; });
           dirsOut = scan1.dirs.concat(made).filter(function (d) { return have[d] && pset[d]; });
+          /* 1.53.0: مجلد لم يُزل (فيه ملف مخفي…) يبقى «معروفاً» — وإلا عدّه النظير جديداً هنا فأعاد إنشاءه */
+          stuck.forEach(function (d) { if (dirsOut.indexOf(d) < 0) dirsOut.push(d); });
           /* بيان ناقص أو حذف غير متاح: ما كان معروفاً يبقى معروفاً حتى يُحسم */
           if (!canDel) known.forEach(function (d) { if (dirsOut.indexOf(d) < 0) dirsOut.push(d); });
         } catch (e) { dirsOut = known; }
       }
       var after = scan1.files;
       if (_lanProg && _lanProg.what === name) _lanProgSet(null);
-      _lanXStStore(key, _lanXNextState(st, after, man.files, failed, { complete: man.complete !== false, retain: retain }), gen || rec.gen, dirsOut);
+      if (epoch !== _lanXStEpoch) return res;
+      _lanXStStore(key, _lanXNextState(st, after, man.files, failed, { complete: man.complete !== false, retain: retain, localComplete: scan1.complete !== false }), gen || rec.gen, dirsOut);
       return res;
     }
 
@@ -10202,6 +10428,9 @@ async function load(){
     fetchJSON(urlOM()), fetchJSON(urlEns()), fetchJSON(urlHr()), fetchComfort(), ...metOpts
   ]));
   if(seq !== _loadSeq) return;
+  /* 1.53.0: انتهى الجلب — كان المتحكم يبقى بعده، فإن فشل الجلب الأول ظنّه refreshIfStale «ما زال جارياً» إلى الأبد
+     ولا يُعاد التحميل تلقائياً عند العودة للتطبيق بعد عودة الاتصال */
+  _loadCtl = null;
   try{ _render(seq, omR, ensR, hrR, cmfR, metR); }
   catch(e){
     /* رد ناقص من مصدر (مثلاً hourly بلا cape) كان يرمي استثناءً يترك الشاشة على
@@ -10311,13 +10540,13 @@ function _render(seq, omR, ensR, hrR, cmfR, metR){
 
   buildHourly(hr);
 
-  captureSaved(dates, om, ens, hr, met, cmf);
+  const savedWarn = captureSaved(dates, om, ens, hr, met, cmf);
 
   document.getElementById("tableCard").style.display="block";
   st.style.display="none";
   _lastLoadAt = Date.now();
   document.getElementById("updated").textContent =
-    "آخر تحديث: " + new Date().toLocaleString("ar-SA");
+    "آخر تحديث: " + new Date().toLocaleString("ar-SA") + (savedWarn ? " — " + savedWarn : "");
 }
 
 /* ══════════ الراحة الحرارية: إظهار المحسوسة ونقطة الندى في الجدول ══════════
@@ -10452,10 +10681,25 @@ function renderDayChecks(){
   vrender(html`<${DayChecks} sel=${sel}/>`, document.getElementById("dayChecks"));
 }
 
-/* لقطة بيانات للأيام المختارة — تُستدعى بعد كل جلب ناجح */
+/* 1.53.0: اللقطات ضمن ميزانية حجم — كانت تتراكم بلا حد (حتى ~٧٠ كيلوبايت لليوم) فتملأ التخزين المحلي المشترك مع
+   المنظم (الإطار من الأصل نفسه)، فيتوقف حفظها بصمت وتفشل معها لقطة الطوارئ لتعديلات المنظم غير المحفوظة.
+   تُحذف لقطات أقدم الأيام أولاً، وفشل الكتابة يُذكر في سطر «آخر تحديث» بدل الصمت. يعيد نص تنبيه أو "" */
+const SAVED_BUDGET = 1500000;
+function storeSaved(store){
+  const days = Object.keys(store).sort();
+  const size = {}; let total = 2;
+  days.forEach(d => { size[d] = JSON.stringify(store[d]).length + d.length + 4; total += size[d]; });
+  let pruned = 0;
+  while(total > SAVED_BUDGET && days.length > 1){ const d = days.shift(); total -= size[d]; delete store[d]; pruned++; }
+  try{ localStorage.setItem(SAVED_DATA_KEY, JSON.stringify(store)); }
+  catch(e){ return "⚠️ تعذّر حفظ لقطات الأيام المختارة (التخزين ممتلئ) — احذف بعض البيانات المحفوظة من الإعدادات"; }
+  return pruned ? "حُذفت لقطات أقدم الأيام المحفوظة (" + pruned + ") لإبقاء التخزين ضمن حده" : "";
+}
+
+/* لقطة بيانات للأيام المختارة — تُستدعى بعد كل جلب ناجح؛ يعيد نص تنبيه (فشل الحفظ أو تقليمه) أو "" */
 function captureSaved(dates, om, ens, hr, met, cmf){
   const sel = savedDays();
-  if(!sel.length) return;
+  if(!sel.length) return "";
   const data = loadJSON(SAVED_DATA_KEY, {});
   const store = (data && typeof data==="object" && !Array.isArray(data)) ? data : {};
   const now = Date.now();
@@ -10486,10 +10730,10 @@ function captureSaved(dates, om, ens, hr, met, cmf){
     if(snaps.length > SNAP_MAX) snaps.splice(0, snaps.length - SNAP_MAX);
     changed = true;
   });
-  if(changed){
-    storeJSON(SAVED_DATA_KEY, store);
-    if(document.getElementById("setCard").style.display !== "none") renderSavedList();
-  }
+  if(!changed) return "";
+  const warn = storeSaved(store);
+  if(document.getElementById("setCard").style.display !== "none") renderSavedList();
+  return warn;
 }
 
 /* ══════════ مراجعة البيانات المحفوظة ══════════ */
@@ -11076,18 +11320,34 @@ const Store={
 };
 const KEY='finance_calc_v1';
 const PKEY='finance_payment_v1';
+/* 1.53.0: قائمة محفوظة تالفة (أو عنصر ليس كائناً من ملف مستعاد) كانت ترمي في كل تبويب يقرؤها فيتعطّل العرض
+   والعدّاد بلا رسالة — تُقرأ مصفوفة كائنات فقط */
+async function loadList(k){
+  try{const v=JSON.parse(await Store.get(k)||'[]');return Array.isArray(v)?v.filter(isRec):[]}catch(e){return []}
+}
+const isRec=x=>!!x&&typeof x==='object'&&!Array.isArray(x);
 
 /* ============ أدوات حسابية ============ */
 /* يقبل الأرقام العربية-الهندية (٠-٩) والفارسية (۰-۹) والفاصلة العشرية العربية (٫) والفواصل
    الألفية بأنواعها — لوحات المفاتيح العربية تُخرجها كثيراً حتى مع inputmode="decimal"،
    فكان «٢٨٥٠٠٠» يُقرأ صفراً و«285،000» يُقرأ 285 */
+/* 1.53.0: وعلامات الاتجاه الخفية (يحملها الرقم المنسوخ من نص عربي فكان يُقرأ صفراً)، وعلامة الطرح الرياضية
+   «−» (كانت تُقرأ صفراً فتمرّ قيمة سالبة صامتة)، وعلامة النسبة ٪/% أينما وقعت */
+const BIDI=/[\u200e\u200f\u061c\u202a-\u202e\u2066-\u2069]/g;
 const num=v=>{
   const s=String(v==null?'':v)
+    .replace(BIDI,'')
     .replace(/[٠-٩]/g,d=>String(d.charCodeAt(0)-0x660))
     .replace(/[۰-۹]/g,d=>String(d.charCodeAt(0)-0x6F0))
     .replace(/٫/g,'.')
-    .replace(/[,،٬\s]/g,'');
+    .replace(/[\u2212\u2012\u2013\ufe63\uff0d]/g,'-')
+    .replace(/[,،٬\s%٪]/g,'');
   const x=parseFloat(s);return isFinite(x)?x:0};
+/* حقل فارغ — غير «صفر»: نسبة ٠٪ عرض حقيقي (تمويل بلا ربح) وكان شرط !rate يرفضها كأنها لم تُدخل */
+const blank=v=>String(v==null?'':v).replace(BIDI,'').trim()==='';
+/* المبالغ والنسب والمدد لا تكون سالبة هنا — تُرفض برسالة بدل نتيجة مضلِّلة */
+const anyNeg=(...a)=>a.some(x=>x<0);
+const NEG_MSG='القيم المدخلة لا تكون سالبة — تحقق من الأرقام';
 const fmt=(v,d=0)=>isFinite(v)?Number(v).toLocaleString('en-US',{minimumFractionDigits:d,maximumFractionDigits:d}):'—';
 const pct=(v,d=2)=>isFinite(v)?Number(v).toLocaleString('en-US',{minimumFractionDigits:d,maximumFractionDigits:d})+'%':'—';
 
@@ -11103,7 +11363,8 @@ function solveRate(F,m,n,balloon){
   while(flo*fhi>0&&t<80){hi*=1.4;fhi=npv(hi);t++}
   if(flo*fhi>0)return NaN;
   for(let i=0;i<200;i++){const mid=(lo+hi)/2,fm=npv(mid);if(flo*fm<=0){hi=mid}else{lo=mid;flo=fm}}
-  return (lo+hi)/2;
+  const x=(lo+hi)/2;
+  return Math.abs(x)<1e-10?0:x;   /* عرض ٠٪: البحث يتقارب إلى ±1e-17 فكان يُعرض «‎-0.00%‎» */
 }
 const eff=r=>Math.pow(1+r,12)-1; // فعلي سنوي من شهري
 // القسط من المعدل الشهري
@@ -11169,6 +11430,7 @@ function AnalysisResult({r}){
 function analyze(){
   const cash=num(a_cash.value),down=num(a_down.value),m=num(a_m.value),balloon=num(a_balloon.value),n=getN();
   if(!cash||!m||!n){a_res.classList.remove('on');alert('أدخل سعر السيارة والقسط والمدة على الأقل');return}
+  if(anyNeg(cash,down,m,balloon,n)){a_res.classList.remove('on');a_save.disabled=true;lastAnalysis=null;alert(NEG_MSG);return}
   const financed=cash-down;
   if(financed<=0){a_res.classList.remove('on');alert('الدفعة المقدمة تساوي سعر السيارة أو تتجاوزه — لا يوجد مبلغ ممول');return}
   /* قرض شخصي للمقدمة بلا بياناته: كان الإجمالي يُسقط الدفعة المقدمة كلها وتظهر فائدة سالبة */
@@ -11211,7 +11473,7 @@ function analyze(){
 }
 async function saveAnalysis(){
   if(!lastAnalysis)return;
-  const data=JSON.parse(await Store.get(KEY)||'[]');
+  const data=await loadList(KEY);
   data.push(lastAnalysis);await Store.set(KEY,JSON.stringify(data));
   a_save.textContent='✓ تم الحفظ';setTimeout(()=>a_save.textContent='💾 حفظ للمقارنة',1500);
   updateCount();
@@ -11271,6 +11533,10 @@ function PaymentSteps({F,rate,yrs,n,r,m,balloon}){
     if(balloon>0)rows.push(html`<${StepRow} i=${2} label="طرح الدفعة الأخيرة" calc=${`${f2(totalFlat)} − ${fmt(balloon)}`} val=${f2(totalFlat-balloon)}/>`);
     rows.push(html`<${StepRow} i=${balloon>0?3:2} label="القسمة على الأشهر" calc=${`${f2(totalFlat-balloon)} ÷ ${n}`} val=${f2(m)}/>`);
     rows.push(html`<${StepRow} i=${balloon>0?4:3} label=${html`<b>القسط الشهري</b> (ثم يُستخرج APR الفعلي ${pct(eff(r)*100,2)} بحل التدفقات عكسياً)`} calc="" val=${html`<b>${f2(m)}</b>`}/>`);
+  }else if(Math.abs(r)<1e-12){
+    /* ٠٪: لا خصم — كانت الخطوات تعرض مقاماً صفراً وقسمة على صفر لقسط صحيح */
+    rows.push(html`<${StepRow} i=${1} label="نسبة ٠٪: لا ربح على المبلغ" calc=${`${fmt(F)} − ${fmt(balloon)}`} val=${f2(F-balloon)}/>`);
+    rows.push(html`<${StepRow} i=${2} label=${html`<b>القسط الشهري</b> (القسمة على الأشهر)`} calc=${`${f2(F-balloon)} ÷ ${n}`} val=${html`<b>${f2(m)}</b>`}/>`);
   }else{
     const disc=Math.pow(1+r,-n), denom=1-disc;
     let i=1;
@@ -11309,12 +11575,17 @@ function PaymentResult({F,rate,yrs,n,r,m,balloon,down,price,total,profit,grand,i
 }
 function calcPayment(){
   const price=num(p_F.value),down=num(p_down.value),balloon=num(p_balloon.value),rate=num(p_rate.value),yrs=num(p_years.value);
-  if(!price||!rate||!yrs){p_res.classList.remove('on');return}
+  const off=()=>{p_res.classList.remove('on');lastPayment=null;document.getElementById('p_save').disabled=true};
+  if(!price||blank(p_rate.value)||!yrs){off();return}
+  if(anyNeg(price,down,balloon,rate,yrs)){off();alert(NEG_MSG);return}
   const F=price-down;
-  if(F<=0){p_res.classList.remove('on');alert('الدفعة المقدمة أكبر من السعر');return}
+  if(F<=0){off();alert('الدفعة المقدمة أكبر من السعر');return}
   const n=Math.round(yrs*12);let m,r;
+  if(n<1){off();alert('المدة أقل من شهر');return}
   if(pType==='flat'){m=(F*(1+rate/100*yrs)-balloon)/n;r=solveRate(F,m,n,balloon);}
   else{r=Math.pow(1+rate/100,1/12)-1;m=payFromRate(F,r,n,balloon);}
+  /* دفعة أخيرة تتجاوز ما يُسدَّد بالنسبة والمدة: كان يُعرض قسط سالب ويُحفظ للمقارنة */
+  if(!(m>0)||!isFinite(r)){off();alert('الدفعة الأخيرة أكبر من أن تُسدَّد بهذه النسبة والمدة — تحقق من الأرقام');return}
   const total=m*n+balloon, profit=total-F, grand=down+total, incr=price>0?(grand-price)/price*100:NaN;
   vrender(html`<${PaymentResult} F=${F} rate=${rate} yrs=${yrs} n=${n} r=${r} m=${m} balloon=${balloon}
     down=${down} price=${price} total=${total} profit=${profit} grand=${grand} incr=${incr}/>`,p_res);
@@ -11340,7 +11611,8 @@ function DpResult({ploanApr,carApr,ploanInterest,cheaper,diff}){
 }
 function compareDP(){
   const amt=num(d_amt.value),pm=num(d_pm.value),pn=Math.round(num(d_pn.value)),carApr=num(d_car.value);
-  if(!amt||!pm||!pn||!carApr){d_res.classList.remove('on');return}
+  if(!amt||!pm||!pn||blank(d_car.value)){d_res.classList.remove('on');return}
+  if(anyNeg(amt,pm,pn,carApr)){d_res.classList.remove('on');alert(NEG_MSG);return}
   const r=solveRate(amt,pm,pn,0);
   const ploanApr=isFinite(r)?eff(r)*100:NaN;
   const ploanInterest=pm*pn-amt;
@@ -11358,6 +11630,7 @@ function DbrResult({dbr,cls,msg}){
 function calcDBR(){
   const sal=num(b_sal.value),obl=num(b_obl.value);
   if(!sal){b_res.classList.remove('on');return}
+  if(anyNeg(sal,obl)){b_res.classList.remove('on');alert(NEG_MSG);return}
   const dbr=obl/sal*100;
   let cls,msg;
   if(dbr<=33.33){cls='good';msg=`نسبة استقطاع ${pct(dbr,1)} — ضمن الحد المعتاد للموظفين (٣٣٫٣٣٪).`}
@@ -11390,10 +11663,12 @@ function earlySettle(){
   if(eMode==='known'){
     remain=num(e_remain.value);settle=num(e_settle.value);
     if(!remain||!settle){e_res.classList.remove('on');return}
+    if(anyNeg(remain,settle)){e_res.classList.remove('on');alert(NEG_MSG);return}
     save=remain-settle;
   }else{
     remain=num(e_remain2.value);const n=Math.round(num(e_n.value)),rate=num(e_rate.value);
-    if(!remain||!n||!rate){e_res.classList.remove('on');return}
+    if(!remain||!n||blank(e_rate.value)){e_res.classList.remove('on');return}
+    if(anyNeg(remain,n,rate)){e_res.classList.remove('on');alert(NEG_MSG);return}
     const t=n/12;
     if(eRtype==='flat'){
       // الربح المؤجّل تحت النسبة الثابتة: R = أصل×(1+g·t) ، التوفير = R - الأصل
@@ -11443,9 +11718,13 @@ function impactDown(){
   const cash=num(i_cash.value),balloon=num(i_balloon.value),down=num(i_down.value);
   let n=Math.round(num(i_months.value));if(!n)n=Math.round(num(i_years.value)*12);
   if(!cash||!n){i_res.classList.remove('on');alert('أدخل سعر السيارة والمدة');return}
+  if(anyNeg(cash,balloon,down,n)){i_res.classList.remove('on');alert(NEG_MSG);return}
+  if(down>=cash){i_res.classList.remove('on');alert('الدفعة المقدمة تساوي سعر السيارة أو تتجاوزه');return}
   // المعدّل الشهري r من المصدر المختار
   let r;
-  if(iSrc==='apr'){const apr=num(i_apr.value);if(!apr){i_res.classList.remove('on');alert('أدخل APR');return}r=Math.pow(1+apr/100,1/12)-1;}
+  if(iSrc==='apr'){const apr=num(i_apr.value);if(blank(i_apr.value)){i_res.classList.remove('on');alert('أدخل APR');return}
+    if(apr<0){i_res.classList.remove('on');alert(NEG_MSG);return}
+    r=Math.pow(1+apr/100,1/12)-1;}
   else{const m0=num(i_m0.value);if(!m0){i_res.classList.remove('on');alert('أدخل قسط صفر دفعة');return}r=solveRate(cash,m0,n,balloon);}
   if(!isFinite(r)){i_res.classList.remove('on');alert('تعذّر الحساب — تحقق من الأرقام');return}
   const aprEff=eff(r)*100;
@@ -11486,11 +11765,11 @@ function CmpTable({data}){
     ${data.length>1?html`<${NoteBox}>✅ <b>الأخضر</b> = الأفضل: أقل APR (${pct(minApr,1)}) وأقل إجمالي (${fmt(minTot)} ريال). إن اختلف الصفّان، تذكّر: APR يقيس جودة التمويل، والإجمالي يقيس ما يخرج من جيبك.<//>`:null}`;
 }
 async function renderCmp(){
-  const data=JSON.parse(await Store.get(KEY)||'[]');
+  const data=await loadList(KEY);
   vrender(html`<${CmpTable} data=${data}/>`,document.getElementById('cmp'));
 }
 async function delRow(i){
-  const data=JSON.parse(await Store.get(KEY)||'[]');data.splice(i,1);await Store.set(KEY,JSON.stringify(data));renderCmp();updateCount();
+  const data=await loadList(KEY);data.splice(i,1);await Store.set(KEY,JSON.stringify(data));renderCmp();updateCount();
 }
 async function clearAll(){
   if(!confirm('مسح كل العروض المحفوظة؟'))return;
@@ -11514,18 +11793,24 @@ function saveTextFile(name,content,mime){
   a.href=url;a.download=name;document.body.appendChild(a);a.click();
   setTimeout(()=>{URL.revokeObjectURL(url);a.remove()},1000);   /* الإلغاء الفوري كان يُسقط التنزيل في بعض المتصفحات */
 }
+/* خلية CSV نصية: الاقتباس يُضاعف (كان اسم فيه " يكسر الصف)، وما يبدأ بـ = + - @ يُسبق بفاصلة عليا كي لا
+   تنفّذه جداول البيانات صيغةً (حقن الصيغ من ملف مستعاد). الخلية الرقمية رقمٌ أو فارغة */
+const csvCell=v=>{let t=String(v==null?'':v);if(/^[=+\-@\t\r]/.test(t))t="'"+t;return '"'+t.replace(/"/g,'""')+'"'};
+const csvNum=v=>{const x=+v;return v!==''&&v!=null&&isFinite(x)?String(x):''};
+const csvFix=v=>{const x=+v;return isFinite(x)?x.toFixed(2):'0.00'};
 async function exportData(){
-  const data=JSON.parse(await Store.get(KEY)||'[]');
+  const data=await loadList(KEY);
   if(!data.length){alert('لا يوجد ما يُصدَّر');return}
   let csv='\uFEFFالاسم,APR فعلي,نسبة الزيادة,نسبة ثابتة,سعر كاش,دفعة مقدمة,قسط شهري,الدفعة الأخيرة,مدة(شهر),إجمالي,ملاحظات\n';
-  data.forEach(d=>{csv+=`"${d.name}",${(d.aprEff||0).toFixed(2)},${(d.incr||0).toFixed(2)},${(d.flat||0).toFixed(2)},${d.cash},${d.down},${d.m},${d.balloon},${d.n},${d.grandTotal},"${(d.note||'').replace(/"/g,'""')}"\n`});
+  data.forEach(d=>{csv+=[csvCell(d.name),csvFix(d.aprEff),csvFix(d.incr),csvFix(d.flat),csvNum(d.cash),csvNum(d.down),csvNum(d.m),
+    csvNum(d.balloon),csvNum(d.n),csvNum(d.grandTotal),csvCell(d.note)].join(',')+'\n'});
   saveTextFile('مقارنة_التمويل.csv',csv,'text/csv;charset=utf-8');
 }
-async function updateCount(){const data=JSON.parse(await Store.get(KEY)||'[]');document.getElementById('cnt').textContent=data.length+' عرض محفوظ'}
+async function updateCount(){const data=await loadList(KEY);document.getElementById('cnt').textContent=data.length+' عرض محفوظ'}
 /* ===== نسخ احتياطي/استعادة موحّد للقائمتين ===== */
 async function backupAll(){
-  const offers=JSON.parse(await Store.get(KEY)||'[]');
-  const payments=JSON.parse(await Store.get(PKEY)||'[]');
+  const offers=await loadList(KEY);
+  const payments=await loadList(PKEY);
   const obj={app:'حاسبة التمويل الذكية',version:'1.3.1',date:new Date().toISOString(),offers,payments};
   const d=new Date(),stamp=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   saveTextFile(`نسخة_احتياطية_الحاسبة_${stamp}.json`,JSON.stringify(obj,null,2),'application/json');
@@ -11539,17 +11824,23 @@ function restoreAll(ev){
       let offers=null,payments=null;
       if(Array.isArray(parsed)){
         // ملف قديم بصيغة مصفوفة واحدة — نحدد نوعه تلقائياً
-        const s=parsed[0]||{};
+        const s=isRec(parsed[0])?parsed[0]:{};
         if(('rateType' in s)||('grand' in s)) payments=parsed; else offers=parsed;
-      }else if(parsed&&typeof parsed==='object'){
+      }else if(isRec(parsed)){
         if(Array.isArray(parsed.offers)) offers=parsed.offers;
         if(Array.isArray(parsed.payments)) payments=parsed.payments;
       }
+      if(offers)offers=offers.filter(isRec);
+      if(payments)payments=payments.filter(isRec);
       if(!offers&&!payments){alert('الملف غير صالح');ev.target.value='';return}
-      const curO=JSON.parse(await Store.get(KEY)||'[]');
-      const curP=JSON.parse(await Store.get(PKEY)||'[]');
+      const curO=await loadList(KEY);
+      const curP=await loadList(PKEY);
       const nO=offers?offers.length:0,nP=payments?payments.length:0;
-      const merge=confirm(`الملف يحتوي: ${nO} عرضاً و${nP} قسطاً.\nموافق = دمج مع الموجود (${curO.length} عرض، ${curP.length} قسط)\nإلغاء = استبدال`);
+      /* 1.53.0: كان «إلغاء» في السؤال الوحيد يعني «استبدال» — فمن ألغى ليتراجع فقد كل ما حفظه. الآن: موافق = دمج،
+         وإلا سؤال ثانٍ صريح عن الاستبدال، و«إلغاء» فيه يُلغي الاستعادة كلها */
+      let merge=confirm(`الملف يحتوي: ${nO} عرضاً و${nP} قسطاً.\nموافق = دمجها مع الموجود (${curO.length} عرض، ${curP.length} قسط)\nإلغاء = خيارات أخرى`);
+      if(!merge&&!confirm(`استبدال الموجود (${curO.length} عرض، ${curP.length} قسط) بمحتوى الملف؟ يُحذف ما ليس في الملف.\nإلغاء = لا تستعد شيئاً`)){
+        ev.target.value='';return}
       if(offers!==null)await Store.set(KEY,JSON.stringify(merge?curO.concat(offers):offers));
       if(payments!==null)await Store.set(PKEY,JSON.stringify(merge?curP.concat(payments):payments));
       renderCmp();renderPCmp();updateCount();updatePCount();
@@ -11563,7 +11854,7 @@ function restoreAll(ev){
 let lastPayment=null;
 async function savePayment(){
   if(!lastPayment)return;
-  const data=JSON.parse(await Store.get(PKEY)||'[]');
+  const data=await loadList(PKEY);
   data.push(lastPayment);await Store.set(PKEY,JSON.stringify(data));
   const btn=document.getElementById('p_save');btn.textContent='✓ تم الحفظ';setTimeout(()=>btn.textContent='💾 حفظ للمقارنة',1500);
   updatePCount();
@@ -11606,24 +11897,26 @@ function PCmpTable({data}){
     ${data.length>1?html`<${NoteBox}>✅ <b>الأخضر</b> = الأفضل في كل صف: أقل قسط سيارة (${fmt(minM)}) وأقل إجمالي قسط شهري (${fmt(minTotMon)}) وأقل إجمالي مدفوع (${fmt(minTot)}) وأقل ربح (${fmt(minProfit)}) وأقل APR (${pct(minApr,1)}).<br/><span style="color:var(--mut2)">قسط القرض الشخصي = الدفعة المقدمة ÷ 60 + 300. و«إجمالي ما تدفعه» و«إجمالي الربح» و«نسبة الزيادة» تفترض جميعها <b>تمويل الدفعة المقدمة بهذا القرض الشخصي</b> عند وجود دفعة (لذا تتحقق دائماً: ما تدفعه − الربح = سعر السيارة). فإن دفعت المقدمة كاش، اطرح 18,000 لكل حالة بها دفعة.</span><//>`:null}`;
 }
 async function renderPCmp(){
-  const data=JSON.parse(await Store.get(PKEY)||'[]');
+  const data=await loadList(PKEY);
   vrender(html`<${PCmpTable} data=${data}/>`,document.getElementById('pcmp'));
 }
 async function delPRow(i){
-  const data=JSON.parse(await Store.get(PKEY)||'[]');data.splice(i,1);await Store.set(PKEY,JSON.stringify(data));renderPCmp();updatePCount();
+  const data=await loadList(PKEY);data.splice(i,1);await Store.set(PKEY,JSON.stringify(data));renderPCmp();updatePCount();
 }
 async function clearPAll(){
   if(!confirm('مسح كل الأقساط المحفوظة؟'))return;
   await Store.set(PKEY,'[]');renderPCmp();updatePCount();
 }
 async function exportPData(){
-  const data=JSON.parse(await Store.get(PKEY)||'[]');
+  const data=await loadList(PKEY);
   if(!data.length){alert('لا يوجد ما يُصدَّر');return}
   let csv='\uFEFFالاسم,القسط الشهري (سيارة),قسط القرض الشخصي,إجمالي القسط الشهري,سعر/مبلغ التمويل,دفعة مقدمة,المبلغ الممول,الدفعة الأخيرة,النسبة المدخلة,نوع النسبة,APR فعلي,مدة(شهر),إجمالي الربح,إجمالي مدفوع,نسبة الزيادة\n';
-  data.forEach(d=>{const plRaw=d.down>0?d.down/60+300:0;const pl=Math.round(plRaw);const tot=Math.round(d.m+plRaw);const gFin=Math.round((d.grand-d.down)+plRaw*60);const profFin=Math.round((d.profit||0)+(plRaw*60-d.down));const iFin=d.price>0?((gFin-d.price)/d.price*100):0;csv+=`"${d.name}",${d.m},${pl},${tot},${d.price},${d.down},${d.F},${d.balloon},${d.rate||0},"${d.rateType==='flat'?'ثابتة':'فعلية'}",${(d.aprEff||0).toFixed(2)},${d.n},${profFin},${gFin},${iFin.toFixed(2)}\n`});
+  data.forEach(d=>{const plRaw=d.down>0?d.down/60+300:0;const pl=Math.round(plRaw);const tot=Math.round(d.m+plRaw);const gFin=Math.round((d.grand-d.down)+plRaw*60);const profFin=Math.round((d.profit||0)+(plRaw*60-d.down));const iFin=d.price>0?((gFin-d.price)/d.price*100):0;
+    csv+=[csvCell(d.name),csvNum(d.m),csvNum(pl),csvNum(tot),csvNum(d.price),csvNum(d.down),csvNum(d.F),csvNum(d.balloon),csvNum(d.rate||0),
+      csvCell(d.rateType==='flat'?'ثابتة':'فعلية'),csvFix(d.aprEff),csvNum(d.n),csvNum(profFin),csvNum(gFin),csvFix(iFin)].join(',')+'\n'});
   saveTextFile('مقارنة_الأقساط.csv',csv,'text/csv;charset=utf-8');
 }
-async function updatePCount(){const data=JSON.parse(await Store.get(PKEY)||'[]');document.getElementById('pcnt').textContent=data.length+' قسط محفوظ'}
+async function updatePCount(){const data=await loadList(PKEY);document.getElementById('pcnt').textContent=data.length+' قسط محفوظ'}
 
 updateCount();updatePCount();
 <\/script>
