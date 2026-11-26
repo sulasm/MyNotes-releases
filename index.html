@@ -11,12 +11,12 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: https://*.googleapis.com https://*.gstatic.com https://*.google.com https://*.ggpht.com https://*.googleusercontent.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https://*.googleapis.com https://*.gstatic.com https://*.google.com https://*.ggpht.com https://*.googleusercontent.com; media-src 'self' data: blob:; connect-src 'self' data: blob: https://api.open-meteo.com https://ensemble-api.open-meteo.com https://api.met.no https://raw.githubusercontent.com https://*.googleapis.com https://*.gstatic.com https://*.google.com https://*.ggpht.com https://*.googleusercontent.com; frame-src 'self' data: blob: https://*.google.com; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
   <meta name="theme-color" content="#667eea">
-  <meta name="app-version" content="1.52.0">
+  <meta name="app-version" content="1.52.1">
   <!-- أدنى إصدار من التطبيق المثبّت (APK / مثبّت ويندوز) تحتاجه هذه الواجهة: الواجهة تتحدث تلقائياً
        والتطبيق المثبّت لا، فإن كان المثبّت أقدم من هذا عرضت الواجهة شريط «تحديث التطبيق مطلوب».
        يضبطهما scripts/bump-version.js آلياً عند تغيّر كود الطبقة الأصلية، ويفرضهما فحص CI. -->
-  <meta name="app-min-native-android" content="1.52.0">
-  <meta name="app-min-native-windows" content="1.52.0">
+  <meta name="app-min-native-android" content="1.52.1">
+  <meta name="app-min-native-windows" content="1.52.1">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <title>المنظم</title>
@@ -8639,13 +8639,14 @@
       var L = /** @type {any} */ (window.LanSync);
       try {
         if (localStorage.getItem(LANX_MIG) !== '1') {
-          var all = _lanXStateAll(), gens = _lanXGens(), ok = true;
+          var all = _lanXStateAll(), gens = _lanXGens(), dall = _lanXDirsAll(), ok = true;
           Object.keys(all).forEach(function (k) {
-            if (!L.xStateSet(k, JSON.stringify({ gen: gens[k] || '', st: all[k] || {} }))) ok = false;
+            var o = { gen: gens[k] || '', st: all[k] || {}, dirs: Array.isArray(dall[k]) ? dall[k] : [] };
+            if (!L.xStateSet(k, JSON.stringify(o))) ok = false;
           });
           if (!ok) return;                    /* تُعاد المحاولة في المرة القادمة */
           localStorage.setItem(LANX_MIG, '1');
-          localStorage.removeItem(LANX_STATE); localStorage.removeItem(LANX_GEN);
+          localStorage.removeItem(LANX_STATE); localStorage.removeItem(LANX_GEN); localStorage.removeItem(LANX_DIRS);
         }
         L.xStateReady();
       } catch (e) { }
@@ -8712,14 +8713,20 @@
        يعيد {renames: [{from, to, size, mt}], pull, del} بعد استخراج الأزواج. size/mt للملف المحلي. */
     function _lanXRenames(plan, st) {
       st = st || {};
+      /* 1.52.1: مرشحو الحذف مفهرسون بحجم النظير وزمنه المسجَّلين — كان بحثاً خطياً فيهم لكل ملف جديد
+         (تربيعي: نقل مجلد بعشرات آلاف الصور كان يجمّد الصفحة دقائق). الأقل ترتيباً أولاً كما كان. */
+      var idx = new Map();
+      plan.del.forEach(function (d, i) {
+        var s = st[d.p];
+        if (!s) return;
+        var k = s.ps + ':' + s.pm, a = idx.get(k);
+        if (a) a.push(i); else idx.set(k, [i]);
+      });
       var used = {}, renames = [], pull = [];
       plan.pull.forEach(function (f) {
         if (f.keep || st[f.p]) { pull.push(f); return; }      /* ليس «جديداً عند النظير» */
-        var hit = -1;
-        for (var i = 0; i < plan.del.length; i++) {
-          var s = st[plan.del[i].p];
-          if (!used[i] && s && s.ps === f.size && s.pm === f.mt && f.size > 0) { hit = i; break; }
-        }
+        var cand = f.size > 0 ? idx.get(f.size + ':' + f.mt) : null;
+        var hit = (cand && cand.length) ? /** @type {number} */ (cand.shift()) : -1;
         if (hit < 0) { pull.push(f); return; }
         used[hit] = 1;
         renames.push({ from: plan.del[hit].p, to: f.p, size: plan.del[hit].size, mt: plan.del[hit].mt, pull: f, del: plan.del[hit] });
@@ -8742,6 +8749,20 @@
       var mk = Object.keys(P).filter(function (d) { return !L[d] && !K[d]; }).sort(function (a, b) { return depth(a) - depth(b) || (a < b ? -1 : 1); });
       var rm = Object.keys(L).filter(function (d) { return !P[d] && K[d]; }).sort(function (a, b) { return depth(b) - depth(a) || (a < b ? -1 : 1); });
       return { mk: mk, rm: rm };
+    }
+    /* 1.52.1: ملفات المجلد المحلي ومجلداته من سرد واحد إن دعمته الطبقة الأصلية (xScan)، وإلا xList ثم
+       xDirs كما كان. dirs=null: لم تُطلب أو تعذّرت (فيبقى سجل المجلدات كما هو). */
+    async function _lanXScan(name, wantDirs) {
+      var L = /** @type {any} */ (window.LanSync);
+      if (typeof L.xScan === 'function') {
+        var o = JSON.parse(await _lanCall('xScan', [name], LANX_LIST_MS) || '{}');
+        if (!o || !Array.isArray(o.files)) throw new Error('bad-list');
+        return { files: o.files, dirs: (wantDirs && Array.isArray(o.dirs)) ? o.dirs.map(String) : null };
+      }
+      var files = JSON.parse(await _lanCall('xList', [name], LANX_LIST_MS) || '[]');
+      var dirs = null;
+      if (wantDirs) { try { dirs = JSON.parse(await _lanCall('xDirs', [name], LANX_LIST_MS) || '[]').map(String); } catch (e) { dirs = null; } }
+      return { files: files, dirs: dirs };
     }
     function _lanXDirsNative() {
       var L = /** @type {any} */ (window.LanSync);
@@ -8825,9 +8846,12 @@
       var who = ctx.who || peerId, caps = ctx.caps || {}, v2 = _lanPull2();
       var res = { pulled: 0, failed: 0, conflicts: 0, deleted: 0, delFailed: 0, delOff: '', err: '', kept: 0, renamed: 0, dirs: 0 };
       var q = '?f=' + encodeURIComponent(name);
+      /* سرد مجلد كبير يطول (ثوانٍ إلى دقائق): يُعرض أنه جارٍ كي لا يبدو التطبيق متوقفاً */
+      _lanProgSet({ peer: who, what: name, scan: 1, i: 0, n: 0, name: '', size: 0, got: 0 });
       var man = JSON.parse(await _lanCall('httpJson', [base + '/xmanifest' + q, token], LANX_LIST_MS) || '{}');
       if (!man || !Array.isArray(man.files)) throw new Error('bad-manifest');
-      var local = JSON.parse(await _lanCall('xList', [name], LANX_LIST_MS) || '[]');
+      var wantDirs = Array.isArray(man.dirs) && _lanXDirsNative();
+      var scan0 = await _lanXScan(name, wantDirs), local = scan0.files;
       var key = _lanXKey(peerId, name), rec = _lanXStLoad(key);
       var gen = typeof man.gen === 'string' ? man.gen : '';
       var st = rec.st;
@@ -8885,29 +8909,38 @@
           _lanLogAdd('fail', who, name + '/' + f.p + ': ' + _lanErrText(e && e.message));
         }
       }
-      /* ── المجلدات الفارغة: إنشاء ما وُجد عند النظير، وإزالة ما حُذف هناك (بشروط الحذف نفسها) ── */
+      /* ما بعد التغيير: سرد ثانٍ واحد (الملفات والمجلدات معاً) — وبلا تغيير يكفي الأول */
+      var scan1 = scan0;
+      if (plan.pull.length || res.deleted || res.renamed) {
+        _lanProgSet({ peer: who, what: name, scan: 1, i: 0, n: 0, name: '', size: 0, got: 0 });
+        scan1 = await _lanXScan(name, wantDirs);
+      }
+      /* ── المجلدات الفارغة: إنشاء ما وُجد عند النظير، وإزالة ما حُذف هناك (بشروط الحذف نفسها) ──
+         ما يبقى بعدها يُحسب من نتائج الإنشاء والإزالة لا بسرد آخر */
       var known = (gen && rec.gen && rec.gen !== gen) ? [] : rec.dirs, dirsOut = known;
-      if (Array.isArray(man.dirs) && _lanXDirsNative()) {
+      if (wantDirs && scan1.dirs) {
         try {
-          var peerDirs = man.dirs.map(String);
-          var localDirs = JSON.parse(await _lanCall('xDirs', [name], LANX_LIST_MS) || '[]');
-          var dp = _lanXDirPlan(localDirs, peerDirs, known), touched = false;
+          var peerDirs = man.dirs.map(String), have = {}, made = [];
+          scan1.dirs.forEach(function (d) { have[d] = 1; });
+          var dp = _lanXDirPlan(scan1.dirs, peerDirs, known);
           for (var mi = 0; mi < dp.mk.length; mi++) {
-            try { if (await _lanCall('xMkdir', [name, dp.mk[mi]], 60000) === 'ok') { res.dirs++; touched = true; } } catch (e) { }
+            try { if (await _lanCall('xMkdir', [name, dp.mk[mi]], 60000) === 'ok') { res.dirs++; if (!have[dp.mk[mi]]) made.push(dp.mk[mi]); have[dp.mk[mi]] = 1; } } catch (e) { }
           }
           if (canDel) for (var xi = 0; xi < dp.rm.length; xi++) {
             try {
-              if (await _lanCall('xRmdir', [name, dp.rm[xi]], 60000) === 'ok') { res.dirs++; touched = true; _lanLogAdd('del', who, name + '/' + dp.rm[xi] + '/ (مجلد فارغ)'); }
+              var rr2 = await _lanCall('xRmdir', [name, dp.rm[xi]], 60000);
+              if (rr2 === 'ok') { res.dirs++; _lanLogAdd('del', who, name + '/' + dp.rm[xi] + '/ (مجلد فارغ)'); }
+              if (rr2 === 'ok' || rr2 === 'gone') delete have[dp.rm[xi]];
             } catch (e) { }
           }
-          if (touched || res.pulled || res.deleted || res.renamed) localDirs = JSON.parse(await _lanCall('xDirs', [name], LANX_LIST_MS) || '[]');
           var pset = {}; peerDirs.forEach(function (d) { pset[d] = 1; });
-          dirsOut = localDirs.filter(function (d) { return pset[d]; });
+          dirsOut = scan1.dirs.concat(made).filter(function (d) { return have[d] && pset[d]; });
           /* بيان ناقص أو حذف غير متاح: ما كان معروفاً يبقى معروفاً حتى يُحسم */
           if (!canDel) known.forEach(function (d) { if (dirsOut.indexOf(d) < 0) dirsOut.push(d); });
         } catch (e) { dirsOut = known; }
       }
-      var after = (plan.pull.length || res.deleted || res.renamed) ? JSON.parse(await _lanCall('xList', [name], LANX_LIST_MS) || '[]') : local;
+      var after = scan1.files;
+      if (_lanProg && _lanProg.what === name) _lanProgSet(null);
       _lanXStStore(key, _lanXNextState(st, after, man.files, failed, { complete: man.complete !== false, retain: retain }), gen || rec.gen, dirsOut);
       return res;
     }
@@ -9275,6 +9308,8 @@
     function LanProgress() {
       var g = _lanProg;
       if (!g) return null;
+      if (g.scan) return html`<div id="lan-progress" style="font-size:11.5px;line-height:1.7;background:rgba(var(--ov),0.07);border-radius:8px;padding:7px 9px">
+        <div>⏳ ${g.peer} — ${g.what}: جارٍ سرد الملفات ومقارنتها…</div></div>`;
       var pct = (g.size > 0 && g.got > 0) ? Math.min(100, Math.floor(g.got * 100 / g.size)) : -1;
       return html`<div id="lan-progress" style="font-size:11.5px;line-height:1.7;background:rgba(var(--ov),0.07);border-radius:8px;padding:7px 9px">
         <div>⏳ ${g.peer} — ${g.what}: ملف ${toArabic(g.i)} من ${toArabic(g.n)}</div>
