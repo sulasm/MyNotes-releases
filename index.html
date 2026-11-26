@@ -11,12 +11,12 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: https://*.googleapis.com https://*.gstatic.com https://*.google.com https://*.ggpht.com https://*.googleusercontent.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https://*.googleapis.com https://*.gstatic.com https://*.google.com https://*.ggpht.com https://*.googleusercontent.com; media-src 'self' data: blob:; connect-src 'self' data: blob: https://api.open-meteo.com https://ensemble-api.open-meteo.com https://api.met.no https://raw.githubusercontent.com https://*.googleapis.com https://*.gstatic.com https://*.google.com https://*.ggpht.com https://*.googleusercontent.com; frame-src 'self' data: blob: https://*.google.com; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
   <meta name="theme-color" content="#667eea">
-  <meta name="app-version" content="1.51.0">
+  <meta name="app-version" content="1.52.0">
   <!-- أدنى إصدار من التطبيق المثبّت (APK / مثبّت ويندوز) تحتاجه هذه الواجهة: الواجهة تتحدث تلقائياً
        والتطبيق المثبّت لا، فإن كان المثبّت أقدم من هذا عرضت الواجهة شريط «تحديث التطبيق مطلوب».
        يضبطهما scripts/bump-version.js آلياً عند تغيّر كود الطبقة الأصلية، ويفرضهما فحص CI. -->
-  <meta name="app-min-native-android" content="1.51.0">
-  <meta name="app-min-native-windows" content="1.51.0">
+  <meta name="app-min-native-android" content="1.52.0">
+  <meta name="app-min-native-windows" content="1.52.0">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <title>المنظم</title>
@@ -2238,9 +2238,9 @@
           <div style="font-size:12px;color:var(--text-m);padding:4px 0 8px;">تنبيه أصلي للمهام «قيد التنفيذ» في يوم تاريخها — يعمل حتى لو كان التطبيق مغلقاً.</div>
           <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
             <span style="font-size:13px;">وقت التنبيه:</span>
-            <input type="number" id="remind-hour" min="0" max="23" value="9" onchange="setRemindHour(this.value)"
-              style="width:70px;padding:7px;border-radius:8px;border:1px solid rgba(var(--ov),.15);background:rgba(var(--ov),.06);color:var(--tw);text-align:center;font-size:14px;">
-            <span style="font-size:12px;color:var(--text-m);">الساعة (0–23)</span>
+            <input type="time" id="remind-time" value="09:00" onchange="setRemindTime(this.value)"
+              style="width:120px;padding:7px;border-radius:8px;border:1px solid rgba(var(--ov),.15);background:rgba(var(--ov),.06);color:var(--tw);text-align:center;font-size:14px;color-scheme:dark;">
+            <span style="font-size:12px;color:var(--text-m);">للمهام التي لا وقت خاصاً لها — يُزامَن بين أجهزتك</span>
           </div>
           <button class="sm-btn" onclick="requestNotifPerm()" style="margin-top:10px;">🔔 تفعيل الإشعارات</button>
           <div id="remind-status" style="font-size:12px;color:var(--text-m);padding:8px 0 0;"></div>
@@ -2794,7 +2794,7 @@
     function renderSettings() {
       const _vl = document.getElementById('app-ver-label');
       if (_vl) _vl.textContent = 'الإصدار ' + (_getLocalHash() || '');
-      const _rh = document.getElementById('remind-hour'); if (_rh) _rh.value = _remindHour();
+      const _rh = /** @type {HTMLInputElement|null} */ (document.getElementById('remind-time')); if (_rh) _rh.value = _remFmtTime(_remindMin());
       if (typeof _reflectExactAlarm === 'function') _reflectExactAlarm();
       if (typeof renderWxCfg === 'function') renderWxCfg();
       if (typeof _reflectMapsKey === 'function') _reflectMapsKey();
@@ -3334,7 +3334,7 @@
       const savedAt = Date.now();
       let places = [];
       try { if (typeof MapBridge !== 'undefined') places = MapBridge.getPlaces(); } catch (e) { }
-      const json = JSON.stringify({ v: 3, savedAt, dev: _devKind(), notes: _notesCache, trash: _trashCache, cats: CATS, catsAt: _catsAt, catsDel: _catsDel, places, placesDel: _placesDelGet(), purged: _purgedCache });
+      const json = JSON.stringify({ v: 3, savedAt, dev: _devKind(), notes: _notesCache, trash: _trashCache, cats: CATS, catsAt: _catsAt, catsDel: _catsDel, places, placesDel: _placesDelGet(), purged: _purgedCache, prefs: (typeof _prefsGet === 'function') ? _prefsGet() : null });
       if (forFile) {
         _lastFileSavedAt = savedAt; _lastFileLen = json.length;
         _ownWrites = _ownWrites.concat([savedAt + ':' + json.length]).slice(-8);
@@ -3379,7 +3379,7 @@
     /*@@merge-core@@*/
     function _deserializeNotes(text) {
       const p = JSON.parse(text);
-      if (Array.isArray(p)) return { v: 1, savedAt: 0, notes: p, trash: [], cats: null, catsAt: 0, catsDel: [], places: [], placesDel: [], purged: [] };
+      if (Array.isArray(p)) return { v: 1, savedAt: 0, notes: p, trash: [], cats: null, catsAt: 0, catsDel: [], places: [], placesDel: [], purged: [], prefs: null };
       if (p && Array.isArray(p.notes)) return {
         v: p.v || 2, savedAt: +p.savedAt || 0, dev: typeof p.dev === 'string' ? p.dev : '', notes: p.notes,
         trash: Array.isArray(p.trash) ? p.trash : [],
@@ -3388,7 +3388,8 @@
         catsDel: _validCatsDel(p.catsDel),
         places: Array.isArray(p.places) ? p.places : [],
         placesDel: _validPlacesDel(p.placesDel),
-        purged: _validPurged(p.purged)
+        purged: _validPurged(p.purged),
+        prefs: (p.prefs && typeof p.prefs === 'object' && +p.prefs.at > 0 && typeof p.prefs.remind === 'string') ? { remind: p.prefs.remind, at: +p.prefs.at } : null
       };
       throw new Error('bad-notes-format');
     }
@@ -3792,6 +3793,7 @@
       _notesCache = parsed.notes;
       _trashCache = Array.isArray(parsed.trash) ? parsed.trash : [];
       _purgedCache = _validPurged(parsed.purged);
+      try { if (typeof _prefsAbsorb === 'function') _prefsAbsorb(/** @type {any} */ (parsed).prefs); } catch (e) { }   /* وقت التنبيه العام: الأحدث يفوز */
       /* ملف v3 يحمل الفئات المخصّصة — اعتمادها يجعلها تنجو من إعادة التثبيت وتنتقل مع
          مزامنة المجلد. الأحدث ختماً يفوز: تعديل محلي لم يُكتب بعد لا يمحوه ملف أقدم.
          شواهد حذف الفئات تُتَّحد من الطرفين ثم تُشطَب مساراتها الميتة من الناتج —
@@ -4156,6 +4158,7 @@
     /* دمج حالة خارجية في الذاكرة — لكل عنصر والأحدث بختمه يفوز — بلا كتابة */
     function _absorbExternal(ext, rawLen) {
       _writeConflictBackup(_serializeNotes());
+      try { if (typeof _prefsAbsorb === 'function') _prefsAbsorb(ext && ext.prefs); } catch (e) { }
       const merged = _mergeStates({ notes: _notesCache, trash: _trashCache, cats: CATS, catsAt: _catsAt, catsDel: _catsDel, purged: _purgedCache }, ext);
       _notesCache = merged.notes;
       _trashCache = merged.trash;
@@ -4282,7 +4285,7 @@
       });
       return { places: _prunePlacesDel([...pmap.values()], del).places, placesDel: del };
     }
-    function _mergeNotesFiles(localRaw, peerRaw, dev, hour, late) {
+    function _mergeNotesFiles(localRaw, peerRaw, dev, mins, late) {
       let L, E;
       try { if (String(localRaw || '').trim() === '') return { changed: false, err: 'local-empty' }; L = _deserializeNotes(String(localRaw)); }
       catch (e) { return { changed: false, err: 'local-bad' }; }
@@ -4292,13 +4295,28 @@
         { notes: L.notes, trash: L.trash, cats: L.cats, catsAt: L.catsAt, catsDel: L.catsDel, purged: L.purged },
         { notes: E.notes, trash: E.trash, cats: E.cats, catsAt: E.catsAt, catsDel: E.catsDel, purged: E.purged });
       const pl = _mergePlacesLists(L.places, L.placesDel, E.places, E.placesDel);
+      /* وقت التنبيه العام (prefs): الأحدث ختماً يفوز */
+      const prefs = (E.prefs && (!L.prefs || E.prefs.at > L.prefs.at)) ? E.prefs : (L.prefs || null);
       const out = { notes: m.notes, trash: m.trash, cats: m.cats || L.cats || null, catsAt: m.catsAt || 0, catsDel: m.catsDel || [],
-        places: pl.places, placesDel: pl.placesDel, purged: m.purged };
-      if (_mergeStateSig(out) === _mergeStateSig(L)) return { changed: false, n: out.notes.length };
+        places: pl.places, placesDel: pl.placesDel, purged: m.purged, prefs: prefs };
+      if (_mergeStateSig(out) === _mergeStateSig(L) && JSON.stringify(prefs) === JSON.stringify(L.prefs || null)) return { changed: false, n: out.notes.length };
       const savedAt = Math.max(Date.now(), (+L.savedAt || 0) + 1, (+E.savedAt || 0) + 1);
       /* rem: التذكيرات التي يغيّرها الدمج (تُجدوَل/تُلغى في الطبقة الأصلية بعد نجاح الكتابة) */
       let rem = null;
-      try { if (typeof _remindersDelta === 'function') rem = _remindersDelta(L.notes, out.notes, +hour, Date.now(), late); } catch (e) { rem = null; }
+      /* mins: وقت التنبيه العام بالدقائق من منتصف الليل — وما في الملف (prefs) أولى مما تحفظه الطبقة الأصلية */
+      try {
+        if (typeof _remindersDelta === 'function') {
+          const pm = prefs ? _remParseTime(prefs.remind) : -1, lm = L.prefs ? _remParseTime(L.prefs.remind) : -1;
+          rem = _remindersDelta(L.notes, out.notes, pm >= 0 ? pm : +mins, Date.now(), late);
+          /* تغيّر الوقت العام بالدمج: «قبل» تُحسب بالوقت القديم كي يُعاد جدولة ما تغيّر زمنه */
+          if (pm >= 0 && pm !== (lm >= 0 ? lm : +mins)) {
+            const old = _remindersFor(L.notes, lm >= 0 ? lm : +mins, Date.now(), null).want, nw = _remindersFor(out.notes, pm, Date.now(), null).want;
+            Object.keys(nw).forEach(id => { if (!old[id] || old[id].when !== nw[id].when) rem.set[id] = nw[id]; });
+            Object.keys(old).forEach(id => { if (!nw[id] && rem.cancel.indexOf(id) < 0) rem.cancel.push(id); });
+            rem.remind = pm;
+          }
+        }
+      } catch (e) { rem = null; }
       return { changed: true, n: out.notes.length, added: out.notes.length - L.notes.length, rem: rem,
         raw: JSON.stringify(Object.assign({ v: 3, savedAt: savedAt, dev: dev || 'android' }, out)) };
     }
@@ -6069,7 +6087,7 @@
         <div class="orgtbl-card-footer">
           ${n.file ? html`<${CardAttIcon} n=${n}/>` : null}
           <span class=${'org-badge ' + badgeCls(n.status)}>${(SMAP[n.status]?.ic || '') + ' ' + (n.status || '—')}</span>
-          <span>${n.dH ? html`<span style="font-size:10px">${n.dH}</span>` : (fmtGDisp(n.dG) || '—')}</span>
+          <span>${n.rp && REM_REPEAT[n.rp] ? html`<span title=${REM_REPEAT[n.rp]} style="font-size:10px;margin-inline-end:3px">🔁</span>` : null}${_remParseTime(n.rt) >= 0 ? html`<span style="font-size:10px;margin-inline-end:3px;color:#fbbf24">${n.rt}</span>` : null}${n.dH ? html`<span style="font-size:10px">${n.dH}</span>` : (fmtGDisp(n.dG) || '—')}</span>
         </div>
       </div>`;
     }
@@ -6942,6 +6960,8 @@
     let _editId = null;
     let _editStatus = '';
     let _editDH = '', _editDG = '';
+    /* التذكير: تذكير مسبق (دقائق قبل الموعد) وتكرار — الوقت الخاص يُقرأ من حقله مباشرة */
+    let _editRb = [], _editRp = '';
     let _editMain = '', _editSub = '', _editSec = '';
     let _editLoc = null;
 
@@ -7007,6 +7027,11 @@
       const dtx = document.getElementById('edit-date-tx');
       if (_editDH) { dtx.textContent = _editDH + ' | ' + _editDG; dtx.style.color = 'var(--tw)'; }
       else { dtx.textContent = 'اختر التاريخ'; dtx.style.color = 'rgba(var(--ov),.5)'; }
+      /* التذكير */
+      const _rtEl = /** @type {HTMLInputElement|null} */ (document.getElementById('edit-rt'));
+      if (_rtEl) _rtEl.value = _remParseTime(n.rt) >= 0 ? _remFmtTime(_remParseTime(n.rt)) : '';
+      _editRb = _remBeforeList(n); _editRp = REM_REPEAT[n.rp] ? n.rp : '';
+      _refreshEditRem();
       /* المرفق */
       _refreshEditAtt(n);
       /* الموقع */
@@ -7195,7 +7220,7 @@
     }
     function closeEdit(skipSave) {
       if (!skipSave && _editId) {
-        if (_doSaveEdit()) { renderNotes(); showFb('💾 حُفظ التعديل تلقائياً'); }
+        if (_doSaveEdit()) { renderNotes(); showFb(_editRecur ? '🔁 أُنجزت — الموعد التالي ' + _editRecur.dH : '💾 حُفظ التعديل تلقائياً'); }
       }
       document.getElementById('edit-ov').classList.remove('open');
       _editId = null;
@@ -7216,9 +7241,18 @@
       if (idx < 0) return false;
       notes[idx].text   = document.getElementById('edit-text').value.trim();
       notes[idx].num    = document.getElementById('edit-num').value.trim();
+      const _wasDone = notes[idx].status === 'مكتمل';
       notes[idx].status = _editStatus;
       notes[idx].dH     = _editDH;
       notes[idx].dG     = _editDG;
+      /* حقول التذكير تُكتب فقط إن ضُبطت أو كانت موجودة — فلا تُضاف لكل ملاحظة تُحفظ */
+      const _rtEl = /** @type {HTMLInputElement|null} */ (document.getElementById('edit-rt'));
+      const _rtV = _rtEl && _remParseTime(_rtEl.value) >= 0 ? _remFmtTime(_remParseTime(_rtEl.value)) : '';
+      if (_rtV || notes[idx].rt) notes[idx].rt = _rtV;
+      if (_editRb.length || (Array.isArray(notes[idx].rb) && notes[idx].rb.length)) notes[idx].rb = _editRb.slice();
+      if (_editRp || notes[idx].rp) notes[idx].rp = _editRp;
+      /* مهمة متكررة أُنجزت: تتقدّم للموعد التالي وتبقى قيد التنفيذ */
+      _editRecur = (!_wasDone && _editStatus === 'مكتمل') ? _recurOnDone(notes[idx]) : null;
       notes[idx].main   = _editMain;
       notes[idx].sub    = _editSub;
       notes[idx].sec    = _editSec;
@@ -7241,7 +7275,35 @@
     }
     function saveEdit() {
       if (!_editId) return;
-      if (_doSaveEdit()) { closeEdit(true); renderNotes(); showFb('✅ تم حفظ التعديل'); }
+      if (_doSaveEdit()) { closeEdit(true); renderNotes(); showFb(_editRecur ? '🔁 أُنجزت — الموعد التالي ' + _editRecur.dH : '✅ تم حفظ التعديل'); }
+    }
+    /** @type {{dG: string, dH: string}|null} */
+    let _editRecur = null;
+    /* خيارات التذكير المسبق — مجموعات جاهزة من REM_BEFORE */
+    const REM_BEFORE_SETS = [
+      { n: 'بلا تذكير مسبق', v: [] }, { n: 'قبل ساعة', v: [60] }, { n: 'قبل 3 ساعات', v: [180] }, { n: 'قبل يوم', v: [1440] },
+      { n: 'قبل يوم وقبل ساعة', v: [1440, 60] }, { n: 'قبل يومين', v: [2880] }, { n: 'قبل أسبوع', v: [10080] }, { n: 'قبل أسبوع وقبل يوم', v: [10080, 1440] }];
+    function _remBeforeLabel(rb) {
+      const k = rb.slice().sort((a, b) => b - a).join();
+      const hit = REM_BEFORE_SETS.find(x => x.v.join() === k);
+      return hit ? hit.n : (rb.length ? rb.length + ' تذكيرات مسبقة' : 'بلا تذكير مسبق');
+    }
+    function _refreshEditRem() {
+      const b = document.getElementById('edit-rb-tx'), r = document.getElementById('edit-rp-tx');
+      if (b) { b.textContent = _remBeforeLabel(_editRb); b.style.color = _editRb.length ? 'var(--tw)' : 'rgba(var(--ov),.5)'; }
+      if (r) { r.textContent = _editRp ? REM_REPEAT[_editRp] : 'بلا تكرار'; r.style.color = _editRp ? 'var(--tw)' : 'rgba(var(--ov),.5)'; }
+    }
+    function openEditBeforePicker() {
+      const items = REM_BEFORE_SETS.map(x => ({ n: x.n, i: x.v.length ? '⏳' : '—', v: x.v.join() }));
+      openDragPicker('⏳ تذكير مسبق', items, _editRb.slice().sort((a, b) => b - a).join(), item => {
+        _closeDp();
+        _editRb = item.v ? String(item.v).split(',').map(Number) : [];
+        _refreshEditRem();
+      });
+    }
+    function openEditRepeatPicker() {
+      const items = [{ n: 'بلا تكرار', i: '—', v: '' }].concat(Object.keys(REM_REPEAT).map(k => ({ n: REM_REPEAT[k], i: '🔁', v: k })));
+      openDragPicker('🔁 التكرار', items, _editRp, item => { _closeDp(); _editRp = item.v; _refreshEditRem(); });
     }
     function openEditStatusPicker() {
       const items = [{ n: '—', i: '📊', v: '' }, ...Object.keys(SMAP).map(k => ({ n: k, i: SMAP[k].ic, v: k }))];
@@ -7376,20 +7438,26 @@
        التذكيرات (Notification API)
     ══════════════════════════════════════ */
     /* ══ التذكيرات الأصلية (Android AlarmManager / Windows Electron) ══ */
-    function _remindHour() {
+    /* وقت التنبيه العام بالدقائق من منتصف الليل (1.52.0: بالدقيقة، وكان بالساعة الكاملة).
+       notes_remind_time = "HH:MM"؛ والمفتاح القديم notes_remind_hour يُقرأ إن غاب الجديد */
+    function _remindMin() {
+      const t = _remParseTime(localStorage.getItem('notes_remind_time'));
+      if (t >= 0) return t;
       const h = parseInt(localStorage.getItem('notes_remind_hour'), 10);
-      return (h >= 0 && h <= 23) ? h : 9;
+      return (h >= 0 && h <= 23) ? h * 60 : 540;
     }
+    function _remindHour() { return Math.floor(_remindMin() / 60); }
+    function _remFmtTime(min) { return String(Math.floor(min / 60)).padStart(2, '0') + ':' + String(min % 60).padStart(2, '0'); }
     /* ما أُرسل للطبقة الأصلية في آخر مزامنة {id: {when,title,body}} — null قبل أول
        مزامنة في هذه الجلسة. نداءات الجسر متزامنة على أندرويد (خيط الصفحة ينتظر
        كل نداء)، وإلغاء كل التذكيرات ثم إعادة جدولتها جميعاً بعد كل حفظ كان يجمّد
        الواجهة ثوانيَ — بقدر مدة توست الحفظ — فلا تُفتح أي ملاحظة خلالها.
        الآن: مزامنة كاملة مرة واحدة بعد التحميل، ثم تفاضلية (ما تغيّر فقط). */
     let _remSynced = null;
+    /* معرّفات المهام النشطة (قيد التنفيذ ولها موعد) في آخر مزامنة — ما خرج منها يُزال إشعاره المعروض */
+    let _remActiveIds = null;
     function _desiredReminders() {
-      const want = {};
       const now = Date.now();
-      const hour = _remindHour();
       const today = new Date(); today.setHours(0, 0, 0, 0);
       /* أوقات مستقرّة لتنبيهات «اليوم وقد فات الوقت» — تُخزَّن مرة واحدة يومياً
          حتى لا تُؤجَّل مع كل إعادة مزامنة (استئناف التطبيق / تعديل الملاحظات) */
@@ -7406,68 +7474,104 @@
           Object.keys(nm || {}).forEach(k => { if (!lateMap[k] && +nm[k] > 0) { lateMap[k] = +nm[k]; lateChanged = true; } });
         }
       } catch (e) { }
-      DB.get().forEach(n => {
-        if (n.status !== 'قيد التنفيذ' || !n.dG) return;
-        const base = parseG(n.dG); if (!base) return;
-        const nDay = new Date(base); nDay.setHours(0, 0, 0, 0);
-        if (nDay.getTime() < today.getTime()) return; /* متأخرة → يكفي تنبيه المقدّمة */
-        const dt = new Date(base); dt.setHours(hour, 0, 0, 0);
-        let when = dt.getTime();
-        if (when <= now) {
-          if (nDay.getTime() === today.getTime()) {
-            /* اليوم وقد فات وقت التنبيه: استخدم وقتاً مستقرّاً بدل now+دقيقة المتجدّد */
-            const stored = lateMap[n.id];
-            if (stored) {
-              if (stored > now) { when = stored; }   /* لا يزال قادماً — أعد جدولته كما هو */
-              else { return; }                        /* أُطلق سابقاً اليوم — لا تُكرِّر التنبيه */
-            } else {
-              when = now + 60000; lateMap[n.id] = when; lateChanged = true;
-            }
-          } else return;
-        }
-        const cat = [n.main, n.sub].filter(Boolean).join(' › ');
-        const title = '📋 تذكير' + (cat ? ': ' + cat : '');
-        const body = (n.text || cat || 'لديك مهمة') + (n.num ? ' — ' + n.num : '');
-        want[String(n.id)] = { when, title, body };
-      });
+      const r = _remindersFor(DB.get(), _remindMin(), now, lateMap);
+      Object.keys(r.lateNew).forEach(k => { lateMap[k] = r.lateNew[k]; lateChanged = true; });
       if (lateChanged) { try { localStorage.setItem(lateKey, JSON.stringify(lateMap)); } catch (e) { } }
+      const want = r.want;
+      /* «أجّل ساعة» من زر الإشعار (أندرويد): الطبقة الأصلية تحفظ {معرّف: زمن} — تُضم ما دامت المهمة نشطة،
+         فلا تمحوها المزامنة الكاملة (إلغاء الكل ثم جدولة المطلوب) */
+      try {
+        const fsb = /** @type {any} */ (window.AndroidFS);
+        if (fsb && typeof fsb.reminderSnoozes === 'function') {
+          const sn = JSON.parse(fsb.reminderSnoozes() || '{}');
+          const byId = {};
+          DB.get().forEach(n => { if (_remActive(n)) byId[String(n.id)] = n; });
+          Object.keys(sn || {}).forEach(id => {
+            const n = byId[id], w = +sn[id];
+            if (!n || !(w > now)) return;
+            const tx = _remText(n);
+            want[id + '~s'] = { when: w, title: tx.title, body: tx.body };
+          });
+        }
+      } catch (e) { }
       return want;
     }
-    /* ══ تذكيرات تُجدوَل والتطبيق مغلق (محرّك أندرويد الخلفي، عبر www/lan-merge.html) ══
-       التذكيرات لقائمة ملاحظات — بقواعد _desiredReminders نفسها (الساعة والعنوان والنص).
-       «اليوم وقد فات الوقت» (1.51.0): يُنبَّه بعد دقيقة، مرة واحدة في اليوم — late سجل اليوم
+    /* ══ حساب التذكيرات — يُشارَك مع محرّك أندرويد الخلفي (www/lan-merge.html) ══
+       1.52.0:
+       • وقت خاص بالمهمة n.rt = "HH:MM" (وإلا الوقت العام بالدقائق mins).
+       • تذكير مسبق n.rb = [دقائق قبل الموعد] من REM_BEFORE — معرّفه «المعرّف~bالدقائق».
+       • ملخص المتأخرات: «لديك N مهام متأخرة» يومياً في الوقت العام لسبعة أيام قادمة (‎_od<اليوم>‎) —
+         كان يظهر عند فتح التطبيق فقط.
+       «اليوم وقد فات الوقت»: يُنبَّه بعد دقيقة، مرة واحدة في اليوم — late سجل اليوم
        {معرّف: زمن التنبيه}: ما فيه وزمنه قادم يُعاد كما هو، وما مضى زمنه نُبّه فلا يتكرر. السجل
        تحفظه الطبقة الأصلية وتقرؤه الصفحة (bgLate) فلا ينبَّه مرتين عند فتح التطبيق. late=null ⇒ تُهمل
-       هذه الحالة. _remindersDelta: ما يُجدوَل وما يُلغى حين يصير «بعد» مكان «قبل»، وما أُضيف للسجل. */
+       هذه الحالة. _remindersDelta: ما يُجدوَل وما يُلغى حين يصير «بعد» مكان «قبل»، وما أُضيف للسجل،
+       وما خرج من المهام النشطة (dismiss) ليُزال إشعاره المعروض على هذا الجهاز. */
     /*@@merge-core@@*/
-    function _remindersFor(notes, hour, now, late) {
+    const REM_BEFORE = [60, 180, 1440, 2880, 10080];
+    function _remParseTime(s) {
+      const m = /^(\d{1,2}):(\d{2})$/.exec(String(s == null ? '' : s).trim());
+      if (!m || +m[1] > 23 || +m[2] > 59) return -1;
+      return +m[1] * 60 + +m[2];
+    }
+    function _remBeforeList(n) {
+      const out = [];
+      (n && Array.isArray(n.rb) ? n.rb : []).forEach(b => { b = +b; if (REM_BEFORE.indexOf(b) >= 0 && out.indexOf(b) < 0) out.push(b); });
+      return out;
+    }
+    function _remBeforeText(b) {
+      return b === 60 ? 'بعد ساعة' : b === 180 ? 'بعد 3 ساعات' : b === 1440 ? 'غداً' : b === 2880 ? 'بعد يومين' : 'بعد أسبوع';
+    }
+    function _remActive(n) {
+      return !!n && n.id != null && n.status === 'قيد التنفيذ' && !!n.dG && !!parseG(String(n.dG));
+    }
+    function _remText(n) {
+      const cat = [n.main, n.sub].filter(Boolean).join(' › ');
+      return { cat: cat, title: '📋 تذكير' + (cat ? ': ' + cat : ''),
+        body: (n.text || cat || 'لديك مهمة') + (n.num ? ' — ' + n.num : '') };
+    }
+    function _remindersFor(notes, mins, now, late) {
       const want = {}, lateNew = {};
-      const h = (hour >= 0 && hour <= 23) ? hour : 9;
+      const def = (mins >= 0 && mins < 1440) ? Math.floor(mins) : 540;
       const today = new Date(now); today.setHours(0, 0, 0, 0);
+      const t0 = today.getTime(), days = [];
       (Array.isArray(notes) ? notes : []).forEach(n => {
-        if (!n || n.id == null || n.status !== 'قيد التنفيذ' || !n.dG) return;
-        const base = parseG(String(n.dG)); if (!base) return;
+        if (!_remActive(n)) return;
+        const base = parseG(String(n.dG));
         const nDay = new Date(base); nDay.setHours(0, 0, 0, 0);
-        if (nDay.getTime() < today.getTime()) return;      /* متأخرة أياماً: يكفي تنبيه المقدّمة */
-        const dt = new Date(base); dt.setHours(h, 0, 0, 0);
-        let when = dt.getTime();
+        days.push(nDay.getTime());
+        if (nDay.getTime() < t0) return;                    /* متأخرة أياماً: يكفيها ملخص المتأخرات */
+        const own = _remParseTime(n.rt), tm = own >= 0 ? own : def;
+        const dt = new Date(base); dt.setHours(Math.floor(tm / 60), tm % 60, 0, 0);
+        const due = dt.getTime(), tx = _remText(n), id = String(n.id);
+        _remBeforeList(n).forEach(b => {
+          const w = due - b * 60000;
+          if (w > now) want[id + '~b' + b] = { when: w, title: '⏳ ' + _remBeforeText(b) + (tx.cat ? ': ' + tx.cat : ''), body: tx.body };
+        });
+        let when = due;
         if (!(when > now)) {
-          if (!late || nDay.getTime() !== today.getTime()) return;
-          const stored = +late[String(n.id)] || 0;
+          if (!late || nDay.getTime() !== t0) return;
+          const stored = +late[id] || 0;
           if (stored) { if (stored > now) when = stored; else return; }
-          else { when = now + 60000; lateNew[String(n.id)] = when; }
+          else { when = now + 60000; lateNew[id] = when; }
         }
-        const cat = [n.main, n.sub].filter(Boolean).join(' › ');
-        want[String(n.id)] = { when: when, title: '📋 تذكير' + (cat ? ': ' + cat : ''),
-          body: (n.text || cat || 'لديك مهمة') + (n.num ? ' — ' + n.num : '') };
+        want[id] = { when: when, title: tx.title, body: tx.body };
       });
+      for (let i = 0; i < 7; i++) {
+        const d = new Date(t0); d.setDate(d.getDate() + i);
+        const ds = d.getTime(), w = new Date(ds); w.setHours(Math.floor(def / 60), def % 60, 0, 0);
+        if (!(w.getTime() > now)) continue;
+        const c = days.filter(x => x < ds).length;
+        if (c > 0) want['_od' + ds] = { when: w.getTime(), title: '⏰ مهام متأخرة',
+          body: 'لديك ' + c + (c === 1 ? ' مهمة متأخرة' : ' مهام متأخرة') + ' بحاجة للمتابعة' };
+      }
       return { want: want, lateNew: lateNew };
     }
-    function _remindersFuture(notes, hour, now) { return _remindersFor(notes, hour, now, null).want; }
-    function _remindersDelta(beforeNotes, afterNotes, hour, now, late) {
+    function _remindersFuture(notes, mins, now) { return _remindersFor(notes, mins, now, null).want; }
+    function _remindersDelta(beforeNotes, afterNotes, mins, now, late) {
       const lt = (late && typeof late === 'object') ? late : null;
-      const a = _remindersFor(beforeNotes, hour, now, lt).want, rb = _remindersFor(afterNotes, hour, now, lt), b = rb.want;
-      const set = {}, cancel = [], lateOut = {};
+      const a = _remindersFor(beforeNotes, mins, now, lt).want, rb = _remindersFor(afterNotes, mins, now, lt), b = rb.want;
+      const set = {}, cancel = [], lateOut = {}, dismiss = [];
       Object.keys(a).forEach(id => { if (!b[id]) cancel.push(id); });
       Object.keys(b).forEach(id => {
         const p = a[id], w = b[id];
@@ -7477,9 +7581,97 @@
           if (rb.lateNew[id]) lateOut[id] = rb.lateNew[id];
         }
       });
-      return { set: set, cancel: cancel, late: lateOut };
+      const act = {};
+      (Array.isArray(afterNotes) ? afterNotes : []).forEach(n => { if (_remActive(n)) act[String(n.id)] = 1; });
+      (Array.isArray(beforeNotes) ? beforeNotes : []).forEach(n => { if (_remActive(n) && !act[String(n.id)]) dismiss.push(String(n.id)); });
+      return { set: set, cancel: cancel, late: lateOut, dismiss: dismiss };
     }
     /*@@/merge-core@@*/
+
+    /* ══ التكرار (1.52.0): n.rp = d يومياً | w أسبوعياً | m شهرياً ميلادياً | hm شهرياً هجرياً | y سنوياً ══
+       عند إنجاز مهمة متكررة لا تُغلق: يتقدّم موعدها إلى أول تكرار بعد اليوم وتبقى «قيد التنفيذ».
+       الشهري يحافظ على يوم الشهر الأصلي (٣١ ⇒ آخر يوم في الشهر الأقصر). */
+    const REM_REPEAT = { d: 'يومياً', w: 'أسبوعياً', m: 'شهرياً (ميلادي)', hm: 'شهرياً (هجري)', y: 'سنوياً' };
+    function _recurNext(n, now) {
+      const base = n && n.dG ? parseG(String(n.dG)) : 0;
+      if (!base || !n.rp || !REM_REPEAT[n.rp]) return null;
+      const b = new Date(base), today = new Date(now || Date.now()); today.setHours(0, 0, 0, 0);
+      const dim = (y, m) => new Date(y, m + 1, 0).getDate();
+      let hb = null;
+      if (n.rp === 'hm') { try { hb = H.toH(b); } catch (e) { hb = null; } if (!hb) return null; }
+      for (let k = 1; k < 4000; k++) {
+        let d;
+        if (n.rp === 'd') d = new Date(b.getFullYear(), b.getMonth(), b.getDate() + k);
+        else if (n.rp === 'w') d = new Date(b.getFullYear(), b.getMonth(), b.getDate() + 7 * k);
+        else if (n.rp === 'm') { const y = b.getFullYear(), m = b.getMonth() + k; d = new Date(y, m, Math.min(b.getDate(), dim(y, m))); }
+        else if (n.rp === 'y') { const y = b.getFullYear() + k; d = new Date(y, b.getMonth(), Math.min(b.getDate(), dim(y, b.getMonth()))); }
+        else {
+          const tot = hb.y * 12 + (hb.m - 1) + k, hy = Math.floor(tot / 12), hm0 = tot % 12;
+          d = H.toG({ y: hy, m: hm0 + 1, d: Math.min(hb.d, H.md(hy, hm0)) });
+        }
+        if (d.getTime() > today.getTime()) return { dG: H.fmtG(d), dH: H.fmtH(H.toH(d)) };
+      }
+      return null;
+    }
+    /* مهمة متكررة أُنجزت للتوّ: تُقدَّم للموعد التالي وتعود «قيد التنفيذ». يعيد الموعد الجديد أو null */
+    function _recurOnDone(n) {
+      if (!n || n.status !== 'مكتمل') return null;
+      const nx = _recurNext(n, Date.now());
+      if (!nx) return null;
+      n.dG = nx.dG; n.dH = nx.dH; n.status = 'قيد التنفيذ';
+      return nx;
+    }
+
+    /* ══ ما فعله المستخدم من الإشعار والتطبيق مغلق (أندرويد): «تم» تُطبَّق هنا عند الفتح، والنقر يفتح المهمة ══ */
+    function _remApplyNative() {
+      const fsb = /** @type {any} */ (window.AndroidFS);
+      if (!fsb) return;
+      try {
+        if (typeof fsb.takeReminderDone === 'function') {
+          const ids = JSON.parse(fsb.takeReminderDone() || '[]');
+          if (Array.isArray(ids) && ids.length && typeof _notesLoaded !== 'undefined' && _notesLoaded) {
+            const notes = DB.get(); let n1 = 0, rec = 0;
+            ids.forEach(id => {
+              const n = notes.find(x => _sameId(x.id, id));
+              if (!n || n.status !== 'قيد التنفيذ') return;
+              n.status = 'مكتمل'; n.mt = Date.now(); n1++;
+              if (_recurOnDone(n)) rec++;
+            });
+            if (n1) { DB.set(notes); renderNotes(); showFb('✅ أُنجزت ' + n1 + ' من الإشعار' + (rec ? ' — 🔁 ' + rec + ' للموعد التالي' : '')); }
+          }
+        }
+      } catch (e) { }
+      try {
+        if (typeof fsb.takeOpenNote === 'function') { const id = fsb.takeOpenNote(); if (id) _remOpenNote(id); }
+      } catch (e) { }
+    }
+    function _remOpenNote(id) {
+      try {
+        const n = DB.get().find(x => _sameId(x.id, id));
+        if (n && !document.getElementById('edit-ov').classList.contains('open')) openNote(n.id);
+      } catch (e) { }
+    }
+    /* ويندوز: النقر على الإشعار يرسل معرّف المهمة */
+    /** @type {any} */ (window)._remOpenNote = _remOpenNote;
+
+    /* ══ وقت التنبيه العام يُزامَن بين الأجهزة (1.52.0): الملف يحمل prefs = {remind: "HH:MM", at} والأحدث يفوز ══ */
+    function _prefsGet() {
+      const at = parseInt(localStorage.getItem('notes_remind_at'), 10) || 0;
+      return at ? { remind: _remFmtTime(_remindMin()), at: at } : null;
+    }
+    function _prefsAbsorb(p) {
+      try {
+        if (!p || typeof p !== 'object') return false;
+        const at = +p.at || 0, t = _remParseTime(p.remind);
+        if (!at || t < 0 || at <= (parseInt(localStorage.getItem('notes_remind_at'), 10) || 0)) return false;
+        localStorage.setItem('notes_remind_time', _remFmtTime(t));
+        localStorage.setItem('notes_remind_at', String(at));
+        const el = /** @type {HTMLInputElement|null} */ (document.getElementById('remind-time')); if (el) el.value = _remFmtTime(t);
+        _syncRemindersDebounced();
+        return true;
+      } catch (e) { return false; }
+    }
+
     /** @param {boolean} [full] إلغاء الكل ثم جدولة الكل بدل التفاضل */
     function _syncNativeReminders(full) {
       const fsb = window.AndroidFS;
@@ -7503,18 +7695,33 @@
         });
       }
       _remSynced = want;
+      /* مهمة أُنجزت أو حُذفت أو أُجّلت (هنا أو على جهاز آخر ووصلت بالمزامنة): يُزال إشعارها المعروض */
+      const act = {};
+      DB.get().forEach(n => { if (_remActive(n)) act[String(n.id)] = 1; });
+      if (_remActiveIds && typeof (/** @type {any} */ (fsb)).dismissReminder === 'function') {
+        Object.keys(_remActiveIds).forEach(id => { if (!act[id]) { try { /** @type {any} */ (fsb).dismissReminder(id); } catch (e) { } } });
+      }
+      _remActiveIds = act;
     }
     let _syncRemTimer = null;
     function _syncRemindersDebounced() {
       clearTimeout(_syncRemTimer);
       _syncRemTimer = setTimeout(_syncNativeReminders, 1500);
     }
+    function setRemindTime(v) {
+      let t = _remParseTime(v); if (t < 0) t = 540;
+      localStorage.setItem('notes_remind_time', _remFmtTime(t));
+      localStorage.setItem('notes_remind_hour', String(Math.floor(t / 60)));     /* لتطبيق مثبّت أقدم يقرأ الساعة */
+      localStorage.setItem('notes_remind_at', String(Date.now()));
+      const _rt = /** @type {HTMLInputElement|null} */ (document.getElementById('remind-time')); if (_rt) _rt.value = _remFmtTime(t);
+      _syncNativeReminders();
+      try { _persistNotes(); } catch (e) { }                                       /* ينتقل للأجهزة الأخرى مع الملف */
+      try { if (typeof _lanBgPush === 'function') _lanBgPush(); } catch (e) { }
+      showFb('🔔 وقت التنبيه: ' + _remFmtTime(t));
+    }
     function setRemindHour(v) {
       let h = parseInt(v, 10); if (isNaN(h) || h < 0 || h > 23) h = 9;
-      localStorage.setItem('notes_remind_hour', String(h));
-      const _rh = document.getElementById('remind-hour'); if (_rh) _rh.value = h;   /* صحّح الحقل بصرياً بعد التطبيع */
-      _syncNativeReminders();
-      showFb('🔔 وقت التنبيه: ' + h + ':00');
+      setRemindTime(_remFmtTime(h * 60));
     }
     function _applyNotifStatus(granted) {
       _syncNativeReminders();
@@ -7572,6 +7779,8 @@
     }
 
     function _scheduleReminders() {
+      /* طبقة أصلية تجدول التذكيرات (أندرويد/ويندوز): تنبيه الصفحة هنا تكرار لها — ومنها ملخص المتأخرات */
+      if (window.AndroidFS && typeof window.AndroidFS.scheduleReminder === 'function') return;
       if (!('Notification' in window)) return;
       if (Notification.permission === 'default') { Notification.requestPermission(); return; }
       if (Notification.permission !== 'granted') return;
@@ -7612,6 +7821,21 @@
     /* تفعيل وجدولة التذكيرات الأصلية */
     try { if (window.AndroidFS && window.AndroidFS.requestNotificationPermission) window.AndroidFS.requestNotificationPermission(); } catch (e) { }
     setTimeout(_syncNativeReminders, 2800);
+    setTimeout(_remApplyNative, 3200);
+    /* إغلاق لوحة الإشعارات بعد ضغط «تم» يعيد التركيز للنافذة دون تغيّر الظهور */
+    window.addEventListener('focus', function () { setTimeout(_remApplyNative, 400); });
+    /* أندرويد 14+: إذن المنبّه الدقيق مرفوض افتراضياً فتتأخر التذكيرات — يُنبَّه مرة كل أسبوع ما دام غائباً وثمة تذكيرات */
+    setTimeout(function () {
+      try {
+        const fsb = window.AndroidFS;
+        if (!fsb || typeof fsb.canScheduleExactAlarms !== 'function' || fsb.canScheduleExactAlarms()) return;
+        if (!_remSynced || !Object.keys(_remSynced).length) return;
+        const last = parseInt(localStorage.getItem('notes_exact_warn_at'), 10) || 0;
+        if (Date.now() - last < 7 * 86400000) return;
+        localStorage.setItem('notes_exact_warn_at', String(Date.now()));
+        showFb('⏰ التذكيرات قد تتأخر: فعّل «التنبيه الدقيق» من الإعدادات ← التذكيرات', 1);
+      } catch (e) { }
+    }, 6000);
 
     /* تأكيد نجاح إقلاع الصفحة بعد تطبيق تحديث (يلغي التراجع التلقائي في الطبقة الأصلية).
        وصول التنفيذ إلى هنا يعني أن الصفحة الجديدة عملت — وهذا ما يقيسه التراجع.
@@ -7673,6 +7897,9 @@
     document.addEventListener('visibilitychange', () => {
       if (document.hidden) return;
       setTimeout(_scheduleReminders, 500);
+      setTimeout(_remApplyNative, 700);   /* «تم» من الإشعار، وفتح المهمة التي نُقر إشعارها */
+      /* تغيّرت المنطقة الزمنية أو مرّ يوم والتطبيق في الذاكرة: تُحسب الأوقات من جديد */
+      _syncRemindersDebounced();
       _reflectExactAlarm();   /* العودة من شاشة إذن المنبّه الدقيق */
       if (Date.now() - window._lastUpdCheckT >= _UPD_RECHECK_MS) {
         window._lastUpdCheckT = Date.now();
@@ -7998,7 +8225,8 @@
       var s = LS.get();
       try {
         /** @type {any} */ (window.LanSync).bgConfig(JSON.stringify({ enabled: !!s.enabled, tokens: _lanTokens(s),
-          remindHour: (typeof _remindHour === 'function') ? _remindHour() : 9,     /* لجدولة تذكيرات ما يُدمج والتطبيق مغلق */
+          remindHour: (typeof _remindHour === 'function') ? _remindHour() : 9,
+          remindMin: (typeof _remindMin === 'function') ? _remindMin() : 540,     /* لجدولة تذكيرات ما يُدمج والتطبيق مغلق */
           peers: _lanPeers().map(function (p) { return { id: p.id, name: p.name || '', ip: p.ip || '', port: +p.port || LAN_FIXED_PORT, token: p.token }; }) }));
       } catch (e) { }
     }
@@ -9278,6 +9506,21 @@
           </div>
         </div>
         <input type="file" id="edit-att-input" style="display:none" onchange="handleAttFromEdit(event)">
+
+        <!-- التذكير: وقت خاص بالمهمة، تذكير مسبق، وتكرار (1.52.0) -->
+        <div class="edit-field-lbl">🔔 التذكير <span style="font-weight:400;color:rgba(var(--ov),.4);">— للمهام «قيد التنفيذ» ذات التاريخ</span></div>
+        <div class="edit-row2" style="grid-template-columns:1fr 1fr 1fr;">
+          <div class="edit-inp" style="display:flex;align-items:center;gap:4px;padding:4px 6px;" title="وقت التنبيه لهذه المهمة — فارغ = الوقت العام">
+            <input type="time" id="edit-rt" style="flex:1;min-width:0;background:transparent;border:none;color:var(--tw);font-size:12px;font-family:inherit;color-scheme:dark;">
+            <span onclick="document.getElementById('edit-rt').value=''" title="الوقت العام" style="color:#fca5a5;font-size:12px;cursor:pointer;padding:0 2px;">✕</span>
+          </div>
+          <div id="edit-rb-cell" class="edit-inp" style="cursor:pointer;display:flex;align-items:center;gap:4px;padding:7px 8px;" onclick="openEditBeforePicker()">
+            <span>⏳</span><span id="edit-rb-tx" style="flex:1;font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">بلا تذكير مسبق</span>
+          </div>
+          <div id="edit-rp-cell" class="edit-inp" style="cursor:pointer;display:flex;align-items:center;gap:4px;padding:7px 8px;" onclick="openEditRepeatPicker()">
+            <span>🔁</span><span id="edit-rp-tx" style="flex:1;font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">بلا تكرار</span>
+          </div>
+        </div>
 
         <!-- ص٥: الموقع على الخريطة -->
         <div class="edit-field-lbl">📍 الموقع</div>
