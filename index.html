@@ -11,12 +11,12 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: https://*.googleapis.com https://*.gstatic.com https://*.google.com https://*.ggpht.com https://*.googleusercontent.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https://*.googleapis.com https://*.gstatic.com https://*.google.com https://*.ggpht.com https://*.googleusercontent.com; media-src 'self' data: blob:; connect-src 'self' data: blob: https://api.open-meteo.com https://ensemble-api.open-meteo.com https://api.met.no https://raw.githubusercontent.com https://*.googleapis.com https://*.gstatic.com https://*.google.com https://*.ggpht.com https://*.googleusercontent.com; frame-src 'self' data: blob: https://*.google.com; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
   <meta name="theme-color" content="#667eea">
-  <meta name="app-version" content="1.53.0">
+  <meta name="app-version" content="1.54.0">
   <!-- أدنى إصدار من التطبيق المثبّت (APK / مثبّت ويندوز) تحتاجه هذه الواجهة: الواجهة تتحدث تلقائياً
        والتطبيق المثبّت لا، فإن كان المثبّت أقدم من هذا عرضت الواجهة شريط «تحديث التطبيق مطلوب».
        يضبطهما scripts/bump-version.js آلياً عند تغيّر كود الطبقة الأصلية، ويفرضهما فحص CI. -->
-  <meta name="app-min-native-android" content="1.53.0">
-  <meta name="app-min-native-windows" content="1.53.0">
+  <meta name="app-min-native-android" content="1.54.0">
+  <meta name="app-min-native-windows" content="1.54.0">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <title>المنظم</title>
@@ -3088,6 +3088,8 @@
         r = String(r || '');
         if (r === 'installing' || r === 'downloading') _nativeGateMsg('⬇️ جارٍ تنزيل التحديث — يُعاد تشغيل المنظم تلقائياً عند اكتماله');
         else if (r === 'none') _nativeGateMsg('لم يُنشر تحديث التطبيق بعد — أعد المحاولة بعد دقائق');
+        /* 1.54.0: المثبّت المنزَّل لا يحمل توقيع مفتاح النشر — لا يُثبَّت، والخروج والفتح لا يغيّران ذلك */
+        else if (r === 'error:bad-signature') _nativeGateMsg('لم يُثبَّت التحديث: توقيع المثبّت لا يطابق مفتاح النشر — نزّل المثبّت الأحدث يدوياً من صفحة الإصدارات');
         else _nativeGateMsg(manual);
       }, function () { _nativeGateMsg(manual); });
     }
@@ -8183,6 +8185,8 @@
       if (/^timeout$|timed out|SocketTimeout/i.test(m)) return 'انتهت مهلة الانتظار — الجهاز الآخر متصل لكنه مشغول أو المجلد كبير جداً؛ تُعاد المحاولة في الدورة التالية';
       if (/ECONNREFUSED|ETIMEDOUT|EHOSTUNREACH|failed to connect|unreachable/i.test(m)) return 'تعذّر الوصول للجهاز الآخر — تأكد أن الجهازين على الشبكة نفسها وأن العنوان والمنفذ كما يظهران عنده';
       if (/pair-403/.test(m)) return 'الرمز خاطئ أو انتهت صلاحيته — أظهر رمزاً جديداً';
+      /* 1.54.0: الجهاز الآخر لا يقبل الإقران القديم (كان يكشف الرمز لمن يجرّب احتمالاته) */
+      if (/pair-426/.test(m)) return 'التطبيق المثبّت على هذا الجهاز يستعمل إقراناً قديماً لا يقبله الجهاز الآخر — حدّثه ثم أعد المحاولة';
       if (/not-found/.test(m)) return 'لم يُعثر على الجهاز الآخر في هذه الشبكة — تأكد أنه يعمل ومتصل بالواي فاي نفسه';
       if (/^changed$/.test(m)) return 'تغيّر الملف هنا أثناء المزامنة — لم يُستبدل، ويُعاد النظر فيه في الدورة التالية';
       if (/^busy$/.test(m)) return 'الملف قيد التنزيل في عملية أخرى — يُكمَل لاحقاً';
@@ -8382,7 +8386,7 @@
     }
 
     /* ── الإقران (الطرف المُظهِر للرمز): يولّد الرمز وتوكناً جديداً لهذا الإقران ويأمر الطبقة الأصلية
-       بقبول ‎/pair2‎ بهذا الرمز لدقيقتين. التوكن يُضاف للمعلّقة فيقبله الخادم مع توكنات الأجهزة
+       بقبول ‎/pair3‎ بهذا الرمز لدقيقتين. التوكن يُضاف للمعلّقة فيقبله الخادم مع توكنات الأجهزة
        الأخرى (كان رمز جديد يستبدل التوكن الوحيد فيُرفض الجهاز المقترن سابقاً). ── */
     function _lanPairHost() {
       var code = _lanGenCode(), token = _lanGenToken();
