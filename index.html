@@ -11,12 +11,12 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: https://*.googleapis.com https://*.gstatic.com https://*.google.com https://*.ggpht.com https://*.googleusercontent.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https://*.googleapis.com https://*.gstatic.com https://*.google.com https://*.ggpht.com https://*.googleusercontent.com; media-src 'self' data: blob:; connect-src 'self' data: blob: https://api.open-meteo.com https://ensemble-api.open-meteo.com https://api.met.no https://raw.githubusercontent.com https://*.googleapis.com https://*.gstatic.com https://*.google.com https://*.ggpht.com https://*.googleusercontent.com; frame-src 'self' data: blob: https://*.google.com; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
   <meta name="theme-color" content="#667eea">
-  <meta name="app-version" content="1.54.0">
+  <meta name="app-version" content="1.55.0">
   <!-- أدنى إصدار من التطبيق المثبّت (APK / مثبّت ويندوز) تحتاجه هذه الواجهة: الواجهة تتحدث تلقائياً
        والتطبيق المثبّت لا، فإن كان المثبّت أقدم من هذا عرضت الواجهة شريط «تحديث التطبيق مطلوب».
        يضبطهما scripts/bump-version.js آلياً عند تغيّر كود الطبقة الأصلية، ويفرضهما فحص CI. -->
   <meta name="app-min-native-android" content="1.54.0">
-  <meta name="app-min-native-windows" content="1.54.0">
+  <meta name="app-min-native-windows" content="1.55.0">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <title>المنظم</title>
@@ -2793,7 +2793,12 @@
 
     function renderSettings() {
       const _vl = document.getElementById('app-ver-label');
-      if (_vl) _vl.textContent = 'الإصدار ' + (_getLocalHash() || '');
+      if (_vl) {
+        /* الطبقتان معاً حين تختلفان: الواجهة تتحدث وحدها في الإصدارات التي لا كود أصلياً جديداً فيها (تحديث واحد) */
+        let _nv = ''; try { _nv = window.AndroidFS && typeof window.AndroidFS.getAppVersion === 'function' ? String(window.AndroidFS.getAppVersion() || '') : ''; } catch (e) { }
+        const _uv = _getLocalHash() || '';
+        _vl.textContent = 'الإصدار ' + _uv + (_isVer(_nv) && _isVer(_uv) && _verCmp(_nv, _uv) !== 0 ? ' · التطبيق المثبّت ' + _nv : '');
+      }
       const _rh = /** @type {HTMLInputElement|null} */ (document.getElementById('remind-time')); if (_rh) _rh.value = _remFmtTime(_remindMin());
       if (typeof _reflectExactAlarm === 'function') _reflectExactAlarm();
       if (typeof renderWxCfg === 'function') renderWxCfg();
@@ -2927,9 +2932,22 @@
     }
 
     /* ══════════════════════════════════════
-       تحديث التطبيق — تحميل من GitHub
+       تحديث التطبيق — تحديث واحد لكل إصدار (1.55.0)
+       في الجهاز طبقتان: الواجهة (هذه الصفحة) تُحدَّث من قناة النشر بلا تثبيت، والتطبيق المثبّت تحتها (APK /
+       مثبّت ويندوز) لا يتغير إلا بتثبيت. كان كل إصدار يصل مرتين: تُطبَّق واجهته فوراً ثم يُطلب تثبيت تطبيقه.
+       الآن يُختار قبل أي تنزيل تحديث واحد من بيان الواجهة المنشورة (ui.json: إصدارها وأدنى مثبَّت تحتاجه):
+       • تحتاج تطبيقاً أحدث من المثبّت ⇐ يُثبَّت التطبيق وحده وواجهته فيه، ولا تُطبَّق الواجهة قبله؛
+       • وإلا ⇐ تُطبَّق الواجهة وحدها بصمت، ونسخة التطبيق الأحدث التي لا تحتاجها (لا كود أصلياً جديداً فيها) لا تُطلب.
+       ويندوز يقرّر هذا في طبقته الأصلية (fs-bridge ترفض واجهة تحتاج مثبّتاً أحدث، وmain.js لا ينزّل مثبّتاً لا
+       تحتاجه الواجهة)، وأندرويد هنا (_updDecide).
     ══════════════════════════════════════ */
     const _UPDATE_URL = 'https://raw.githubusercontent.com/sulasm/MyNotes-releases/main/index.html';
+    const _UI_MANIFEST = 'https://raw.githubusercontent.com/sulasm/MyNotes-releases/main/ui.json';
+    const _APK_MANIFEST = 'https://raw.githubusercontent.com/sulasm/MyNotes-releases/main/latest.json';
+    /* تطبيق مطلوب لم يُنشر بعد هذه المدة (بناء متعثّر) ⇐ تُطبَّق الواجهة وحدها كما قبل 1.55.0 ويظهر شريط
+       «تحديث التطبيق مطلوب» — كي لا يبقى الجهاز على واجهة قديمة إلى أجل غير معلوم */
+    const _UPD_WAIT_MAX_MS = 48 * 3600e3;
+    const _UPD_WAIT_KEY = 'upd_native_wait_v1';
 
     function _setUpdateStatus(msg, color) {
       const el = document.getElementById('update-status');
@@ -2953,6 +2971,7 @@
       }
       return 0;
     }
+    function _isVer(v) { return /^\d+(\.\d+)+$/.test(String(v || '').trim()); }
 
     /* منع تطبيق إصدار أقدم/مساوٍ: يعيد true إذا كان التحديث مسموحاً.
        newVer قد لا تُبلّغه الأصداف القديمة — عندها لا يمكن المقارنة فنسمح. */
@@ -2968,78 +2987,232 @@
       return false;
     }
 
+    /* بعد تثبيت تطبيق أحدث تبقى في الجهاز واجهة مخزَّنة أقدم من المدمجة فيه، والطبقة الأصلية في أندرويد تقدّم
+       المخزَّنة ما دامت موجودة. صفحة أقدم من التطبيق المثبّت تحتها هي تلك النسخة (المدمجة تحمل إصدار التطبيق
+       نفسه): تُحذف ويُعاد التحميل فتعمل المدمجة. ويندوز يفعل هذا أصلياً عند الإقلاع (_cleanStaleUpdate في main.js) */
+    function _dropStaleUi() {
+      const fsb = /** @type {any} */ (window.AndroidFS);
+      if (!fsb || typeof fsb.getAppVersion !== 'function' || typeof fsb.hasLocalUpdate !== 'function'
+        || typeof fsb.clearLocalUpdate !== 'function') return false;
+      try {
+        const have = String(fsb.getAppVersion() || ''), mine = _getLocalHash();
+        if (!_isVer(have) || !_isVer(mine) || _verCmp(have, mine) <= 0 || !fsb.hasLocalUpdate()) return false;
+        /* محاولة واحدة لكل إصدار في الجلسة: إن تعذّر الحذف لا تدور الصفحة في حلقة إعادة تحميل */
+        if (sessionStorage.getItem('stale_ui_dropped') === have) return false;
+        sessionStorage.setItem('stale_ui_dropped', have);
+        if (fsb.clearLocalUpdate() === false) return false;
+        if (typeof fsb.reloadApp === 'function') fsb.reloadApp(); else location.reload();
+        return true;
+      } catch (e) { return false; }
+    }
+    _dropStaleUi();
+
+    /** قرار التحديث الواحد في أندرويد — دالة نقية تُختبر وحدها.
+     * @param {{have: string, local: string, localNeed?: string, ui: any, apk?: any, wait?: any, now?: number}} s
+     *   have: إصدار التطبيق المثبّت، local: إصدار هذه الواجهة، localNeed: حدّها هي (app-min-native-android)،
+     *   ui: بيان الواجهة المنشورة (ui.json) أو null، apk: بيان APK المنشور (latest.json) أو null،
+     *   wait: {need, t} — منذ متى يُنتظر تطبيقٌ مطلوب لم يُنشر
+     * @returns {{act: 'native'|'wait'|'ui'|'none', need: string, ver: string}}
+     *   native: ثبّت التطبيق (وواجهته فيه) ولا تطبّق الواجهة · wait: الواجهة المنشورة تحتاج تطبيقاً لم يُنشر بعد
+     *   (يُبنى بعد نشرها بدقائق) فلا شيء الآن · ui: طبّق الواجهة وحدها · none: لا جديد
+     */
+    function _updDecide(s) {
+      const ui = s.ui && typeof s.ui === 'object' && _isVer(s.ui.version) ? s.ui : null;
+      let need = ui && ui.minNative && _isVer(ui.minNative.android) ? String(ui.minNative.android).trim() : '';
+      if (_isVer(s.localNeed) && (!need || _verCmp(s.localNeed, need) > 0)) need = String(s.localNeed).trim();
+      if (need && _isVer(s.have) && _verCmp(s.have, need) < 0) {
+        const pub = s.apk && typeof s.apk === 'object' && _isVer(s.apk.versionName) ? String(s.apk.versionName).trim() : '';
+        if (pub && _verCmp(pub, need) >= 0) return { act: 'native', need, ver: pub };
+        const t = s.wait && s.wait.need === need ? +s.wait.t || 0 : 0;
+        if (!(t > 0 && (s.now || Date.now()) - t > _UPD_WAIT_MAX_MS)) return { act: 'wait', need, ver: '' };
+      }
+      /* بلا بيان (تعذّر جلبه): محاولة الواجهة كما قبل 1.55.0 — الطبقة الأصلية تقارن الإصدار وتتحقق من التوقيع */
+      if (!ui || _verCmp(ui.version, s.local) > 0) return { act: 'ui', need, ver: ui ? String(ui.version) : '' };
+      return { act: 'none', need, ver: '' };
+    }
+
+    /* بيان صغير من قناة النشر (ui.json / latest.json) — null عند أي فشل. no-store: لا يبقى في ذاكرة WebView.
+       شبكة التوزيع نفسها قد تقدّم نسخة عمرها دقائق (لا تُتخطّى بمعامل في العنوان) — القرار يتحمّل ذلك */
+    function _updFetchJson(url) {
+      if (typeof fetch !== 'function') return Promise.resolve(null);
+      const ctl = typeof AbortController === 'function' ? new AbortController() : null;
+      const timer = ctl ? setTimeout(() => { try { ctl.abort(); } catch (e) { } }, 15000) : 0;
+      return fetch(url, { cache: 'no-store', signal: ctl ? ctl.signal : undefined })
+        .then(r => (r && r.ok ? r.json() : null))
+        .then(j => (j && typeof j === 'object' ? j : null), () => null)
+        .finally(() => { if (timer) clearTimeout(timer); });
+    }
+    function _updWaitGet() {
+      try { const o = JSON.parse(localStorage.getItem(_UPD_WAIT_KEY) || 'null'); return o && typeof o === 'object' ? o : null; }
+      catch (e) { return null; }
+    }
+    function _updWaitSet(v) {
+      try { if (v) localStorage.setItem(_UPD_WAIT_KEY, JSON.stringify(v)); else localStorage.removeItem(_UPD_WAIT_KEY); } catch (e) { }
+    }
+
+    /* تطبيق الواجهة عبر الطبقة الأصلية — يوحّد عقدَي الرد (نداء عام في أندرويد، Promise في ويندوز)
+       @returns {Promise<{status: string, err: string, version: string, need: string}>}
+       status: 'updated' | 'same' | 'native' (ويندوز: الواجهة تحتاج مثبّتاً أحدث فلم تُطبَّق) | '' مع err */
+    function _updOta() {
+      return new Promise(resolve => {
+        let done = false;
+        const fin = (status, err, ver, need) => {
+          if (done) return; done = true;
+          resolve({ status: String(status || ''), err: String(err || ''), version: String(ver || ''), need: String(need || '') });
+        };
+        window._updOtaCb = (res, err) => fin(res, err, '', '');
+        setTimeout(() => fin('', 'TIMEOUT', '', ''), 120000);   /* رد لم يصل (جسر قديم) */
+        try {
+          const r = /** @type {any} */ (window.AndroidFS).downloadAndApplyUpdate(_UPDATE_URL, _getLocalHash(), 'window._updOtaCb');
+          if (r && typeof r.then === 'function') {
+            /* عقد Electron: Promise<{status, err, version, need}> — قيمة بلا معنى تعني أن الرد سيصل عبر النداء */
+            r.then(res => {
+              if (res && typeof res === 'object' && ('status' in res || 'err' in res)) fin(res.status, res.err, res.version || res.newVersion, res.need);
+              else if (typeof res === 'string' && res) fin(res, '', '', '');
+            }, e => fin('', String((e && e.message) || e), '', ''));
+          }
+        } catch (e) { fin('', String((e && e.message) || e), '', ''); }
+      });
+    }
+
+    /* تنزيل APK وتشغيل مثبّت النظام — عملية واحدة في كل مرة (الفحص التلقائي وزر الإعدادات وشريط البوابة يشتركون
+       فيها)، ولكل مستمع حالتها: 'downloading' ثم 'prompt' (ظهرت نافذة التثبيت) أو 'same' أو خطأ.
+       عنوان البيان مثبَّت في الطبقة الأصلية؛ الممرَّر هنا يُتجاهل هناك */
+    let _apkWho = null;
+    function _apkInstall(onStatus) {
+      const fsb = /** @type {any} */ (window.AndroidFS);
+      if (!fsb || typeof fsb.checkAndInstallApk !== 'function') { onStatus('', 'UNSUPPORTED'); return; }
+      if (_apkWho) { _apkWho.push(onStatus); onStatus('downloading', ''); return; }
+      const who = _apkWho = [onStatus];
+      const stop = setTimeout(() => { if (_apkWho === who) _apkWho = null; }, 15 * 60e3);   /* رد لم يصل: لا يبقى القفل */
+      window._apkCb = function (result, err) {
+        result = String(result || ''); err = String(err || '');
+        if (result !== 'downloading') { if (_apkWho === who) _apkWho = null; clearTimeout(stop); }
+        who.forEach(f => { try { f(result, err); } catch (e) { } });
+      };
+      try { fsb.checkAndInstallApk(_APK_MANIFEST, 'window._apkCb'); } catch (e) { window._apkCb('', 'START_FAILED'); }
+    }
+
+    function _updMsgErr(err) {
+      /* رفض التوقيع: التحديث المنشور لم يُوقَّع بمفتاح التطبيق (أو لم يصل توقيعه بعد) فلم يُطبَّق */
+      return err === 'BAD_SIGNATURE' ? 'رُفض التحديث: توقيعه غير صحيح — لم يُطبَّق. أعد المحاولة بعد دقائق'
+        : err === 'NO_SIGNATURE' ? 'تعذّر جلب توقيع التحديث — لم يُطبَّق. أعد المحاولة بعد دقائق' : err;
+    }
+    /* نص قيد الكتابة (نافذة إضافة أو تعديل مفتوحة، أو حقل فيه نص) يضيع بإعادة تحميل الصفحة */
+    let _updBusyRetryMs = 5000;   /* فترة إعادة المحاولة (متغيرة للاختبار) */
+    function _updUserBusy() {
+      try {
+        if (['edit-ov', 'q-ov'].some(id => { const el = document.getElementById(id); return !!el && el.classList.contains('open'); })) return true;
+        const a = /** @type {any} */ (document.activeElement);
+        return !!a && /^(TEXTAREA|INPUT)$/.test(String(a.tagName || '')) && a.id !== 'f-text' && String(a.value || '').trim().length > 0;
+      } catch (e) { return false; }
+    }
+    function _updReload(manual) {
+      const go = function () {
+        const f = /** @type {any} */ (window.AndroidFS);
+        if (f && typeof f.reloadApp === 'function') f.reloadApp(); else window.location.reload();
+      };
+      if (manual) { _setUpdateStatus('✅ تم تطبيق التحديث — جارٍ إعادة التشغيل...', '#86efac'); setTimeout(go, 1200); return; }
+      /* تلقائي: لا إعادة تحميل فوق كتابة جارية — تُؤجَّل حتى تنتهي (الواجهة الجديدة محفوظة في الجهاز، وإن أُغلق التطبيق
+         قبلها يتراجع عنها الإقلاع التالي ثم يعيد الفحصُ تطبيقها) */
+      let told = false;
+      const tryGo = function () {
+        if (_updUserBusy()) {
+          if (!told) { told = true; try { showFb('🔄 تحديث جديد جاهز — يُطبَّق بعد إنهاء الكتابة', 0); } catch (e) { } }
+          setTimeout(tryGo, _updBusyRetryMs); return;
+        }
+        try { showFb('🔄 جارٍ تطبيق تحديث جديد...', 0); } catch (e) { }
+        setTimeout(function () { if (_updUserBusy()) setTimeout(tryGo, _updBusyRetryMs); else go(); }, 900);
+      };
+      tryGo();
+    }
+
+    /* فحص التحديث الواحد: يقرّر ثم ينفّذ تحديثاً واحداً على الأكثر. manual: من زر «تحقق وحدّث» (الرسائل في سطر
+       الحالة بالإعدادات بدل الإشعارات). لا فحصان متوازيان.
+       @returns {Promise<{act: string, need: string, ver: string, res: string, err: string}>}
+       act: 'native' | 'wait' | 'ui' | 'none' | 'error' | 'unsupported' */
+    let _updRunning = null;
+    function _updCheck(manual) {
+      if (!_updRunning) _updRunning = _updCheckRun(!!manual).finally(() => { _updRunning = null; });
+      return _updRunning;
+    }
+    async function _updCheckRun(manual) {
+      const fsb = /** @type {any} */ (window.AndroidFS);
+      const out = (act, o) => Object.assign({ act, need: '', ver: '', res: '', err: '' }, o || {});
+      if (!fsb || typeof fsb.downloadAndApplyUpdate !== 'function') return out('unsupported');
+      const ok = (m) => { if (manual) _setUpdateStatus(m, '#86efac'); };
+      const warn = (m) => { if (manual) _setUpdateStatus(m, '#fbbf24'); };
+      const ota = async (need) => {
+        const r = await _updOta();
+        if (r.status === 'updated') {
+          if (!_updateAllowed(r.version)) { warn('⚠️ الإصدار المُنزَّل ليس أحدث — تم تجاهله'); return out('none', { need, ver: r.version, res: r.status }); }
+          _updReload(manual);
+          return out('ui', { need, ver: r.version, res: r.status });
+        }
+        if (r.status === 'native') return out('native', { need: r.need || need, ver: r.version, res: r.status });
+        /* OLDER_VERSION: شبكة التوزيع قدّمت نسخة أقدم مما هنا (تتأخر دقائق بعد النشر) — لا جديد */
+        if (r.status === 'same' || r.err === 'OLDER_VERSION') { ok('✅ التطبيق محدَّث — لا يوجد جديد'); return out('none', { need, res: r.status || 'same' }); }
+        if (manual) _setUpdateStatus('❌ ' + _updMsgErr(r.err || 'error'), '#f87171');
+        return out('error', { need, res: r.status, err: r.err || 'error' });
+      };
+
+      if (_nativeKind() === 'windows') {
+        /* ويندوز: القرار في الطبقة الأصلية — fs-bridge ترفض واجهة تحتاج مثبّتاً أحدث ('native') وتطلب المثبّت،
+           فيُنزَّل ويُعرض حين يجهز. زر «تحقق وحدّث» يطلبه فوراً (يُثبَّت ويُعاد التشغيل عند اكتماله) */
+        const r = await ota('');
+        if (r.act === 'native' && manual) {
+          _setUpdateStatus('⬇️ الإصدار الجديد يشمل تحديث التطبيق نفسه — جارٍ الفحص…', '#a78bfa');
+          if (typeof fsb.nativeUpdateNow === 'function') {
+            const n = String(await Promise.resolve(fsb.nativeUpdateNow()).catch(() => 'error:ipc') || '');
+            if (n === 'installing' || n === 'downloading') _setUpdateStatus('⬇️ جارٍ تنزيل تحديث التطبيق — يُعاد تشغيل المنظم تلقائياً عند اكتماله', '#a78bfa');
+            else if (n === 'none') warn('⏳ تحديث التطبيق المطلوب لم يُنشر بعد — يصلك تحديثاً واحداً خلال دقائق');
+            else if (n === 'error:bad-signature') warn('⚠️ لم يُثبَّت التحديث: توقيع المثبّت لا يطابق مفتاح النشر — نزّل المثبّت الأحدث من صفحة الإصدارات');
+            else warn('⚠️ تعذّر بدء تحديث التطبيق — أعد المحاولة لاحقاً');
+          }
+        }
+        return r;
+      }
+
+      let have = ''; try { have = String(fsb.getAppVersion() || ''); } catch (e) { }
+      const [ui, apk] = await Promise.all([_updFetchJson(_UI_MANIFEST), _updFetchJson(_APK_MANIFEST)]);
+      const lm = document.querySelector('meta[name="app-min-native-android"]');
+      const wait = _updWaitGet();
+      const d = _updDecide({ have, local: _getLocalHash(), localNeed: lm ? lm.getAttribute('content') || '' : '', ui, apk, wait, now: Date.now() });
+      if (d.act === 'wait') { if (!(wait && wait.need === d.need)) _updWaitSet({ need: d.need, t: Date.now() }); }
+      else if (!d.need || !_isVer(have) || _verCmp(have, d.need) >= 0) _updWaitSet(null);
+
+      if (d.act === 'native') {
+        /* تحديث واحد: التطبيق المثبّت وواجهته فيه — الواجهة المنشورة لا تُطبَّق قبله */
+        if (manual) _setUpdateStatus('⬇️ الإصدار الجديد يشمل تحديث التطبيق نفسه (' + toArabic(d.ver) + ') — جارٍ الفحص…', '#a78bfa');
+        _apkInstall(function (result, err) {
+          if (result === 'downloading') {
+            if (manual) _setUpdateStatus('⬇️ جارٍ تنزيل التحديث (' + toArabic(d.ver) + ')...', '#a78bfa');
+            else { try { showFb('⬇️ جارٍ تنزيل تحديث جديد...', 0); } catch (e) { } }
+          } else if (result === 'prompt') {
+            if (manual) _setUpdateStatus('📦 اضغط «تثبيت» لإكمال التحديث', '#86efac');
+            else { try { showFb('📦 اضغط «تثبيت» لإكمال التحديث', 0); } catch (e) { } }
+          } else if (result === 'same') warn('⏳ التحديث لم يُنشر بعد — أعد المحاولة بعد دقائق');
+          else if (err) warn('⚠️ تعذّر تنزيل التحديث: ' + err);
+        });
+        return out('native', { need: d.need, ver: d.ver });
+      }
+      if (d.act === 'wait') {
+        warn('⏳ الإصدار الجديد يحتاج تحديث التطبيق نفسه (' + toArabic(d.need) + ') ولم يُنشر بعد — يصلك تحديثاً واحداً خلال دقائق');
+        return out('wait', { need: d.need });
+      }
+      if (d.act === 'none') { ok('✅ التطبيق محدَّث — لا يوجد جديد'); return out('none', { need: d.need }); }
+      return ota(d.need);
+    }
+
     function checkAndUpdate() {
       if (!window.AndroidFS || typeof window.AndroidFS.downloadAndApplyUpdate !== 'function') {
-        _setUpdateStatus('⚠️ يعمل فقط في تطبيق الأندرويد', '#fbbf24'); return;
+        _setUpdateStatus('⚠️ يعمل فقط في التطبيق المثبّت (أندرويد أو ويندوز)', '#fbbf24'); return;
       }
       const btn = document.getElementById('update-btn');
       if (btn) { btn.disabled = true; btn.textContent = '⏳ جارٍ التحقق...'; }
       _setUpdateStatus('جارٍ جلب آخر إصدار...', '#a78bfa');
-
-      /* حارس «مرة واحدة»: قد يصل الرد عبر الـ callback العام (أندرويد/EXE قديم)
-         أو عبر Promise (EXE جديد) — نعالج أول رد فقط */
-      let _updHandled = false;
-      const onResult = function (result, err, newVer) {
-        if (_updHandled) return; _updHandled = true;
-        if (btn) { btn.disabled = false; btn.textContent = '⬇️ تحقق وحدّث'; }
-        if (err) {
-          /* رفض التوقيع: التحديث المنشور لم يُوقَّع بمفتاح التطبيق (أو لم يصل توقيعه بعد) فلم يُطبَّق */
-          const msg = err === 'BAD_SIGNATURE' ? 'رُفض التحديث: توقيعه غير صحيح — لم يُطبَّق. أعد المحاولة بعد دقائق'
-            : err === 'NO_SIGNATURE' ? 'تعذّر جلب توقيع التحديث — لم يُطبَّق. أعد المحاولة بعد دقائق' : err;
-          _setUpdateStatus('❌ ' + msg, '#f87171');
-          return;
-        }
-        /* result = 'same' (لا يوجد تحديث) أو 'updated' (تم التحديث) */
-        if (result === 'same') {
-          _setUpdateStatus('✅ المحتوى محدَّث — جارٍ فحص تحديث التطبيق...', '#86efac');
-          _manualApkCheck();
-        } else {
-          if (!_updateAllowed(newVer)) {
-            _setUpdateStatus('⚠️ الإصدار المُنزَّل ليس أحدث — تم تجاهله', '#fbbf24');
-            return;
-          }
-          _setUpdateStatus('✅ تم تطبيق التحديث — جارٍ إعادة التشغيل...', '#86efac');
-          setTimeout(function() {
-            if (window.AndroidFS && typeof window.AndroidFS.reloadApp === 'function') {
-              window.AndroidFS.reloadApp();
-            } else { window.location.reload(); }
-          }, 1200);
-        }
-      };
-      window._updateCallback = onResult;
-      try {
-        const r = window.AndroidFS.downloadAndApplyUpdate(_UPDATE_URL, _getLocalHash(), 'window._updateCallback');
-        if (r && typeof r.then === 'function') {
-          /* عقد Electron الجديد: Promise<{status, err}> — قيمة بلا معنى تعني أن الرد سيصل عبر callback */
-          r.then(res => {
-            if (res && typeof res === 'object' && ('status' in res || 'err' in res)) {
-              onResult(res.status, res.err || '', res.version || res.newVersion || '');
-            } else if (typeof res === 'string' && res) {
-              onResult(res, '');
-            }
-          }).catch(e2 => onResult(null, String((e2 && e2.message) || e2)));
-        }
-      } catch (e) {
-        onResult(null, String((e && e.message) || e));
-      }
-    }
-
-    /* فحص تحديث APK يدوياً (يُستدعى بعد فحص المحتوى من زر «تحقق وحدّث»)
-       العنوان مثبَّت في الطبقة الأصلية؛ الممرَّر هنا يُتجاهل هناك */
-    function _manualApkCheck() {
-      const fsb = window.AndroidFS;
-      if (!fsb || typeof fsb.checkAndInstallApk !== 'function') {
-        _setUpdateStatus('✅ التطبيق محدَّث — لا يوجد إصدار جديد', '#86efac');
-        return;
-      }
-      window._apkManualCb = function (result, err) {
-        if (result === 'downloading') _setUpdateStatus('⬇️ يوجد تحديث للتطبيق — جارٍ تنزيله...', '#a78bfa');
-        else if (result === 'prompt') _setUpdateStatus('📦 اضغط «تثبيت» لإكمال تحديث التطبيق', '#86efac');
-        else if (result === 'same') _setUpdateStatus('✅ التطبيق والمحتوى محدَّثان — لا يوجد جديد', '#86efac');
-        else if (err) _setUpdateStatus('⚠️ تعذّر فحص تحديث التطبيق: ' + err, '#fbbf24');
-      };
-      try { fsb.checkAndInstallApk('https://raw.githubusercontent.com/sulasm/MyNotes-releases/main/latest.json', 'window._apkManualCb'); }
-      catch (e) { _setUpdateStatus('⚠️ تعذّر فحص تحديث التطبيق', '#fbbf24'); }
+      const done = () => { if (btn) { btn.disabled = false; btn.textContent = '⬇️ تحقق وحدّث'; } };
+      _updCheck(true).then(done, e => { done(); _setUpdateStatus('❌ ' + String((e && e.message) || e), '#f87171'); });
     }
 
     /* ══════════════════════════════════════
@@ -3047,8 +3220,10 @@
        الواجهة تتحدث تلقائياً من قناة النشر، أما التطبيق المثبّت تحتها (APK / مثبّت ويندوز) فيحتاج
        تثبيتاً — فكانت واجهة حديثة تعمل فوق كود أصلي قديم وتفشل ميزاتها بصمت (المزامنة المباشرة).
        كل واجهة تعلن أدنى إصدار تحتاجه من المثبّت (وسما app-min-native-*، يضبطهما bump-version
-       آلياً عند تغيّر الكود الأصلي). هنا — والواجهة دائماً أحدث ما في الجهاز — تُقارن بالمثبّت،
-       وعند التأخر يظهر شريط ثابت يحدّثه بنقرة (وتلقائياً على ويندوز).
+       آلياً عند تغيّر الكود الأصلي). هنا تُقارن الواجهة العاملة بالمثبّت، وعند التأخر يظهر شريط ثابت
+       يحدّثه بنقرة (وتلقائياً على ويندوز).
+       منذ 1.55.0 (تحديث واحد) لا تُطبَّق واجهة تحتاج مثبّتاً أحدث — يُثبَّت التطبيق وواجهته فيه — فلا يظهر
+       الشريط إلا في حالات التراجع: تطبيق مطلوب لم يُنشر خلال _UPD_WAIT_MAX_MS، أو واجهة طبّقتها نسخة أقدم.
     ══════════════════════════════════════ */
     const _RELEASES_PAGE = 'https://github.com/sulasm/MyNotes-releases/releases/latest';
     function _nativeKind() { return window._winAutoUpdate ? 'windows' : (window.AndroidFS ? 'android' : ''); }
@@ -3070,14 +3245,14 @@
       const fsb = /** @type {any} */ (window.AndroidFS);
       if (b.kind === 'android') {
         if (!fsb || typeof fsb.checkAndInstallApk !== 'function') { _nativeGateMsg('ثبّت أحدث إصدار من التطبيق يدوياً من صفحة الإصدارات'); return; }
-        window._apkGateCb = function (result, err) {
+        _nativeGateMsg('… جارٍ الفحص');
+        /* العملية نفسها التي يبدؤها الفحص التلقائي (_apkInstall): نقرة أثناء تنزيل جارٍ لا تبدأ تنزيلاً ثانياً */
+        _apkInstall(function (result, err) {
           if (result === 'downloading') _nativeGateMsg('⬇️ جارٍ تنزيل تحديث التطبيق…');
           else if (result === 'prompt') _nativeGateMsg('📦 اضغط «تثبيت» في نافذة النظام لإكمال التحديث');
           else if (result === 'same') _nativeGateMsg('لم يُنشر تحديث التطبيق بعد — أعد المحاولة بعد دقائق');
-          else if (err) _nativeGateMsg('تعذّر تنزيل التحديث: ' + err);
-        };
-        _nativeGateMsg('… جارٍ الفحص');
-        try { fsb.checkAndInstallApk(_APK_MANIFEST, 'window._apkGateCb'); } catch (e) { _nativeGateMsg('تعذّر بدء التحديث'); }
+          else if (err) _nativeGateMsg(err === 'START_FAILED' ? 'تعذّر بدء التحديث' : 'تعذّر تنزيل التحديث: ' + err);
+        });
         return;
       }
       /* ويندوز */
@@ -8037,56 +8212,29 @@
        نفسه بعد ثوانٍ — حلقة تحديث/تراجع لا تنتهي */
     try { if (window.AndroidFS && typeof window.AndroidFS.confirmUpdate === 'function') window.AndroidFS.confirmUpdate(); } catch (e) { }
 
-    /* ══ التحديث التلقائي ══ */
-    const _APK_MANIFEST = 'https://raw.githubusercontent.com/sulasm/MyNotes-releases/main/latest.json';
-    function _autoUpdateHtmlOnLaunch() {
-      if (window._winAutoUpdate) return;            /* ويندوز يحدّث المحتوى تلقائياً من preload */
-      if (window._htmlAutoChecked) return; window._htmlAutoChecked = true;
-      if (!window.AndroidFS || typeof window.AndroidFS.downloadAndApplyUpdate !== 'function') return;
-      /* حارس «مرة واحدة»: الرد قد يصل عبر الـ callback العام أو عبر Promise (EXE جديد) */
-      let handled = false;
-      const onResult = function (result, err, newVer) {
-        if (handled) return; handled = true;
-        if (result === 'updated') {
-          if (!_updateAllowed(newVer)) return;  /* رفض أي إصدار أقدم/مساوٍ (مع clearLocalUpdate) */
-          try { showFb('🔄 جارٍ تطبيق تحديث جديد...', 0); } catch (e) { }
-          setTimeout(function () {
-            if (window.AndroidFS && typeof window.AndroidFS.reloadApp === 'function') window.AndroidFS.reloadApp();
-            else window.location.reload();
-          }, 900);
-        }
-      };
-      window._autoUpdCb = onResult;
-      try {
-        const r = window.AndroidFS.downloadAndApplyUpdate(_UPDATE_URL, _getLocalHash(), 'window._autoUpdCb');
-        if (r && typeof r.then === 'function') {
-          /* عقد Electron الجديد: Promise<{status, err}> — قيمة بلا معنى تعني أن الرد سيصل عبر callback */
-          r.then(res => {
-            if (res && typeof res === 'object' && ('status' in res || 'err' in res)) {
-              onResult(res.status, res.err || '', res.version || res.newVersion || '');
-            } else if (typeof res === 'string' && res) {
-              onResult(res, '');
-            }
-          }).catch(() => { });
-        }
-      } catch (e) { }
+    /* ══ التحديث التلقائي — تحديث واحد لكل إصدار (القرار والتنفيذ في 02-theme-update: _updCheck) ══
+       فحص واحد عند الإقلاع يختار الواجهة وحدها أو التطبيق المثبّت وحده (وواجهته فيه) — كانا فحصين منفصلين
+       (الواجهة بعد 3.5 ث وAPK بعد 6.5 ث) فيصل الإصدار الواحد تحديثين. ويندوز يفحص عند الإقلاع من preload
+       (fs-bridge) فلا يُكرَّر هنا، لكن إعادة الفحص عند العودة بعد غياب طويل تشمله: التطبيق مقيم في شريط
+       الأيقونات لأسابيع، وكانت الواجهة لا تتحدث فيه إلا بإعادة تشغيله */
+    function _autoUpdateOnLaunch() {
+      if (window._updAutoChecked) return; window._updAutoChecked = true;
+      clearTimeout(window._updWaitTimer);
+      _updCheck(false).then(function (r) {
+        const waiting = !!(r && r.act === 'wait');
+        window._updNextCheckT = Date.now() + (waiting ? _UPD_WAIT_RECHECK_MS : _UPD_RECHECK_MS);
+        /* بانتظار تطبيق مطلوب يُبنى الآن: يُعاد الفحص بعد دقائق ما دام التطبيق ظاهراً */
+        if (waiting) window._updWaitTimer = setTimeout(function () {
+          if (document.hidden) return;
+          window._updAutoChecked = false; _autoUpdateOnLaunch();
+        }, _UPD_WAIT_RECHECK_MS);
+      }, function () { });
     }
-    function _autoUpdateApkOnLaunch() {
-      const fsb = window.AndroidFS;
-      if (!fsb || typeof fsb.checkAndInstallApk !== 'function') return;  /* يتطلب إصداراً يدعم تحديث APK */
-      if (window._apkAutoChecked) return; window._apkAutoChecked = true;
-      window._apkUpdCb = function (result, err) {
-        if (result === 'downloading') { try { showFb('⬇️ جارٍ تنزيل تحديث التطبيق...', 0); } catch (e) { } }
-        else if (result === 'prompt') { try { showFb('📦 اضغط «تثبيت» لإكمال التحديث', 0); } catch (e) { } }
-      };
-      try { fsb.checkAndInstallApk(_APK_MANIFEST, 'window._apkUpdCb'); } catch (e) { }
-    }
-    setTimeout(_autoUpdateHtmlOnLaunch, 3500);
-    setTimeout(_autoUpdateApkOnLaunch, 6500);
-    /* إعادة الفحص عند العودة للتطبيق من الخلفية: الفحص عند الإقلاع يعمل مرة واحدة،
-       فإذا بقي التطبيق في الذاكرة أياماً لا يصله أي تحديث — نعيد الفحص كل 6 ساعات كحد أقصى */
-    const _UPD_RECHECK_MS = 6 * 3600e3;
-    window._lastUpdCheckT = Date.now();
+    /* الفحص عند الإقلاع يعمل مرة واحدة، فإذا بقي التطبيق في الذاكرة أياماً لا يصله أي تحديث — يُعاد الفحص عند
+       العودة إليه كل 6 ساعات كحد أقصى (وكل نصف ساعة ما دام بانتظار تطبيق مطلوب لم يُنشر) */
+    const _UPD_RECHECK_MS = 6 * 3600e3, _UPD_WAIT_RECHECK_MS = 30 * 60e3;
+    window._updNextCheckT = Date.now() + _UPD_RECHECK_MS;
+    if (!window._winAutoUpdate) setTimeout(_autoUpdateOnLaunch, 3500);
     document.addEventListener('visibilitychange', () => {
       if (document.hidden) return;
       setTimeout(_scheduleReminders, 500);
@@ -8094,11 +8242,10 @@
       /* تغيّرت المنطقة الزمنية أو مرّ يوم والتطبيق في الذاكرة: تُحسب الأوقات من جديد */
       _syncRemindersDebounced();
       _reflectExactAlarm();   /* العودة من شاشة إذن المنبّه الدقيق */
-      if (Date.now() - window._lastUpdCheckT >= _UPD_RECHECK_MS) {
-        window._lastUpdCheckT = Date.now();
-        window._htmlAutoChecked = false; window._apkAutoChecked = false;
-        setTimeout(_autoUpdateHtmlOnLaunch, 1500);
-        setTimeout(_autoUpdateApkOnLaunch, 4500);
+      if (Date.now() >= window._updNextCheckT) {
+        window._updNextCheckT = Date.now() + _UPD_RECHECK_MS;
+        window._updAutoChecked = false;
+        setTimeout(_autoUpdateOnLaunch, 1500);
       }
     });
 

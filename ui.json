@@ -1,0 +1,7 @@
+{
+  "version": "1.55.0",
+  "minNative": {
+    "android": "1.54.0",
+    "windows": "1.55.0"
+  }
+}
