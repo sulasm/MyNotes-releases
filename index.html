@@ -11,7 +11,7 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: https://*.googleapis.com https://*.gstatic.com https://*.google.com https://*.ggpht.com https://*.googleusercontent.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https://*.googleapis.com https://*.gstatic.com https://*.google.com https://*.ggpht.com https://*.googleusercontent.com; media-src 'self' data: blob:; connect-src 'self' data: blob: https://api.open-meteo.com https://ensemble-api.open-meteo.com https://api.met.no https://raw.githubusercontent.com https://*.googleapis.com https://*.gstatic.com https://*.google.com https://*.ggpht.com https://*.googleusercontent.com; frame-src 'self' data: blob: https://*.google.com; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
   <meta name="theme-color" content="#667eea">
-  <meta name="app-version" content="1.55.0">
+  <meta name="app-version" content="1.56.0">
   <!-- أدنى إصدار من التطبيق المثبّت (APK / مثبّت ويندوز) تحتاجه هذه الواجهة: الواجهة تتحدث تلقائياً
        والتطبيق المثبّت لا، فإن كان المثبّت أقدم من هذا عرضت الواجهة شريط «تحديث التطبيق مطلوب».
        يضبطهما scripts/bump-version.js آلياً عند تغيّر كود الطبقة الأصلية، ويفرضهما فحص CI. -->
@@ -1078,6 +1078,31 @@
       font-size: 13px;
       cursor: pointer;
       font-family: inherit;
+    }
+
+    /* ═══ جدولة التذكيرات الفائتة (1.56.0) ═══ */
+    .rb-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+    .rb-chip {
+      background: var(--bg-b); border: 1px solid var(--border); color: var(--text);
+      border-radius: 999px; padding: 6px 12px; font-size: 12px; cursor: pointer; font-family: inherit;
+    }
+    .rb-chip.on { background: rgba(102,126,234,.35); border-color: rgba(102,126,234,.75); color: var(--tw); font-weight: 700; }
+    .rb-time { max-width: 160px; text-align: center; font-size: 15px; color-scheme: dark; }
+    .rb-sum { margin: 10px 0 2px; font-size: 12.5px; line-height: 1.7; color: #86efac; }
+    .rb-sum.bad { color: #fbbf24; }
+    .rb-list-h { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 10px; font-size: 12px; color: var(--text-m); }
+    .rb-list { margin-top: 6px; display: flex; flex-direction: column; gap: 4px; padding-bottom: 6px; }
+    .rb-item {
+      display: flex; align-items: flex-start; gap: 8px; padding: 8px 10px; border-radius: 10px;
+      background: var(--bg-b); border: 1px solid var(--border); cursor: pointer;
+    }
+    .rb-item input { margin-top: 3px; flex-shrink: 0; }
+    .rb-it { display: flex; flex-direction: column; min-width: 0; }
+    .rb-tx { font-size: 13px; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .rb-due { font-size: 11px; color: #fca5a5; margin-top: 2px; }
+    .rb-stat {
+      margin-right: 8px; background: rgba(251,191,36,.15); border: 1px solid rgba(251,191,36,.45); color: #fbbf24;
+      border-radius: 999px; padding: 2px 10px; font-size: 11.5px; font-weight: 700; cursor: pointer; font-family: inherit;
     }
 
     /* ═══ نافذة إدارة المرفق ═══ */
@@ -2244,6 +2269,10 @@
           </div>
           <button class="sm-btn" onclick="requestNotifPerm()" style="margin-top:10px;">🔔 تفعيل الإشعارات</button>
           <div id="remind-status" style="font-size:12px;color:var(--text-m);padding:8px 0 0;"></div>
+          <div style="margin-top:10px;">
+            <button class="sm-btn" id="rem-missed-btn" onclick="openRemBulk()">⏰ جدولة التذكيرات الفائتة</button>
+            <div style="font-size:11px;color:var(--text-m);padding:4px 0 0;">انقل كل المهام التي فات موعدها — أو ما تختاره منها — إلى يوم ووقت واحد فتُذكَّر بها فيه.</div>
+          </div>
           <!-- يظهر فقط على أندرويد 12+ حين يكون إذن المنبّه الدقيق غائباً -->
           <div id="exact-alarm-row" style="display:none;margin-top:10px;">
             <div style="font-size:12px;color:#fbbf24;">⏰ التذكيرات غير دقيقة حالياً: أندرويد 14 وما بعده يؤخّرها (قد تصل بعد ساعة) ما لم يُمنح التطبيق إذن «المنبّهات والتذكيرات».</div>
@@ -2801,6 +2830,7 @@
       }
       const _rh = /** @type {HTMLInputElement|null} */ (document.getElementById('remind-time')); if (_rh) _rh.value = _remFmtTime(_remindMin());
       if (typeof _reflectExactAlarm === 'function') _reflectExactAlarm();
+      if (typeof _remMissedReflect === 'function') _remMissedReflect();
       if (typeof renderWxCfg === 'function') renderWxCfg();
       if (typeof _reflectMapsKey === 'function') _reflectMapsKey();
       if (typeof renderTrash === 'function') renderTrash();
@@ -5480,6 +5510,11 @@
         closeMapApp();
         return true;
       }
+      /* جدولة الفائتة (تُفتح من الإعدادات أيضاً): تُغلق قبل الخروج من الإعدادات — والتقويم المفتوح فوقها أولاً */
+      if (document.getElementById('rb-ov')?.classList.contains('open')) {
+        if (document.getElementById('cal-ov')?.classList.contains('open')) closeCal(); else closeRemBulk();
+        return true;
+      }
       if (_inSettings) {
         _inSettings = false;
         goto('notes');
@@ -5633,7 +5668,7 @@
       calTarget = t;
       _calYearMode = false;
       /* افتح على شهر التاريخ المحفوظ (إن وُجد) بدل شهر اليوم دائماً — أسهل للتعديل */
-      const savedG = t === 'quick' ? S.q.dG : (t === 'edit' ? _editDG : (t === 'filter' ? S.fDate.g : ''));
+      const savedG = t === 'quick' ? S.q.dG : (t === 'edit' ? _editDG : (t === 'filter' ? S.fDate.g : (t === 'rbulk' && _rb ? _rb.dG : '')));
       let base = null;
       const gt = parseG(savedG);
       if (gt) { const hh = H.toH(new Date(gt)); base = { y: hh.y, m: hh.m }; }
@@ -5650,6 +5685,8 @@
         _editDH = ''; _editDG = '';
         const dtx = document.getElementById('edit-date-tx');
         if (dtx) { dtx.textContent = 'بدون تاريخ'; dtx.style.color = 'rgba(var(--ov),.5)'; }
+      } else if (calTarget === 'rbulk') {
+        /* جدولة الفائتة تحتاج يوماً: «بدون تاريخ» يغلق التقويم فقط */
       } else if (calTarget === 'filter') {
         S.fDate = { g: '', h: '' };
         const ph = document.getElementById('f-date-ph'); if (ph) ph.style.display = '';
@@ -5694,6 +5731,7 @@
       if (calTarget === 'quick') selH = S.q.dH;
       else if (calTarget === 'filter') selH = S.fDate.h;
       else if (calTarget === 'edit') selH = _editDH;
+      else if (calTarget === 'rbulk') selH = _rb ? _rb.dH : '';
       const cells = [];
       for (let i = 0; i < fg.getDay(); i++) cells.push(html`<div class="cal-day empty"/>`);
       for (let d = 1; d <= days; d++) {
@@ -5712,6 +5750,7 @@
               const dtx = document.getElementById('edit-date-tx');
               if (dtx) { dtx.textContent = dh + ' | ' + dg; dtx.style.color = 'var(--tw)'; }
             }
+            else if (calTarget === 'rbulk') _rbPickDate(dg, dh);
             else if (calTarget === 'filter') {
               S.fDate = { g: dg, h: dh };
               document.getElementById('f-date-ph').style.display = 'none';
@@ -6150,6 +6189,15 @@
           return true;
         });
         statsEl.textContent = `⚡ المهام الحالية: ${notes.length}`;
+        /* 1.56.0: تذكيرات فاتت مواعيدها — زر يجدولها كلها بموعد واحد (openRemBulk) */
+        const _missed = _remMissed(notes, _remindMin(), now).length;
+        if (_missed) {
+          const b = document.createElement('button');
+          b.type = 'button'; b.className = 'rb-stat'; b.id = 'rb-stat';
+          b.textContent = '⏰ ' + _missed + ' فائتة — جدولة';
+          b.onclick = openRemBulk;
+          statsEl.appendChild(b);
+        }
       } else {
         notes = notes.filter(n => {
           if (fM && n.main !== fM) return false;
@@ -6611,7 +6659,7 @@
         if (c.id === undefined || c.id === null || String(c.id).trim() === '') c.id = newNoteId() + '_i' + out.length;
         if (typeof c.ts !== 'string') c.ts = (c.ts == null) ? '' : String(c.ts);
         /* 1.53.0: أنواع الحقول — قيمة رقمية في تاريخ أو تصنيف كانت تعطّل عرض القائمة كلها بعد الاستيراد */
-        ['main', 'sub', 'sec', 'text', 'num', 'status', 'dH', 'dG', 'rt', 'rp'].forEach(k => {
+        ['main', 'sub', 'sec', 'text', 'num', 'status', 'dH', 'dG', 'rt', 'rp', 'r0', 'rt0'].forEach(k => {
           if (k in c && typeof c[k] !== 'string') c[k] = (c[k] == null) ? '' : String(c[k]);
         });
         if ('tags' in c) c.tags = Array.isArray(c.tags) ? c.tags.filter(x => x != null).map(String) : [];
@@ -7573,6 +7621,8 @@
       Object.keys(changed).forEach(k => { n[k] = changed[k]; });
       /* موعد أو تكرار جديد: مرساة يوم الشهر تُحسب من الموعد الجديد */
       if (('dG' in changed || 'rp' in changed) && 'ra' in n) delete n.ra;
+      /* موعد أو وقت أو تكرار عدّله المستخدم يصير هو الجدول: مرساة «جدولة الفائتة» (r0/rt0) تسقط */
+      if (('dG' in changed || 'rt' in changed || 'rp' in changed) && ('r0' in n || 'rt0' in n)) { delete n.r0; delete n.rt0; }
       /* مهمة متكررة أُنجزت: تتقدّم للموعد التالي وتبقى قيد التنفيذ */
       if ('status' in changed && !wasDone && n.status === 'مكتمل') _editRecur = _recurOnDone(n);
       DB.set(notes);   /* الختم (ft وmt) لما تغيّر فعلاً يتولاه _ftStampChanges */
@@ -7817,7 +7867,8 @@
         const due = parseG(String(n.dG));
         const nx = _recurNext(n, due, due);
         if (!nx) return;
-        const own = _remParseTime(n.rt), tm = own >= 0 ? own : _remindMin();
+        /* موعد هذه المرة نُقل (جدولة الفائتة): التالي بوقت السلسلة الأصلي rt0 */
+        const own = _remParseTime('rt0' in n ? n.rt0 : n.rt), tm = own >= 0 ? own : _remindMin();
         const d = new Date(parseG(nx.dG)); d.setHours(Math.floor(tm / 60), tm % 60, 0, 0);
         if (!(d.getTime() > now)) return;
         const tx = _remText(n);
@@ -7937,7 +7988,9 @@
     const REM_REPEAT = { d: 'يومياً', w: 'أسبوعياً', m: 'شهرياً (ميلادي)', hm: 'شهرياً (هجري)', y: 'سنوياً' };
     /* أول تكرار بعد يوم `from` (افتراضياً الآن) وليس قبل يوم `now` */
     function _recurNext(n, now, from) {
-      const base = n && n.dG ? parseG(String(n.dG)) : 0;
+      /* r0: تاريخ الموعد في سلسلته قبل نقله هذه المرة (جدولة الفائتة) — التكرار يُحسب منه لا من الموعد المنقول،
+         وإلا انزاح يوم الأسبوع أو شهر السنة، أو قُفز موعد شهري */
+      const base = n ? (parseG(String(n.r0 || '')) || parseG(String(n.dG || ''))) : 0;
       if (!base || !n.rp || !REM_REPEAT[n.rp]) return null;
       const day0 = (t) => { const x = new Date(t); x.setHours(0, 0, 0, 0); return x.getTime(); };
       const after = day0(from == null ? (now || Date.now()) : from), min = day0(now || Date.now());
@@ -7967,14 +8020,165 @@
       if (!n || n.status !== 'مكتمل') return null;
       /* مرساة يوم الشهر من الموعد الأول قبل أن يُقصَّر في شهر أقصر */
       if ((n.rp === 'm' || n.rp === 'y' || n.rp === 'hm') && !(+n.ra > 0)) {
-        const b = parseG(String(n.dG || ''));
+        const b = parseG(String(n.r0 || '')) || parseG(String(n.dG || ''));
         if (b) { try { n.ra = n.rp === 'hm' ? H.toH(new Date(b)).d : new Date(b).getDate(); } catch (e) { } }
       }
       const nx = _recurNext(n, Date.now(), at || Date.now());
+      /* موعد هذه المرة كان منقولاً (جدولة الفائتة): يعود التالي إلى وقت السلسلة، وتُزال المرساة */
+      if ('r0' in n || 'rt0' in n) {
+        if (nx && 'rt0' in n) { if (_remParseTime(n.rt0) >= 0) n.rt = n.rt0; else delete n.rt; }
+        delete n.r0; delete n.rt0;
+      }
       if (!nx) return null;
       n.dG = nx.dG; n.dH = nx.dH; n.status = 'قيد التنفيذ';
       return nx;
     }
+
+    /* ══ جدولة التذكيرات الفائتة دفعة واحدة (1.56.0) ══
+       المهام «قيد التنفيذ» التي مضى موعدها (يومها بوقتها الخاص أو الوقت العام) تُنقل كلها — أو ما اختير منها —
+       إلى موعد واحد: تاريخه ووقته يصيران تاريخ المهمة ووقتها الخاص، فيعود لكل منها تذكيرها (والمسبق) فيه على كل
+       الأجهزة (حقول عادية تُزامَن ويجدولها محرّك الخلفية أيضاً). المتكررة تُنقل هذه المرة وحدها: تاريخ موعدها في
+       السلسلة (r0) ووقتها (rt0) يُحفظان فيعود موعدها التالي إلى جدولها عند إنجازها (_recurNext/_recurOnDone). */
+    function _remDueAt(n, mins) {
+      const own = _remParseTime(n.rt), tm = own >= 0 ? own : ((mins >= 0 && mins < 1440) ? Math.floor(mins) : 540);
+      const d = new Date(parseG(String(n.dG))); d.setHours(Math.floor(tm / 60), tm % 60, 0, 0);
+      return d.getTime();
+    }
+    /* الفائتة مرتبةً من الأقدم */
+    function _remMissed(notes, mins, now) {
+      return (Array.isArray(notes) ? notes : []).filter(n => _remActive(n) && _remDueAt(n, mins) <= now)
+        .sort((a, b) => _remDueAt(a, mins) - _remDueAt(b, mins));
+    }
+    /** ينقل المهام المختارة (ما زالت نشطة) إلى الموعد at (ملّي ثانية، قادم). @returns {number} عدد ما نُقل */
+    function _remReschedule(ids, at) {
+      const d = new Date(at);
+      if (!(at > Date.now()) || isNaN(d.getTime())) return 0;
+      const dG = H.fmtG(d), dH = H.fmtH(H.toH(d)), rt = _remFmtTime(d.getHours() * 60 + d.getMinutes());
+      const pick = new Set((Array.isArray(ids) ? ids : []).map(String));
+      const notes = DB.get(); let c = 0;
+      notes.forEach(n => {
+        if (!pick.has(String(n.id)) || !_remActive(n)) return;
+        /* المرساة الأولى تبقى إن نُقلت المهمة مرة ثانية قبل إنجازها */
+        if (n.rp && REM_REPEAT[n.rp] && !('r0' in n)) { n.r0 = String(n.dG); n.rt0 = _remParseTime(n.rt) >= 0 ? String(n.rt) : ''; }
+        n.dG = dG; n.dH = dH; n.rt = rt; c++;
+      });
+      if (c) { DB.set(notes); renderNotes(); }
+      return c;
+    }
+    /* ── نافذة الجدولة (rb-ov): اليوم (اليوم/غداً/بعد غد/بعد أسبوع/تاريخ من التقويم) + الساعة + قائمة الفائتة ── */
+    const REM_BULK_DAYS = [{ k: 0, n: 'اليوم' }, { k: 1, n: 'غداً' }, { k: 2, n: 'بعد غد' }, { k: 7, n: 'بعد أسبوع' }];
+    /** @type {any} حالة النافذة المفتوحة: {ids, sel:Set, day: رقم أو 'c' (تاريخ من التقويم), dG, dH, time} */
+    let _rb = null;
+    /* موعد الجدولة المختار بالملّي ثانية — 0 إن لم يكتمل */
+    function _rbAt() {
+      if (!_rb) return 0;
+      const t = _remParseTime(_rb.time);
+      if (t < 0) return 0;
+      let d;
+      if (_rb.day === 'c') { const g = parseG(_rb.dG); if (!g) return 0; d = new Date(g); }
+      else { d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() + (+_rb.day || 0)); }
+      d.setHours(Math.floor(t / 60), t % 60, 0, 0);
+      return d.getTime();
+    }
+    function openRemBulk() {
+      const list = _remMissed(DB.get(), _remindMin(), Date.now());
+      if (!list.length) { showFb('✅ لا توجد تذكيرات فائتة'); return; }
+      /* الافتراضي: اليوم بالوقت العام إن كان قادماً، وإلا رأس الساعة القادمة، وقرب منتصف الليل غداً بالوقت العام */
+      const def = _remindMin(), now = new Date(), nowMin = now.getHours() * 60 + now.getMinutes();
+      let day = 0, time = _remFmtTime(def);
+      if (def <= nowMin) {
+        const nh = (now.getHours() + 1) * 60;
+        if (nh < 1440) time = _remFmtTime(nh); else day = 1;
+      }
+      const ids = list.map(n => String(n.id));
+      _rb = { ids, sel: new Set(ids), day, dG: '', dH: '', time };
+      _rbRender();
+      document.getElementById('rb-ov').classList.add('open');
+      hPush();
+    }
+    function closeRemBulk() {
+      const ov = document.getElementById('rb-ov');
+      if (ov) ov.classList.remove('open');
+      _rb = null;
+    }
+    function applyRemBulk() {
+      if (!_rb) return;
+      const at = _rbAt(), ids = _rb.ids.filter(id => _rb.sel.has(id));
+      if (!ids.length) { showFb('⚠️ اختر مهمة واحدة على الأقل', 1); return; }
+      if (!(at > Date.now())) { _rbRender(); showFb('⚠️ هذا الوقت مضى — اختر وقتاً قادماً', 1); return; }
+      const c = _remReschedule(ids, at);
+      closeRemBulk();
+      _remMissedReflect();
+      const d = new Date(at);
+      if (c) showFb('⏰ جُدولت ' + c + (c === 1 ? ' مهمة' : ' مهام') + ': ' + H.fmtH(H.toH(d)) + ' الساعة ' + _remFmtTime(d.getHours() * 60 + d.getMinutes()));
+      else showFb('⚠️ لم تُجدوَل أي مهمة — ربما أُنجزت في الأثناء (أو على جهاز آخر)', 1);
+    }
+    /* التقويم (10-calendar: الهدف 'rbulk') اختار يوماً */
+    function _rbPickDate(dg, dh) {
+      if (!_rb) return;
+      _rb.day = 'c'; _rb.dG = dg; _rb.dH = dh;
+      _rbRender();
+    }
+    function _rbRender() {
+      const body = document.getElementById('rb-body');
+      if (!body || !_rb) return;
+      vrender(html`<${RemBulk} st=${_rb}/>`, body);
+      const btn = document.getElementById('rb-apply');
+      const cnt = _rb.ids.filter(id => _rb.sel.has(id)).length;
+      if (btn) btn.textContent = '⏰ جدولة ' + (cnt === _rb.ids.length ? 'الكل' : 'المختارة') + ' (' + cnt + ')';
+    }
+    /* عدد الفائتة على زر الإعدادات */
+    function _remMissedReflect() {
+      const b = document.getElementById('rem-missed-btn');
+      if (!b) return;
+      const c = _remMissed(DB.get(), _remindMin(), Date.now()).length;
+      b.textContent = '⏰ جدولة التذكيرات الفائتة' + (c ? ' (' + c + ')' : '');
+    }
+    function RemBulk({ st }) {
+      const byId = new Map(DB.get().map(n => [String(n.id), n]));
+      const at = _rbAt(), ok = at > Date.now(), d = at ? new Date(at) : null;
+      const cnt = st.ids.filter(id => st.sel.has(id)).length, all = cnt === st.ids.length;
+      const set = (k, v) => { st[k] = v; _rbRender(); };
+      const mins = _remindMin();
+      const sum = !cnt ? '⚠️ لم تُختر أي مهمة'
+        : !ok ? '⚠️ هذا الوقت مضى — اختر وقتاً قادماً'
+        : '⏰ سيُذكَّر بـ' + (cnt === 1 ? 'مهمة واحدة' : ' ' + cnt + ' مهام') + ' يوم ' + H.fmtH(H.toH(d))
+          + ' (' + H.fmtG(d) + ') الساعة ' + _remFmtTime(d.getHours() * 60 + d.getMinutes());
+      return html`
+        <div class="edit-field-lbl">اليوم</div>
+        <div class="rb-chips">
+          ${REM_BULK_DAYS.map(o => html`<button type="button" key=${'d' + o.k} class=${'rb-chip' + (st.day === o.k ? ' on' : '')}
+            onClick=${() => set('day', o.k)}>${o.n}</button>`)}
+          <button type="button" key="dc" class=${'rb-chip' + (st.day === 'c' ? ' on' : '')}
+            onClick=${() => openCal('rbulk')}>📅 ${st.day === 'c' && st.dH ? st.dH : 'تاريخ آخر'}</button>
+        </div>
+        <div class="edit-field-lbl">الساعة</div>
+        <input type="time" class="edit-inp rb-time" id="rb-time" value=${st.time}
+          onInput=${e => set('time', e.target.value)} onChange=${e => set('time', e.target.value)}/>
+        <div class=${'rb-sum' + (ok && cnt ? '' : ' bad')} id="rb-sum">${sum}</div>
+        <div class="rb-list-h">
+          <span>المهام الفائتة (${st.ids.length})</span>
+          <button type="button" class="sm-btn" onClick=${() => { st.sel = all ? new Set() : new Set(st.ids); _rbRender(); }}>
+            ${all ? 'إلغاء تحديد الكل' : 'تحديد الكل'}</button>
+        </div>
+        <div class="rb-list">
+          ${st.ids.map(id => {
+            const n = byId.get(id);
+            if (!n) return null;
+            const due = new Date(_remDueAt(n, mins));
+            const title = n.text || [n.main, n.sub].filter(Boolean).join(' › ') || 'مهمة';
+            return html`<label class="rb-item" key=${id}>
+              <input type="checkbox" checked=${st.sel.has(id)}
+                onChange=${e => { if (e.target.checked) st.sel.add(id); else st.sel.delete(id); _rbRender(); }}/>
+              <span class="rb-it">
+                <span class="rb-tx">${title}</span>
+                <span class="rb-due">فات: ${n.dH || H.fmtH(H.toH(due))} · ${_remFmtTime(due.getHours() * 60 + due.getMinutes())}${n.rp && REM_REPEAT[n.rp] ? ' · 🔁 ' + REM_REPEAT[n.rp] + ' (يبقى جدوله)' : ''}</span>
+              </span>
+            </label>`;
+          })}
+        </div>`;
+    }
+
 
     /* ══ ما فعله المستخدم من الإشعار والتطبيق مغلق (أندرويد): «تم» تُطبَّق هنا عند الفتح، والنقر يفتح المهمة ══ */
     function _remApplyNative() {
@@ -9966,6 +10170,24 @@
           style="width:100%;padding:10px;border-radius:12px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.25);color:#fca5a5;font-size:13px;cursor:pointer;font-family:inherit;box-sizing:border-box;">🗑️ نقل إلى سلة المحذوفات</button>
       </div>
 
+    </div>
+  </div>
+
+  <!-- جدولة التذكيرات الفائتة دفعة واحدة (1.56.0) — المحتوى مكوّن RemBulk -->
+  <div id="rb-ov" class="edit-ov">
+    <div class="edit-sheet">
+      <div class="edit-sheet-header">
+        <button onclick="closeRemBulk()" style="background:rgba(var(--ov),.15);border:none;color:var(--tw);border-radius:8px;padding:5px 12px;font-size:12px;cursor:pointer;font-family:inherit;">✕ إغلاق</button>
+        <h3>⏰ جدولة التذكيرات الفائتة</h3>
+        <span style="width:64px"></span>
+      </div>
+      <div class="edit-sheet-body" id="rb-body"></div>
+      <div class="edit-sheet-footer">
+        <div class="edit-actions">
+          <button class="edit-cancel-btn" onclick="closeRemBulk()">إلغاء</button>
+          <button class="edit-save-btn" id="rb-apply" onclick="applyRemBulk()">⏰ جدولة المختارة</button>
+        </div>
+      </div>
     </div>
   </div>
 
