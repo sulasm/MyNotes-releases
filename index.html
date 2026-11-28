@@ -11,11 +11,11 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: https://*.googleapis.com https://*.gstatic.com https://*.google.com https://*.ggpht.com https://*.googleusercontent.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https://*.googleapis.com https://*.gstatic.com https://*.google.com https://*.ggpht.com https://*.googleusercontent.com; media-src 'self' data: blob:; connect-src 'self' data: blob: https://api.open-meteo.com https://ensemble-api.open-meteo.com https://api.met.no https://raw.githubusercontent.com https://*.googleapis.com https://*.gstatic.com https://*.google.com https://*.ggpht.com https://*.googleusercontent.com; frame-src 'self' data: blob: https://*.google.com; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
   <meta name="theme-color" content="#667eea">
-  <meta name="app-version" content="1.56.0">
+  <meta name="app-version" content="1.57.0">
   <!-- أدنى إصدار من التطبيق المثبّت (APK / مثبّت ويندوز) تحتاجه هذه الواجهة: الواجهة تتحدث تلقائياً
        والتطبيق المثبّت لا، فإن كان المثبّت أقدم من هذا عرضت الواجهة شريط «تحديث التطبيق مطلوب».
        يضبطهما scripts/bump-version.js آلياً عند تغيّر كود الطبقة الأصلية، ويفرضهما فحص CI. -->
-  <meta name="app-min-native-android" content="1.54.0">
+  <meta name="app-min-native-android" content="1.57.0">
   <meta name="app-min-native-windows" content="1.55.0">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -2462,6 +2462,16 @@
             <span class="org-ct ph" id="q-tx-status">حالة</span>
           </div>
           <button class="org-save" onclick="saveQuick()">⚡ حفظ</button>
+        </div>
+
+        <!-- صف التذكير (1.57.0): يوم ووقت — يضبط تاريخ الملاحظة ووقتها الخاص وحالتها «قيد التنفيذ» -->
+        <div class="org-cell" id="q-rem-cell"
+          style="margin-top:2px;cursor:default;flex-direction:column;align-items:stretch;gap:6px;">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span class="org-ci">⏰</span>
+            <span class="org-ct ph" id="q-rem-tx" style="flex:1;">بلا تذكير</span>
+          </div>
+          <div id="q-rem-chips" class="rb-chips" style="align-items:center;"></div>
         </div>
 
         <!-- صف ربط الملاحظات -->
@@ -5648,7 +5658,7 @@
           else _closeDp();
         }
         else if (t === 'sec') { S.q.sec = item.full || item.v; setQC('sec', item.i, item.n); _closeDp(); }
-        else if (t === 'status') { S.q.status = item.v; setQC('status', item.i, item.n); _closeDp(); }
+        else if (t === 'status') { S.q.status = item.v; setQC('status', item.i, item.n); _closeDp(); _qRemRender(); }
       });
     }
 
@@ -5680,7 +5690,7 @@
     function closeCal() { document.getElementById('cal-ov').classList.remove('open'); }
     /* مسح التاريخ المحدَّد للهدف الحالي (بدون تاريخ) */
     function clearCalDate() {
-      if (calTarget === 'quick') { S.q.dH = ''; S.q.dG = ''; setDateDisp('quick', '', ''); }
+      if (calTarget === 'quick') { S.q.dH = ''; S.q.dG = ''; setDateDisp('quick', '', ''); _qRemRender(); }
       else if (calTarget === 'edit') {
         _editDH = ''; _editDG = '';
         const dtx = document.getElementById('edit-date-tx');
@@ -5744,7 +5754,7 @@
         cells.push(html`<div class=${'cal-day' + (isToday ? ' today' : '') + (isSel ? ' selected' : '') + (g2 ? ' g2' : '')}
           onClick=${() => {
             const dh = H.fmtH({ y: _y, m: _m, d: _d }), dg = H.fmtG(_gd);
-            if (calTarget === 'quick') { S.q.dH = dh; S.q.dG = dg; setDateDisp('quick', dh, dg); }
+            if (calTarget === 'quick') { S.q.dH = dh; S.q.dG = dg; setDateDisp('quick', dh, dg); _qRemRender(); }
             else if (calTarget === 'edit') {
               _editDH = dh; _editDG = dg;
               const dtx = document.getElementById('edit-date-tx');
@@ -5922,7 +5932,7 @@
     function _resetQuickForm() {
       /* مرفق أُلغي قبل الحفظ: ملفه كُتب فعلاً — يُجدوَل للحذف إن لم تستعمله ملاحظة */
       if (S.q && S.q.file) _cleanupOldAttachment(S.q.file);
-      S.q = { main: '', sub: '', sec: '', status: '', dH: '', dG: '', file: null, links: [] };
+      S.q = { main: '', sub: '', sec: '', status: '', dH: '', dG: '', rt: '', file: null, links: [] };
       setQC('main', '📁', 'الرئيسية', 1); setQC('sub', '📌', 'الفرعية', 1);
       setQC('sec', '🎯', 'الثانوية', 1); setQC('status', '📊', 'حالة', 1);
       const qt = document.getElementById('q-text'); if (qt) { qt.value = ''; qt.style.height = '28px'; }
@@ -5935,6 +5945,7 @@
       const qcm = document.getElementById('q-cal-month'); if (qcm) qcm.textContent = '';
       if (typeof _renderQLinkChips === 'function') _renderQLinkChips();
       _applyQuickDefaults();
+      _qRemRender();
     }
     /* افتراضيات الملاحظة الجديدة (طلب المالك): تاريخ اليوم والحالة «مكتمل».
        الافتراضيات وحدها لا تُعدّ محتوى — نموذج فارغ لا يُحفظ عند الإغلاق */
@@ -5949,6 +5960,8 @@
     }
     function _doSaveQuick() {
       const n = buildNote(S.q, 'q-text', 'q-num', S.q.file);
+      /* تذكير اليوم والوقت (1.57.0): وقت خاص — والتاريخ والحالة ضبطهما صف التذكير */
+      if (_remParseTime(S.q.rt) >= 0) n.rt = S.q.rt;
       /* المرفق محتوى: كان يُكتب على القرص عند الإرفاق ثم يُهمل بلا ملاحظة ولا رسالة */
       if (!n.main && !n.text && !n.num && !n.file && (!n.links || !n.links.length)) return null;
       DB.add(n);
@@ -5965,6 +5978,98 @@
       _resetQuickForm();
       return n;
     }
+    /* ══ تذكير «التسجيل السريع» (1.57.0): يوم ووقت ══
+       أزرار سريعة (بعد ساعة / الليلة / غداً بالوقت العام) أو «يوم ووقت» (اليوم من خانة التاريخ والساعة هنا).
+       التذكير = تاريخ الملاحظة ووقتها الخاص (rt) وحالتها «قيد التنفيذ» — فيجدوله محرّك التذكيرات كأي مهمة.
+       الخيارات نفسها في نافذة «ملاحظة سريعة» الأصلية في أندرويد (QuickRem.kt) */
+    function _qRemPresets(now) {
+      const out = [];
+      const h1 = new Date(now + 3600e3); h1.setSeconds(0, 0);
+      const r5 = h1.getMinutes() % 5; if (r5) h1.setMinutes(h1.getMinutes() + 5 - r5);
+      out.push({ k: 'h1', n: 'بعد ساعة', at: h1.getTime() });
+      const tn = new Date(now); tn.setHours(21, 0, 0, 0);
+      if (now < tn.getTime() - 30 * 60e3) out.push({ k: 'tn', n: 'الليلة 21:00', at: tn.getTime() });
+      const m = _remindMin(), tm = new Date(now); tm.setDate(tm.getDate() + 1); tm.setHours(Math.floor(m / 60), m % 60, 0, 0);
+      out.push({ k: 'tm', n: 'غداً ' + _remFmtTime(m), at: tm.getTime() });
+      return out;
+    }
+    /* لحظة التذكير المضبوط في النموذج (0 = بلا) */
+    function _qRemAt() {
+      const t = _remParseTime(S.q && S.q.rt), g = S.q && parseG(S.q.dG);
+      if (t < 0 || !g) return 0;
+      const d = new Date(g); d.setHours(Math.floor(t / 60), t % 60, 0, 0);
+      return d.getTime();
+    }
+    /* «اليوم» / «غداً» / «بعد غد» أو التاريخ الهجري */
+    function _qRemDay(at) {
+      const d0 = new Date(); d0.setHours(0, 0, 0, 0);
+      const d = new Date(at); d.setHours(0, 0, 0, 0);
+      const k = Math.round((d.getTime() - d0.getTime()) / 864e5);
+      return k === 0 ? 'اليوم' : k === 1 ? 'غداً' : k === 2 ? 'بعد غد' : H.fmtH(H.toH(d));
+    }
+    /* يضبط التذكير على لحظة: التاريخ والوقت، والحالة «قيد التنفيذ» (ما كان قبله يُحفظ لزر «بلا») */
+    function _qRemSet(at) {
+      if (!S.q._remPrev) S.q._remPrev = { dG: S.q.dG, dH: S.q.dH, status: S.q.status };
+      const d = new Date(at);
+      S.q.dG = H.fmtG(d); S.q.dH = H.fmtH(H.toH(d)); setDateDisp('quick', S.q.dH, S.q.dG);
+      S.q.rt = _remFmtTime(d.getHours() * 60 + d.getMinutes());
+      if (S.q.status !== 'قيد التنفيذ') { S.q.status = 'قيد التنفيذ'; setQC('status', SMAP['قيد التنفيذ'].ic, 'قيد التنفيذ'); }
+      _qRemRender();
+    }
+    /* «يوم ووقت»: الساعة تُضبط هنا واليوم من خانة التاريخ (اليوم إن خلت) */
+    function _qRemSetTime(v) {
+      const t = _remParseTime(v);
+      if (t < 0) return;
+      const g = parseG(S.q.dG) || (() => { const x = new Date(); x.setHours(0, 0, 0, 0); return x.getTime(); })();
+      const d = new Date(g); d.setHours(Math.floor(t / 60), t % 60, 0, 0);
+      S.q._remCustom = true;
+      _qRemSet(d.getTime());
+    }
+    function _qRemClear() {
+      const p = S.q._remPrev;
+      S.q.rt = ''; S.q._remCustom = false; S.q._remPrev = null;
+      if (p) {
+        S.q.dG = p.dG; S.q.dH = p.dH; setDateDisp('quick', p.dH, p.dG);
+        S.q.status = p.status;
+        if (p.status && SMAP[p.status]) setQC('status', SMAP[p.status].ic, p.status); else setQC('status', '📊', 'حالة', 1);
+      }
+      _qRemRender();
+    }
+    function _qRemRender() {
+      const box = document.getElementById('q-rem-chips'), tx = document.getElementById('q-rem-tx');
+      if (!box || !tx || !S.q) return;
+      const at = _qRemAt(), on = !!S.q.rt;
+      let sum = 'بلا تذكير';
+      if (on) {
+        if (!at) sum = '⚠️ اختر تاريخاً للتذكير';
+        else {
+          sum = 'تذكير ' + _qRemDay(at) + ' ' + S.q.rt;
+          if (at <= Date.now()) sum += ' — ⚠️ هذا الوقت مضى';
+          else if (S.q.status !== 'قيد التنفيذ') sum += ' — ⚠️ لا تذكير إلا «قيد التنفيذ»';
+        }
+      }
+      tx.textContent = sum;
+      tx.className = 'org-ct' + (on ? '' : ' ph');
+      vrender(html`<${QRem} at=${at} on=${on}/>`, box);
+    }
+    function QRem({ at, on }) {
+      const ps = _qRemPresets(Date.now());
+      const custom = on && (S.q._remCustom || !ps.some(p => p.at === at));
+      return html`
+        <button type="button" key="none" class=${'rb-chip' + (on ? '' : ' on')} onClick=${() => _qRemClear()}>بلا</button>
+        ${ps.map(p => html`<button type="button" key=${p.k} class=${'rb-chip' + (on && !custom && p.at === at ? ' on' : '')}
+          onClick=${() => { S.q._remCustom = false; _qRemSet(p.at); }}>${p.n}</button>`)}
+        <button type="button" key="cu" class=${'rb-chip' + (custom ? ' on' : '')}
+          onClick=${() => {
+            const m = _remindMin(), now = new Date(), nm = now.getHours() * 60 + now.getMinutes();
+            const t = custom ? S.q.rt : _remFmtTime(m > nm ? m : Math.min(1439, (now.getHours() + 1) * 60));
+            _qRemSetTime(t);
+            setTimeout(() => { const el = document.getElementById('q-rem-time'); if (el) el.focus(); }, 50);
+          }}>📅 يوم ووقت</button>
+        ${custom ? html`<input type="time" id="q-rem-time" class="edit-inp rb-time" key="tm" style="max-width:130px;padding:5px 8px;font-size:14px;"
+          value=${S.q.rt} onChange=${e => _qRemSetTime(e.target.value)}/>` : null}`;
+    }
+
     /* هل ستظهر الملاحظة المحفوظة في العرض الافتراضي الحالي؟ العرض الافتراضي «المهام
        الحالية» يُظهر فقط «قيد التنفيذ» غير المستقبلية — نُنبّه المستخدم إن لم تظهر
        حتى لا يظنّ أن الحفظ فشل */
@@ -5976,7 +6081,7 @@
       if (n.status && n.status !== 'قيد التنفيذ') return ' — محفوظة تحت حالة «' + n.status + '»';
       /* بلا حالة: لا تظهر في «المهام الحالية» أيضاً — وهذا بالضبط الالتباس الذي كُتبت الدالة لمنعه */
       if (!n.status) return ' — بلا حالة، فلا تظهر في «المهام الحالية»';
-      if (future) return ' — محفوظة بتاريخ مستقبلي';
+      if (future) return _remParseTime(n.rt) >= 0 ? ' — ⏰ تذكير ' + _qRemDay(parseG(n.dG)) + ' ' + n.rt : ' — محفوظة بتاريخ مستقبلي';
       return '';
     }
     function saveQuick() {
@@ -6491,26 +6596,37 @@
       let items = [];
       try { items = JSON.parse(fs.quickNotesPeek() || '[]'); } catch (e) { return 0; }
       if (!Array.isArray(items) || !items.length) return 0;
-      const have = new Set();
-      DB.get().concat(_trashCache).forEach(n => { if (n && n.qid) have.add(String(n.qid)); });
-      const done = []; let added = 0;
+      const have = new Set(), ids = new Set();
+      DB.get().concat(_trashCache).forEach(n => { if (n && n.qid) have.add(String(n.qid)); if (n && n.id != null) ids.add(String(n.id)); });
+      const done = []; let added = 0, rems = 0;
       items.forEach(it => {
         if (!it || !it.id) return;
         const text = String(it.text || '').trim();
         if (text && !have.has(String(it.id))) {
-          const d = new Date(+it.at || Date.now());
+          const at = +it.at || Date.now(), rem = +it.rem || 0;
+          /* 1.57.0: بتذكير ⇐ التاريخ تاريخه والوقت الخاص وقته؛ وإلا تاريخ الكتابة كما كان */
+          const d = new Date(rem > 0 ? rem : at);
           let dH = '', dG = '';
           try { dH = H.fmtH(H.toH(d)); dG = H.fmtG(d); } catch (e) { }
-          DB.add({ id: newNoteId(), main: '', sub: '', sec: '', text, num: '', status: 'قيد التنفيذ', dH, dG,
-            file: null, links: [], ts: d.toISOString(), qid: String(it.id) });
-          have.add(String(it.id)); added++;
+          /* النافذة الأصلية جدولت التذكير بمعرّف الملاحظة المنتظرة (nid) — تأخذه الملاحظة فتحلّ جدولة الصفحة محلّه */
+          const nid = String(it.nid || '');
+          const n = { id: /^\d{13,17}$/.test(nid) && !ids.has(nid) ? nid : newNoteId(), main: '', sub: '', sec: '', text, num: '',
+            status: 'قيد التنفيذ', dH, dG, file: null, links: [], ts: new Date(at).toISOString(), qid: String(it.id) };
+          if (rem > 0) {
+            n.rt = _remFmtTime(d.getHours() * 60 + d.getMinutes());
+            /* ختمها وقت كتابتها لا وقت استيرادها: موعد مضى وقد نبّهت إليه الطبقة الأصلية في وقته لا يُعاد
+               «فات وقته» بعد دقيقة (_remSetAt قبل الموعد) */
+            n.mt = at; rems++;
+          }
+          DB.add(n);
+          have.add(String(it.id)); ids.add(String(n.id)); added++;
         }
         done.push(String(it.id));
       });
       try { fs.quickNotesAck(JSON.stringify(done)); } catch (e) { }
       if (added) {
         try { renderNotes(); } catch (e) { }
-        showFb('📝 أُضيفت ' + toArabic(added) + (added === 1 ? ' ملاحظة سريعة' : ' ملاحظات سريعة'));
+        showFb('📝 أُضيفت ' + toArabic(added) + (added === 1 ? ' ملاحظة سريعة' : ' ملاحظات سريعة') + (rems ? ' — ⏰ ' + toArabic(rems) + ' بتذكير' : ''));
       }
       return added;
     }
@@ -8185,6 +8301,8 @@
       const fsb = /** @type {any} */ (window.AndroidFS);
       /* 1.53.0: قبل اكتمال التحميل لا يُؤخذ شيء — كان «تم» والمهمة المنقور إشعارها يُستهلكان ويضيعان */
       if (!fsb || !_notesLoaded) return;
+      /* 1.57.0: ملاحظة سريعة بتذكير نُبّه إليها قبل فتح المنظم — تُستورد أولاً كي يجد «تم» والنقر مهمتها */
+      try { if (typeof _importQuickNotes === 'function') _importQuickNotes(); } catch (e) { }
       try {
         if (typeof fsb.takeReminderDone === 'function') {
           const ids = JSON.parse(fsb.takeReminderDone() || '[]');
